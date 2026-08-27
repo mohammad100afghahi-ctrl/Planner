@@ -297,6 +297,34 @@
   .past-review .pr-text{font-size:13.5px; line-height:1.8; white-space:pre-wrap; color:var(--text);}
 
   .loading{text-align:center; color:var(--text-muted); font-size:13px; padding:60px 0;}
+
+  /* Floating add-task button */
+  .fab{
+    position:fixed; bottom:24px; right:24px; width:56px; height:56px; border-radius:50%;
+    background:var(--accent); color:#12161C; border:none; font-size:28px; font-weight:700;
+    cursor:pointer; box-shadow:0 4px 14px rgba(0,0,0,.45); z-index:40; display:flex;
+    align-items:center; justify-content:center; line-height:1; padding:0;
+  }
+  .fab:hover{opacity:.9;}
+
+  /* today-item extra action buttons */
+  .today-item .item-edit{background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:13px; padding:2px 4px; flex-shrink:0;}
+  .today-item .item-edit:hover{color:var(--accent);}
+  .today-item .item-copy{background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:13px; padding:2px 4px; flex-shrink:0;}
+  .today-item .item-copy:hover{color:var(--freelance);}
+
+  .copy-link{
+    margin-top:12px; margin-right:8px; background:none; border:1px solid var(--line); color:var(--text-muted); font-size:12px; font-weight:600;
+    padding:6px 14px; border-radius:8px; cursor:pointer;
+  }
+  .copy-link:hover{border-color:var(--freelance); color:var(--freelance);}
+  .task-actions-row{display:flex; gap:0;}
+
+  /* drag-and-drop subtask reordering (editor modal) */
+  .modal-subtask-row{cursor:default;}
+  .modal-subtask-row.dragging{opacity:.4;}
+  .modal-subtask-row .drag-handle{cursor:grab; color:var(--text-muted); font-size:13px; padding:0 2px; flex-shrink:0; user-select:none;}
+  .modal-subtask-row .drag-handle:active{cursor:grabbing;}
 </style>
 </head>
 <body>
@@ -664,6 +692,18 @@ function openTaskEditorEdit(taskId){
   };
   render();
 }
+function copyTaskToEditor(taskId){
+  const t = state.tasks.find(t => t.id === taskId);
+  if(!t) return;
+  state.taskEditor = {
+    mode:'create', taskId:null,
+    draft: {
+      title: t.title, tagIds: [...t.tagIds], priority: t.priority, date: t.date, durationMin: t.durationMin,
+      subtasks: t.subtasks.map(s => ({ id:uid(), title:s.title, done:false })),
+    }
+  };
+  render();
+}
 function closeTaskEditor(){ state.taskEditor = null; render(); }
 function editorToggleTag(tagId){
   const d = state.taskEditor.draft;
@@ -698,6 +738,29 @@ function editorAddSubtask(){
 function editorDeleteSubtask(subId){
   state.taskEditor.draft.subtasks = state.taskEditor.draft.subtasks.filter(s => s.id !== subId);
   render();
+}
+let dragSubIndex = null;
+function editorSubtaskDragStart(evt, idx){
+  dragSubIndex = idx;
+  evt.dataTransfer.effectAllowed = 'move';
+  evt.currentTarget.classList.add('dragging');
+}
+function editorSubtaskDragOver(evt){
+  evt.preventDefault();
+  evt.dataTransfer.dropEffect = 'move';
+}
+function editorSubtaskDrop(evt, idx){
+  evt.preventDefault();
+  if(dragSubIndex === null || dragSubIndex === idx){ dragSubIndex = null; return; }
+  const arr = state.taskEditor.draft.subtasks;
+  const [moved] = arr.splice(dragSubIndex, 1);
+  arr.splice(idx, 0, moved);
+  dragSubIndex = null;
+  render();
+}
+function editorSubtaskDragEnd(evt){
+  evt.currentTarget.classList.remove('dragging');
+  dragSubIndex = null;
 }
 async function confirmTaskEditor(){
   const titleInput = document.getElementById('editor-title');
@@ -834,8 +897,13 @@ function renderTaskEditorModal(){
 
         <div class="modal-section">
           <span class="modal-section-label">ریز کارها</span>
-          ${d.subtasks.map(s => `
-            <div class="modal-subtask-row">
+          ${d.subtasks.map((s, idx) => `
+            <div class="modal-subtask-row" draggable="true"
+              ondragstart="editorSubtaskDragStart(event, ${idx})"
+              ondragover="editorSubtaskDragOver(event)"
+              ondrop="editorSubtaskDrop(event, ${idx})"
+              ondragend="editorSubtaskDragEnd(event)">
+              <span class="drag-handle">⋮⋮</span>
               <span>${escapeHtml(s.title)}</span>
               <button class="subtask-del" onclick="editorDeleteSubtask('${s.id}')">✕</button>
             </div>
@@ -891,7 +959,10 @@ function renderTaskCard(task){
             </div>
           </div>
 
-          <button class="edit-link" onclick="openTaskEditorEdit('${task.id}')">✎ ویرایش</button>
+          <div class="task-actions-row">
+            <button class="edit-link" onclick="openTaskEditorEdit('${task.id}')">✎ ویرایش</button>
+            <button class="copy-link" onclick="copyTaskToEditor('${task.id}')">⧉ کپی</button>
+          </div>
         </div>
         <button class="task-del" onclick="deleteTask('${task.id}')">✕</button>
       </div>
@@ -902,7 +973,6 @@ function renderTaskCard(task){
 function renderTasksView(){
   const filtered = applyFiltersAndSort(state.tasks, 'tasksFilters', { dateFilter:true });
   return `
-    <button class="add-task-btn" onclick="openTaskEditorNew()">+ کار جدید</button>
     ${renderTagManager()}
     ${renderFilterPanel('tasksFilters', { dateFilter:true })}
     ${filtered.length === 0 ? `<div class="empty-state">کاری با این فیلترها پیدا نشد</div>` : filtered.map(renderTaskCard).join('')}
@@ -1000,6 +1070,8 @@ function renderTodayItem(t){
         </div>
         <span class="dur">${t.durationMin ? toFaDigits(t.durationMin) + ' د' : '—'}</span>
         ${hasSub ? `<span class="expand-arrow ${expanded ? 'open' : ''}">▾</span>` : ''}
+        <button class="item-edit" onclick="openTaskEditorEdit('${t.id}'); if(event) event.stopPropagation();" title="ویرایش">✎</button>
+        <button class="item-copy" onclick="copyTaskToEditor('${t.id}'); if(event) event.stopPropagation();" title="کپی">⧉</button>
         <button class="item-del" onclick="deleteTask('${t.id}', event)">✕</button>
       </div>
       ${expanded ? `
@@ -1166,6 +1238,11 @@ async function submitReview(){
   if(error) console.error('submitReview failed', error);
 }
 
+/* ---------- floating add-task button ---------- */
+function renderFab(){
+  return `<button class="fab" onclick="openTaskEditorNew()" title="افزودن تسک" aria-label="افزودن تسک">+</button>`;
+}
+
 /* ---------- nav / render ---------- */
 function setView(v){ state.view = v; render(); }
 
@@ -1199,6 +1276,7 @@ function render(){
       ${state.view === 'pomodoro' ? renderPomodoro() : ''}
       ${state.view === 'review' ? renderReview() : ''}
     </main>
+    ${(state.view === 'today' || state.view === 'tasks') ? renderFab() : ''}
     ${renderTaskEditorModal()}
   `;
 }
