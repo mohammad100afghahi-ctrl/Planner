@@ -1,0 +1,1209 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>پایه</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --bg:#12161C;
+    --surface:#1B2129;
+    --surface-2:#212934;
+    --surface-3:#2A323D;
+    --line:#2A323D;
+    --text:#E8EAED;
+    --text-muted:#8B95A1;
+    --accent:#E8A33D;
+    --danger:#E8697A;
+    --python:#5EC8D8;
+    --english:#C97BD0;
+    --freelance:#7FD99A;
+    --fitness:#E8697A;
+    --gray-tag:#8B95A1;
+    color-scheme: dark;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{height:100%;}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:'Vazirmatn', sans-serif;
+    min-height:100vh;
+    -webkit-font-smoothing:antialiased;
+  }
+  .mono{font-family:'JetBrains Mono', monospace; direction:ltr; display:inline-block;}
+  button, input, textarea, select{font-family:inherit;}
+
+  .app{max-width:800px; margin:0 auto; padding:26px 16px 90px;}
+
+  header{display:flex; align-items:flex-end; justify-content:space-between; margin-bottom:20px; padding-bottom:16px; border-bottom:1px solid var(--line);}
+  .brand h1{font-size:21px; font-weight:800; letter-spacing:-0.5px;}
+  .brand .sub{font-size:11.5px; color:var(--text-muted); font-weight:500;}
+  .date-block{text-align:left;}
+  .date-block .jalali{font-size:13px; color:var(--text); font-weight:700;}
+  .date-block .gregorian{font-size:11px; color:var(--text-muted); margin-top:2px;}
+
+  nav{display:flex; gap:5px; margin-bottom:22px; background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:4px; overflow-x:auto;}
+  nav button{
+    flex:1; white-space:nowrap; background:transparent; border:none; color:var(--text-muted);
+    font-size:13.5px; font-weight:600; padding:9px 10px;
+    border-radius:7px; cursor:pointer; transition:background .15s, color .15s;
+  }
+  nav button.active{background:var(--surface-3); color:var(--text);}
+  nav button:hover:not(.active){color:var(--text);}
+
+  h2.section-title{font-size:13px; font-weight:700; color:var(--text-muted); margin:22px 0 10px; text-transform:uppercase; letter-spacing:.4px;}
+  h2.section-title:first-child{margin-top:0;}
+
+  .add-task-btn{
+    width:100%; background:var(--surface); border:1px dashed var(--line); color:var(--text-muted);
+    font-size:13.5px; font-weight:700; padding:13px; border-radius:9px; cursor:pointer; margin-bottom:18px; text-align:center;
+  }
+  .add-task-btn:hover{border-color:var(--accent); color:var(--accent);}
+
+  /* Progress box */
+  .progress-box{background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:16px 18px; margin-bottom:16px;}
+  .progress-header{display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;}
+  .progress-header h2{margin:0;}
+  .range-chips{display:flex; gap:6px;}
+  .progress-row{display:flex; align-items:center; gap:10px; margin-bottom:9px;}
+  .progress-label{font-size:12px; width:64px; flex-shrink:0; color:var(--text-muted); font-weight:600;}
+  .progress-bar-track{flex:1; height:9px; background:var(--surface-2); border-radius:5px; overflow:hidden;}
+  .progress-bar-fill{height:100%; border-radius:5px; transition:width .3s;}
+  .progress-count{font-size:11.5px; color:var(--text-muted); width:20px; text-align:left; flex-shrink:0;}
+
+  /* Time-spent box */
+  .time-box{background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:16px 18px; margin-bottom:20px;}
+  .time-stats{display:flex; justify-content:space-between; gap:8px; margin-top:6px;}
+  .time-stat{display:flex; flex-direction:column; align-items:center; flex:1;}
+  .time-num{font-size:14px; font-weight:700;}
+  .time-lbl{font-size:10.5px; color:var(--text-muted); margin-top:4px; text-align:center;}
+
+  /* Tag manager */
+  .tag-manager{background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:14px 16px; margin-bottom:18px;}
+  .tag-manager-header{display:flex; align-items:center; justify-content:space-between; cursor:pointer;}
+  .tag-manager-header h3{font-size:13px; font-weight:700; color:var(--text-muted);}
+  .tag-manager-header .chev{color:var(--text-muted); font-size:12px;}
+  .tag-manager-body{margin-top:12px;}
+  .tag-list{display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px;}
+  .tag-chip{
+    display:inline-flex; align-items:center; gap:6px; padding:5px 10px; border-radius:20px;
+    font-size:12px; font-weight:600; border:1px solid transparent; cursor:pointer; user-select:none;
+    background:color-mix(in srgb, var(--chip-color) 16%, var(--surface-2)); color:var(--chip-color);
+  }
+  .tag-chip .tag-x{opacity:.6; font-size:11px;}
+  .tag-chip .tag-x:hover{opacity:1;}
+  .new-tag-row{display:flex; gap:8px; align-items:center;}
+  .new-tag-row input[type=text]{
+    flex:1; background:var(--surface-2); border:1px solid var(--line); color:var(--text);
+    font-size:13px; padding:8px 10px; border-radius:7px; outline:none;
+  }
+  .new-tag-row input[type=color]{
+    width:34px; height:34px; border:1px solid var(--line); border-radius:7px; background:none; cursor:pointer; padding:2px;
+  }
+  .new-tag-row button{
+    background:var(--surface-3); color:var(--text); border:1px solid var(--line); font-size:12.5px; font-weight:600;
+    padding:8px 14px; border-radius:7px; cursor:pointer;
+  }
+  .new-tag-row button:hover{border-color:var(--accent); color:var(--accent);}
+
+  /* Unified filter panel */
+  .filter-panel{background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:14px 16px; margin-bottom:18px;}
+  .filter-group{display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-bottom:10px;}
+  .filter-group:last-of-type{margin-bottom:0;}
+  .filter-group-label{font-size:11.5px; color:var(--text-muted); font-weight:700; margin-left:2px; flex-shrink:0;}
+  .filter-chip{
+    padding:5px 12px; border-radius:20px; font-size:11.5px; font-weight:600; cursor:pointer;
+    background:var(--surface-2); border:1px solid var(--line); color:var(--text-muted);
+  }
+  .filter-chip.active{background:var(--surface-3); color:var(--text); border-color:var(--text-muted);}
+  .filter-group input[type=date]{
+    background:var(--surface-2); border:1px solid var(--line); color:var(--text-muted); font-size:11.5px;
+    padding:4px 8px; border-radius:8px; outline:none;
+  }
+  .reset-filters-btn{margin-top:4px; background:none; border:1px dashed var(--line); color:var(--text-muted); font-size:11.5px; padding:5px 12px; border-radius:8px; cursor:pointer;}
+  .reset-filters-btn:hover{color:var(--danger); border-color:var(--danger);}
+
+  /* Task card (read-only summary; editing happens in modal) */
+  .task-card{background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:16px; margin-bottom:12px;}
+  .task-card.done{opacity:.5;}
+  .task-main{display:flex; align-items:flex-start; gap:10px;}
+  .task-check{
+    width:20px; height:20px; border-radius:6px; border:1.5px solid var(--line); background:transparent;
+    cursor:pointer; flex-shrink:0; margin-top:2px; display:flex; align-items:center; justify-content:center; color:var(--bg); font-size:12px;
+  }
+  .task-check.checked{background:var(--accent); border-color:var(--accent);}
+  .task-body{flex:1; min-width:0;}
+  .task-title{
+    font-size:14.5px; font-weight:600; background:transparent; border:none; color:var(--text);
+    width:100%; outline:none; padding:2px 0;
+  }
+  .task-title.done-text{text-decoration:line-through; color:var(--text-muted);}
+  .task-del{background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:15px; padding:2px 6px; flex-shrink:0;}
+  .task-del:hover{color:var(--danger);}
+
+  .task-meta-row{display:flex; flex-wrap:wrap; align-items:center; gap:7px; margin-top:8px;}
+  .summary-text{font-size:11.5px; color:var(--text-muted); font-weight:600;}
+  .mini-tag{
+    display:inline-flex; align-items:center; gap:4px; padding:3px 9px; border-radius:14px; font-size:11px; font-weight:600;
+    background:color-mix(in srgb, var(--chip-color) 18%, var(--surface-2)); color:var(--chip-color);
+  }
+  .priority-dot{width:8px; height:8px; border-radius:50%; flex-shrink:0; display:inline-block;}
+  .priority-dot.high{background:var(--danger);}
+  .priority-dot.medium{background:var(--accent);}
+  .priority-dot.low{background:var(--freelance);}
+
+  .edit-link{
+    margin-top:12px; background:none; border:1px solid var(--line); color:var(--text-muted); font-size:12px; font-weight:600;
+    padding:6px 14px; border-radius:8px; cursor:pointer;
+  }
+  .edit-link:hover{border-color:var(--accent); color:var(--accent);}
+
+  .subtasks{margin-top:12px; padding-right:30px; border-right:2px solid var(--line);}
+  .subtask-row{display:flex; align-items:center; gap:8px; padding:5px 0;}
+  .subtask-check{
+    width:16px; height:16px; border-radius:5px; border:1.5px solid var(--line); background:transparent;
+    cursor:pointer; flex-shrink:0; display:flex; align-items:center; justify-content:center; color:var(--bg); font-size:10px;
+  }
+  .subtask-check.checked{background:var(--freelance); border-color:var(--freelance);}
+  .subtask-title{flex:1; font-size:13px; color:var(--text);}
+  .subtask-title.done-text{text-decoration:line-through; color:var(--text-muted);}
+  .subtask-del{background:none; border:none; color:var(--text-muted); opacity:.5; cursor:pointer; font-size:13px;}
+  .subtask-del:hover{opacity:1; color:var(--danger);}
+  .add-subtask-row{display:flex; gap:8px; margin-top:6px;}
+  .add-subtask-row input{
+    flex:1; background:transparent; border:none; border-bottom:1px dashed var(--line); color:var(--text);
+    font-size:12.5px; padding:5px 2px; outline:none;
+  }
+  .add-subtask-row input:focus{border-bottom-color:var(--accent);}
+  .add-subtask-row button{background:none; border:none; color:var(--text-muted); font-size:12px; cursor:pointer; font-weight:600;}
+  .add-subtask-row button:hover{color:var(--accent);}
+
+  .empty-state{text-align:center; color:var(--text-muted); font-size:13px; padding:36px 0;}
+
+  /* Today view scheduled items */
+  .today-item{background:var(--surface); border:1px solid var(--line); border-radius:10px; margin-bottom:8px; overflow:hidden;}
+  .today-item.done{opacity:.5;}
+  .today-item-row{display:flex; align-items:center; gap:10px; padding:12px 14px; cursor:pointer;}
+  .today-item .dur{font-size:13px; color:var(--accent); font-weight:700; font-family:'JetBrains Mono',monospace; min-width:48px; direction:ltr;}
+  .today-item .ti-title{flex:1; font-size:13.5px;}
+  .today-item .ti-title.done-text{text-decoration:line-through; color:var(--text-muted);}
+  .today-item .ti-tags{display:flex; gap:4px;}
+  .today-item .expand-arrow{font-size:10px; color:var(--text-muted); transition:transform .15s;}
+  .today-item .expand-arrow.open{transform:rotate(180deg);}
+  .today-item .item-del{background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:14px; padding:2px 4px; flex-shrink:0;}
+  .today-item .item-del:hover{color:var(--danger);}
+  .today-subtasks{padding:0 14px 12px 14px; border-top:1px solid var(--line); padding-top:8px;}
+
+  /* Task editor modal */
+  .modal-overlay{position:fixed; inset:0; background:rgba(0,0,0,.6); display:flex; align-items:center; justify-content:center; padding:20px; z-index:50;}
+  .modal-box{background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:22px; max-width:480px; width:100%; max-height:85vh; overflow-y:auto;}
+  .modal-box h3{font-size:15px; font-weight:700; margin-bottom:16px;}
+  .modal-title-input{
+    width:100%; background:var(--surface-2); border:1px solid var(--line); color:var(--text); font-size:14px;
+    padding:11px 14px; border-radius:9px; outline:none; margin-bottom:18px;
+  }
+  .modal-title-input:focus{border-color:var(--accent);}
+  .modal-section{margin-bottom:16px;}
+  .modal-section-label{font-size:11.5px; color:var(--text-muted); font-weight:700; margin-bottom:8px; display:block;}
+  .pick-chip{
+    display:inline-flex; align-items:center; padding:5px 12px; border-radius:20px; font-size:12px; font-weight:600;
+    cursor:pointer; margin:0 4px 4px 0; border:1px solid var(--line); background:var(--surface-2); color:var(--text-muted);
+  }
+  .pick-chip.on{background:color-mix(in srgb, var(--chip-color) 20%, var(--surface-2)); color:var(--chip-color); border-color:var(--chip-color);}
+  .priority-chip{
+    padding:4px 11px; border-radius:14px; font-size:11px; font-weight:700; cursor:pointer;
+    background:var(--surface-2); border:1px solid var(--line); color:var(--text-muted); margin-left:4px;
+  }
+  .priority-chip.high.active{background:color-mix(in srgb, var(--danger) 22%, var(--surface-2)); color:var(--danger); border-color:var(--danger);}
+  .priority-chip.medium.active{background:color-mix(in srgb, var(--accent) 22%, var(--surface-2)); color:var(--accent); border-color:var(--accent);}
+  .priority-chip.low.active{background:color-mix(in srgb, var(--freelance) 22%, var(--surface-2)); color:var(--freelance); border-color:var(--freelance);}
+  .quick-group{display:flex; align-items:center; gap:5px; flex-wrap:wrap;}
+  .quick-chip{
+    padding:4px 10px; border-radius:8px; font-size:11.5px; font-weight:600; cursor:pointer;
+    background:var(--surface-2); border:1px solid var(--line); color:var(--text-muted);
+  }
+  .quick-chip.active{background:color-mix(in srgb, var(--accent) 20%, var(--surface-2)); color:var(--accent); border-color:var(--accent);}
+  .modal-section input[type=date]{
+    background:var(--surface-2); border:1px solid var(--line); color:var(--text-muted); font-size:11.5px;
+    padding:4px 8px; border-radius:8px; outline:none;
+  }
+  .modal-section input[type=number]{
+    width:70px; background:var(--surface-2); border:1px solid var(--line); color:var(--text-muted); font-size:11.5px;
+    padding:4px 6px; border-radius:8px; outline:none; text-align:center;
+  }
+  .modal-subtask-row{display:flex; align-items:center; gap:8px; padding:5px 0;}
+  .modal-subtask-row span{flex:1; font-size:13px;}
+  .modal-add-subtask{display:flex; gap:8px; margin-top:6px;}
+  .modal-add-subtask input{
+    flex:1; background:var(--surface-2); border:1px solid var(--line); color:var(--text); font-size:12.5px;
+    padding:7px 10px; border-radius:7px; outline:none;
+  }
+  .modal-add-subtask button{background:var(--surface-3); border:1px solid var(--line); color:var(--text); font-size:12px; padding:7px 12px; border-radius:7px; cursor:pointer;}
+  .modal-actions{display:flex; gap:8px; justify-content:flex-end; margin-top:20px;}
+  .modal-actions button{padding:10px 22px; border-radius:9px; font-size:13.5px; font-weight:700; cursor:pointer; border:1px solid var(--line); background:var(--surface-2); color:var(--text);}
+  .modal-actions button.confirm{background:var(--accent); color:#12161C; border-color:var(--accent);}
+  .modal-actions button.confirm:hover{opacity:.9;}
+  .modal-actions button.cancel:hover{border-color:var(--danger); color:var(--danger);}
+
+  /* Pomodoro */
+  .pomo-box{background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:28px 20px; text-align:center; margin-bottom:18px;}
+  .pomo-mode{font-size:12px; font-weight:700; letter-spacing:1px; text-transform:uppercase; color:var(--text-muted); margin-bottom:14px;}
+  .pomo-mode.work{color:var(--accent);}
+  .pomo-mode.break{color:var(--freelance);}
+  .pomo-timer{font-family:'JetBrains Mono', monospace; font-size:58px; font-weight:600; letter-spacing:1px; direction:ltr; margin-bottom:18px;}
+  .pomo-controls{display:flex; gap:10px; justify-content:center; margin-bottom:20px;}
+  .pomo-controls button{
+    background:var(--surface-3); border:1px solid var(--line); color:var(--text); font-size:13.5px; font-weight:700;
+    padding:10px 20px; border-radius:9px; cursor:pointer;
+  }
+  .pomo-controls button.primary{background:var(--accent); color:#12161C; border-color:var(--accent);}
+  .pomo-controls button:hover{opacity:.9;}
+  .pomo-settings{display:flex; gap:16px; justify-content:center; font-size:12px; color:var(--text-muted); flex-wrap:wrap;}
+  .pomo-settings label{display:flex; flex-direction:column; align-items:center; gap:5px;}
+  .pomo-settings input{
+    width:60px; text-align:center; background:var(--surface-2); border:1px solid var(--line); color:var(--text);
+    font-size:13px; padding:6px; border-radius:7px; outline:none; font-family:'JetBrains Mono',monospace;
+  }
+  .pomo-cycles{font-size:12px; color:var(--text-muted); margin-top:14px;}
+  .pomo-focus{margin-top:16px;}
+  .pomo-focus input{
+    width:100%; background:var(--surface-2); border:1px solid var(--line); color:var(--text); font-size:13px;
+    padding:9px 12px; border-radius:8px; outline:none; text-align:center;
+  }
+
+  /* Review */
+  .review-box{background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:18px; margin-bottom:18px;}
+  .review-box h3{font-size:14px; font-weight:700; margin-bottom:10px;}
+  .review-box textarea{
+    width:100%; min-height:110px; background:var(--surface-2); border:1px solid var(--line);
+    border-radius:8px; color:var(--text); font-size:13.5px; padding:12px;
+    resize:vertical; outline:none; line-height:1.7;
+  }
+  .review-box textarea:focus{border-color:var(--accent);}
+  .save-btn{
+    margin-top:10px; background:var(--accent); color:#12161C; border:none; font-weight:700;
+    font-size:13.5px; padding:10px 18px; border-radius:8px; cursor:pointer;
+  }
+  .save-btn:hover{opacity:.9;}
+  .review-prompts{font-size:12px; color:var(--text-muted); margin-bottom:12px; line-height:1.9;}
+  .review-prompts li{margin-right:16px;}
+  .past-review{border-top:1px solid var(--line); padding:14px 0;}
+  .past-review .pr-date{font-size:11px; color:var(--text-muted); margin-bottom:6px; font-weight:600;}
+  .past-review .pr-text{font-size:13.5px; line-height:1.8; white-space:pre-wrap; color:var(--text);}
+
+  .loading{text-align:center; color:var(--text-muted); font-size:13px; padding:60px 0;}
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <div class="loading">در حال بارگذاری…</div>
+</div>
+
+<script>
+/* ---------- storage keys ---------- */
+const SUPABASE_URL = 'https://byqowlvyupcusjjyxwaf.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ5cW93bHZ5dXBjdXNqanl4d2FmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc4MzAwMDUsImV4cCI6MjEwMzQwNjAwNX0.T2miyC7NU5u0bkyxA4JKtXML9RSiqeTzk-OAqvx59QM';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+const DEFAULT_TAGS = [
+  { id:'t-python',    name:'پایتون',   color:'#5EC8D8' },
+  { id:'t-english',   name:'انگلیسی',  color:'#C97BD0' },
+  { id:'t-freelance', name:'فریلنس',   color:'#7FD99A' },
+  { id:'t-fitness',   name:'فیتنس',    color:'#E8697A' },
+];
+
+const WEEKDAYS_FA = ['یکشنبه','دوشنبه','سه‌شنبه','چهارشنبه','پنجشنبه','جمعه','شنبه'];
+const MONTHS_GREG_FA = ['ژانویه','فوریه','مارس','آوریل','مه','ژوئن','ژوئیه','اوت','سپتامبر','اکتبر','نوامبر','دسامبر'];
+const MONTHS_JALALI = ['فروردین','اردیبهشت','خرداد','تیر','مرداد','شهریور','مهر','آبان','آذر','دی','بهمن','اسفند'];
+const PRIORITY_RANK = { high:0, medium:1, low:2 };
+const PRIORITY_LABEL = { high:'بالا', medium:'متوسط', low:'پایین' };
+
+function toFaDigits(str){
+  const map = {'0':'۰','1':'۱','2':'۲','3':'۳','4':'۴','5':'۵','6':'۶','7':'۷','8':'۸','9':'۹'};
+  return String(str).replace(/[0-9]/g, d => map[d]);
+}
+
+/* ---------- Jalali conversion (Gregorian -> Jalali) ---------- */
+function gregorianToJalali(gy, gm, gd){
+  const gDayNo = [0,31,59,90,120,151,181,212,243,273,304,334];
+  const gy2 = (gm > 2) ? (gy + 1) : gy;
+  let days = 355666 + 365*gy + Math.floor((gy2+3)/4) - Math.floor((gy2+99)/100) + Math.floor((gy2+399)/400) + gd + gDayNo[gm-1];
+  let jy = -1595 + 33*Math.floor(days/12053);
+  days %= 12053;
+  jy += 4*Math.floor(days/1461);
+  days %= 1461;
+  if(days > 365){
+    jy += Math.floor((days-1)/365);
+    days = (days-1) % 365;
+  }
+  let jm, jd;
+  if(days < 186){
+    jm = 1 + Math.floor(days/31);
+    jd = 1 + (days % 31);
+  } else {
+    jm = 7 + Math.floor((days-186)/30);
+    jd = 1 + ((days-186) % 30);
+  }
+  return [jy, jm, jd];
+}
+
+function dateKey(d){ return d.toISOString().slice(0,10); }
+function tomorrowDate(){ const d = new Date(); d.setDate(d.getDate()+1); return d; }
+
+function fmtHeaderDate(d){
+  const wd = WEEKDAYS_FA[d.getDay()];
+  const gDay = toFaDigits(d.getDate());
+  const gMonth = MONTHS_GREG_FA[d.getMonth()];
+  const gYear = toFaDigits(d.getFullYear());
+  const [jy, jm, jd] = gregorianToJalali(d.getFullYear(), d.getMonth()+1, d.getDate());
+  const jalali = `${toFaDigits(jd)} ${MONTHS_JALALI[jm-1]} ${toFaDigits(jy)}`;
+  const gregorian = `${gDay} ${gMonth} ${gYear}`;
+  return { wd, jalali, gregorian };
+}
+function formatDateShort(dateStr){
+  if(!dateStr) return null;
+  const d = new Date(dateStr);
+  const [jy, jm, jd] = gregorianToJalali(d.getFullYear(), d.getMonth()+1, d.getDate());
+  return `${toFaDigits(jd)} ${MONTHS_JALALI[jm-1]}`;
+}
+function formatDuration(min){
+  if(!min) return '۰ دقیقه';
+  const h = Math.floor(min/60), m = min%60;
+  if(h>0 && m>0) return `${toFaDigits(h)} ساعت و ${toFaDigits(m)} دقیقه`;
+  if(h>0) return `${toFaDigits(h)} ساعت`;
+  return `${toFaDigits(m)} دقیقه`;
+}
+
+/* ---------- state ---------- */
+function emptyFilters(){ return { tagIds:[], priorities:[], sortBy:'default' }; }
+let state = {
+  tags: null,
+  tasks: null,
+  reviews: [],
+  view: 'today',
+  tagManagerOpen: false,
+  todayFilters: emptyFilters(),
+  tasksFilters: Object.assign(emptyFilters(), { date:null }),
+  todayExpanded: {},
+  progressRange: 7,
+  today: new Date(),
+  taskEditor: null, // { mode:'create'|'edit', taskId, draft:{title,tagIds,priority,date,durationMin,subtasks} }
+  pomo: {
+    workMin: 25, breakMin: 5,
+    mode: 'work', remaining: 25*60, running: false, cyclesDone: 0, focusLabel: '',
+    timerId: null,
+  },
+};
+
+let loadError = false;
+
+async function loadAll(){
+  loadError = false;
+  try{
+    const { data: tags, error: tagsErr } = await sb.from('tags').select('*').order('created_at');
+    if(tagsErr) throw tagsErr;
+    state.tags = tags.map(t => ({ id:t.id, name:t.name, color:t.color }));
+
+    const { data: tasks, error: tasksErr } = await sb
+      .from('tasks')
+      .select('*, subtasks(*), task_tags(tag_id)')
+      .order('created_at', { ascending:false });
+    if(tasksErr) throw tasksErr;
+    state.tasks = tasks.map(t => ({
+      id: t.id, title: t.title, done: !!t.done, completedAt: t.completed_at,
+      tagIds: (t.task_tags||[]).map(tt => tt.tag_id),
+      priority: t.priority,
+      subtasks: (t.subtasks||[]).map(s => ({ id:s.id, title:s.title, done:!!s.done })),
+      date: t.date || '',
+      durationMin: t.duration_min,
+    }));
+
+    const { data: reviews, error: reviewsErr } = await sb.from('reviews').select('*').order('created_at', { ascending:false });
+    if(reviewsErr) throw reviewsErr;
+    state.reviews = reviews.map(r => ({ date: r.created_at, text: r.body }));
+
+    const { data: pomo, error: pomoErr } = await sb.from('pomo_settings').select('*').eq('id', 1).maybeSingle();
+    if(pomoErr) throw pomoErr;
+    if(pomo){ state.pomo.workMin = pomo.work_min; state.pomo.breakMin = pomo.break_min; state.pomo.remaining = pomo.work_min*60; }
+  } catch(e){
+    console.error('load failed', e);
+    loadError = true;
+    if(!state.tags) state.tags = DEFAULT_TAGS;
+    if(!state.tasks) state.tasks = [];
+  }
+  render();
+}
+
+function uid(){ return (crypto.randomUUID ? crypto.randomUUID() : 'id-'+Date.now()+'-'+Math.random()); }
+function escapeHtml(str){ const div = document.createElement('div'); div.textContent = str; return div.innerHTML; }
+
+/* ---------- tags ---------- */
+async function addTag(){
+  const nameInput = document.getElementById('new-tag-name');
+  const colorInput = document.getElementById('new-tag-color');
+  const name = nameInput.value.trim();
+  if(!name) return;
+  const newTag = { id: uid(), name, color: colorInput.value };
+  state.tags.push(newTag);
+  render();
+  const { error } = await sb.from('tags').insert({ id:newTag.id, name:newTag.name, color:newTag.color });
+  if(error) console.error('addTag failed', error);
+}
+async function deleteTag(tagId){
+  state.tags = state.tags.filter(t => t.id !== tagId);
+  state.tasks.forEach(task => { task.tagIds = task.tagIds.filter(id => id !== tagId); });
+  state.todayFilters.tagIds = state.todayFilters.tagIds.filter(id => id !== tagId);
+  state.tasksFilters.tagIds = state.tasksFilters.tagIds.filter(id => id !== tagId);
+  render();
+  const { error } = await sb.from('tags').delete().eq('id', tagId);
+  if(error) console.error('deleteTag failed', error);
+}
+function toggleTagManager(){ state.tagManagerOpen = !state.tagManagerOpen; render(); }
+
+/* ---------- filters (shared by today & tasks pages) ---------- */
+function toggleFilterTag(pageKey, tagId){
+  const f = state[pageKey];
+  f.tagIds = f.tagIds.includes(tagId) ? f.tagIds.filter(id => id !== tagId) : [...f.tagIds, tagId];
+  render();
+}
+function toggleFilterPriority(pageKey, level){
+  const f = state[pageKey];
+  f.priorities = f.priorities.includes(level) ? f.priorities.filter(p => p !== level) : [...f.priorities, level];
+  render();
+}
+function setFilterSort(pageKey, value){
+  const f = state[pageKey];
+  f.sortBy = (f.sortBy === value) ? 'default' : value;
+  render();
+}
+function setFilterDateQuick(which){
+  const f = state.tasksFilters;
+  if(which === 'none'){ f.date = (f.date === 'none') ? null : 'none'; render(); return; }
+  const d = which === 'tomorrow' ? tomorrowDate() : new Date();
+  const key = dateKey(d);
+  f.date = (f.date === key) ? null : key;
+  render();
+}
+function setFilterDateCustom(value){
+  state.tasksFilters.date = value || null;
+  render();
+}
+function resetFilters(pageKey){
+  if(pageKey === 'tasksFilters') state.tasksFilters = Object.assign(emptyFilters(), { date:null });
+  else state.todayFilters = emptyFilters();
+  render();
+}
+function filtersActive(f, hasDate){
+  return f.tagIds.length > 0 || f.priorities.length > 0 || f.sortBy !== 'default' || (hasDate && !!f.date);
+}
+function applyFiltersAndSort(tasks, pageKey, opts){
+  const f = state[pageKey];
+  let list = tasks;
+  if(f.tagIds.length) list = list.filter(t => t.tagIds.some(id => f.tagIds.includes(id)));
+  if(f.priorities.length) list = list.filter(t => f.priorities.includes(t.priority));
+  if(opts && opts.dateFilter && f.date){
+    if(f.date === 'none') list = list.filter(t => !t.date);
+    else list = list.filter(t => t.date === f.date);
+  }
+  if(f.sortBy === 'duration-asc'){
+    list = [...list].sort((a,b) => {
+      if(a.done !== b.done) return a.done ? 1 : -1;
+      const ad = (a.durationMin==null) ? Infinity : a.durationMin;
+      const bd = (b.durationMin==null) ? Infinity : b.durationMin;
+      return ad - bd;
+    });
+  } else if(f.sortBy === 'duration-desc'){
+    list = [...list].sort((a,b) => {
+      if(a.done !== b.done) return a.done ? 1 : -1;
+      const ad = (a.durationMin==null) ? -1 : a.durationMin;
+      const bd = (b.durationMin==null) ? -1 : b.durationMin;
+      return bd - ad;
+    });
+  } else if(pageKey === 'tasksFilters'){
+    list = [...list].sort((a,b) => {
+      if(a.done !== b.done) return a.done ? 1 : -1;
+      const ad = a.date || '9999-99-99';
+      const bd = b.date || '9999-99-99';
+      if(ad !== bd) return ad.localeCompare(bd);
+      const ar = a.priority ? PRIORITY_RANK[a.priority] : 3;
+      const br = b.priority ? PRIORITY_RANK[b.priority] : 3;
+      return ar - br;
+    });
+  } else {
+    list = [...list].sort((a,b) => {
+      if(a.done !== b.done) return a.done ? 1 : -1;
+      const ar = a.priority ? PRIORITY_RANK[a.priority] : 3;
+      const br = b.priority ? PRIORITY_RANK[b.priority] : 3;
+      return ar - br;
+    });
+  }
+  return list;
+}
+function renderFilterPanel(pageKey, opts){
+  const f = state[pageKey];
+  const hasDate = !!(opts && opts.dateFilter);
+  const active = filtersActive(f, hasDate);
+  return `
+    <div class="filter-panel">
+      <div class="filter-group">
+        <span class="filter-group-label">تگ:</span>
+        ${state.tags.map(t => `<span class="filter-chip ${f.tagIds.includes(t.id)?'active':''}" onclick="toggleFilterTag('${pageKey}','${t.id}')">${escapeHtml(t.name)}</span>`).join('')}
+      </div>
+      <div class="filter-group">
+        <span class="filter-group-label">اولویت:</span>
+        <span class="filter-chip ${f.priorities.includes('high')?'active':''}" onclick="toggleFilterPriority('${pageKey}','high')">بالا</span>
+        <span class="filter-chip ${f.priorities.includes('medium')?'active':''}" onclick="toggleFilterPriority('${pageKey}','medium')">متوسط</span>
+        <span class="filter-chip ${f.priorities.includes('low')?'active':''}" onclick="toggleFilterPriority('${pageKey}','low')">پایین</span>
+      </div>
+      ${hasDate ? `
+        <div class="filter-group">
+          <span class="filter-group-label">تاریخ:</span>
+          <span class="filter-chip ${f.date===dateKey(new Date())?'active':''}" onclick="setFilterDateQuick('today')">امروز</span>
+          <span class="filter-chip ${f.date===dateKey(tomorrowDate())?'active':''}" onclick="setFilterDateQuick('tomorrow')">فردا</span>
+          <span class="filter-chip ${f.date==='none'?'active':''}" onclick="setFilterDateQuick('none')">بدون تاریخ</span>
+          <input type="date" value="${(f.date && f.date!=='none') ? f.date : ''}" onchange="setFilterDateCustom(this.value)" />
+        </div>
+      ` : ''}
+      <div class="filter-group">
+        <span class="filter-group-label">مرتب‌سازی بر اساس مدت:</span>
+        <span class="filter-chip ${f.sortBy==='duration-asc'?'active':''}" onclick="setFilterSort('${pageKey}','duration-asc')">کوتاه‌ترین اول</span>
+        <span class="filter-chip ${f.sortBy==='duration-desc'?'active':''}" onclick="setFilterSort('${pageKey}','duration-desc')">بلندترین اول</span>
+      </div>
+      ${active ? `<button class="reset-filters-btn" onclick="resetFilters('${pageKey}')">پاک‌کردن فیلترها</button>` : ''}
+    </div>
+  `;
+}
+
+/* ---------- tasks: quick inline actions (no jump risk) ---------- */
+function markDone(task, val){
+  task.done = val;
+  task.completedAt = val ? new Date().toISOString() : null;
+  if(val) task.subtasks.forEach(s => s.done = true);
+}
+async function deleteTask(taskId, evt){
+  if(evt) evt.stopPropagation();
+  state.tasks = state.tasks.filter(t => t.id !== taskId);
+  render();
+  const { error } = await sb.from('tasks').delete().eq('id', taskId);
+  if(error) console.error('deleteTask failed', error);
+}
+async function toggleTaskDone(taskId, evt){
+  if(evt) evt.stopPropagation();
+  const t = state.tasks.find(t => t.id === taskId);
+  if(!t) return;
+  markDone(t, !t.done);
+  render();
+  const { error } = await sb.from('tasks').update({ done:t.done, completed_at:t.completedAt }).eq('id', taskId);
+  if(error) console.error('toggleTaskDone failed', error);
+  if(t.done && t.subtasks.length){
+    const { error: subErr } = await sb.from('subtasks').update({ done:true }).eq('task_id', taskId);
+    if(subErr) console.error('subtask sync failed', subErr);
+  }
+}
+async function commitTaskTitle(taskId, value){
+  const t = state.tasks.find(t => t.id === taskId);
+  if(!t || !value.trim()) return;
+  t.title = value.trim();
+  const { error } = await sb.from('tasks').update({ title:t.title }).eq('id', taskId);
+  if(error) console.error('commitTaskTitle failed', error);
+}
+async function addSubtask(taskId){
+  const input = document.getElementById('subtask-input-' + taskId);
+  const title = input.value.trim();
+  if(!title) return;
+  const t = state.tasks.find(t => t.id === taskId);
+  const newSub = { id: uid(), title, done:false };
+  t.subtasks.push(newSub);
+  render();
+  const { error } = await sb.from('subtasks').insert({ id:newSub.id, task_id:taskId, title:newSub.title, done:false });
+  if(error) console.error('addSubtask failed', error);
+}
+async function toggleSubtask(taskId, subId, evt){
+  if(evt) evt.stopPropagation();
+  const t = state.tasks.find(t => t.id === taskId);
+  const s = t.subtasks.find(s => s.id === subId);
+  s.done = !s.done;
+  const allDone = t.subtasks.length && t.subtasks.every(s => s.done);
+  if(allDone) markDone(t, true);
+  else markDone(t, false);
+  render();
+  const { error } = await sb.from('subtasks').update({ done:s.done }).eq('id', subId);
+  if(error) console.error('toggleSubtask failed', error);
+  const { error: taskErr } = await sb.from('tasks').update({ done:t.done, completed_at:t.completedAt }).eq('id', taskId);
+  if(taskErr) console.error('parent sync failed', taskErr);
+}
+async function deleteSubtask(taskId, subId){
+  const t = state.tasks.find(t => t.id === taskId);
+  t.subtasks = t.subtasks.filter(s => s.id !== subId);
+  render();
+  const { error } = await sb.from('subtasks').delete().eq('id', subId);
+  if(error) console.error('deleteSubtask failed', error);
+}
+function subtaskKeydown(e, taskId){ if(e.key === 'Enter') addSubtask(taskId); }
+function toggleTodayExpand(taskId){ state.todayExpanded[taskId] = !state.todayExpanded[taskId]; render(); }
+
+/* ---------- task editor modal (create / edit — all settings first, applied on confirm) ---------- */
+function openTaskEditorNew(){
+  state.taskEditor = { mode:'create', taskId:null, draft:{ title:'', tagIds:[], priority:null, date:'', durationMin:null, subtasks:[] } };
+  render();
+}
+function openTaskEditorEdit(taskId){
+  const t = state.tasks.find(t => t.id === taskId);
+  if(!t) return;
+  state.taskEditor = {
+    mode:'edit', taskId,
+    draft: {
+      title: t.title, tagIds: [...t.tagIds], priority: t.priority, date: t.date, durationMin: t.durationMin,
+      subtasks: t.subtasks.map(s => ({ id:s.id, title:s.title, done:s.done })),
+    }
+  };
+  render();
+}
+function closeTaskEditor(){ state.taskEditor = null; render(); }
+function editorToggleTag(tagId){
+  const d = state.taskEditor.draft;
+  d.tagIds = d.tagIds.includes(tagId) ? d.tagIds.filter(id => id !== tagId) : [...d.tagIds, tagId];
+  render();
+}
+function editorSetPriority(level){
+  const d = state.taskEditor.draft;
+  d.priority = (d.priority === level) ? null : level;
+  render();
+}
+function editorQuickDate(which){
+  const d = state.taskEditor.draft;
+  const dt = which === 'tomorrow' ? tomorrowDate() : new Date();
+  d.date = dateKey(dt);
+  render();
+}
+function editorSetDate(value){ state.taskEditor.draft.date = value; render(); }
+function editorQuickDuration(min){ state.taskEditor.draft.durationMin = min; render(); }
+function editorSetDurationCustom(value){
+  const v = parseInt(value);
+  state.taskEditor.draft.durationMin = (v && v > 0) ? v : null;
+  render();
+}
+function editorAddSubtask(){
+  const input = document.getElementById('editor-subtask-input');
+  const title = input.value.trim();
+  if(!title) return;
+  state.taskEditor.draft.subtasks.push({ id: uid(), title, done:false });
+  render();
+}
+function editorDeleteSubtask(subId){
+  state.taskEditor.draft.subtasks = state.taskEditor.draft.subtasks.filter(s => s.id !== subId);
+  render();
+}
+async function confirmTaskEditor(){
+  const titleInput = document.getElementById('editor-title');
+  const title = titleInput.value.trim();
+  if(!title){ titleInput.focus(); return; }
+  const ed = state.taskEditor;
+  ed.draft.title = title;
+
+  const taskRow = {
+    title: ed.draft.title, priority: ed.draft.priority,
+    date: ed.draft.date || null, duration_min: ed.draft.durationMin,
+  };
+
+  if(ed.mode === 'create'){
+    const newTask = {
+      id: uid(), title: ed.draft.title, done:false, completedAt:null,
+      tagIds: ed.draft.tagIds, priority: ed.draft.priority,
+      subtasks: ed.draft.subtasks, date: ed.draft.date, durationMin: ed.draft.durationMin,
+    };
+    state.tasks.unshift(newTask);
+    state.taskEditor = null;
+    render();
+
+    const { error: taskErr } = await sb.from('tasks').insert({ id:newTask.id, ...taskRow, done:false });
+    if(taskErr){ console.error('create task failed', taskErr); return; }
+    if(newTask.tagIds.length){
+      const { error: tagErr } = await sb.from('task_tags').insert(newTask.tagIds.map(tagId => ({ task_id:newTask.id, tag_id:tagId })));
+      if(tagErr) console.error('link tags failed', tagErr);
+    }
+    if(newTask.subtasks.length){
+      const { error: subErr } = await sb.from('subtasks').insert(newTask.subtasks.map(s => ({ id:s.id, task_id:newTask.id, title:s.title, done:false })));
+      if(subErr) console.error('create subtasks failed', subErr);
+    }
+  } else {
+    const t = state.tasks.find(t => t.id === ed.taskId);
+    if(!t){ state.taskEditor = null; render(); return; }
+    t.title = ed.draft.title; t.tagIds = ed.draft.tagIds; t.priority = ed.draft.priority;
+    t.date = ed.draft.date; t.durationMin = ed.draft.durationMin; t.subtasks = ed.draft.subtasks;
+    state.taskEditor = null;
+    render();
+
+    const { error: taskErr } = await sb.from('tasks').update(taskRow).eq('id', t.id);
+    if(taskErr) console.error('update task failed', taskErr);
+
+    const { error: delTagErr } = await sb.from('task_tags').delete().eq('task_id', t.id);
+    if(delTagErr) console.error('clear tags failed', delTagErr);
+    if(t.tagIds.length){
+      const { error: tagErr } = await sb.from('task_tags').insert(t.tagIds.map(tagId => ({ task_id:t.id, tag_id:tagId })));
+      if(tagErr) console.error('relink tags failed', tagErr);
+    }
+
+    const { error: delSubErr } = await sb.from('subtasks').delete().eq('task_id', t.id);
+    if(delSubErr) console.error('clear subtasks failed', delSubErr);
+    if(t.subtasks.length){
+      const { error: subErr } = await sb.from('subtasks').insert(t.subtasks.map(s => ({ id: uid(), task_id:t.id, title:s.title, done:s.done })));
+      if(subErr) console.error('recreate subtasks failed', subErr);
+    }
+  }
+}
+
+/* ---------- rendering: tag manager ---------- */
+function renderTagManager(){
+  return `
+    <div class="tag-manager">
+      <div class="tag-manager-header" onclick="toggleTagManager()">
+        <h3>مدیریت تگ‌ها</h3>
+        <span class="chev">${state.tagManagerOpen ? '▲' : '▼'}</span>
+      </div>
+      ${state.tagManagerOpen ? `
+        <div class="tag-manager-body">
+          <div class="tag-list">
+            ${state.tags.map(tag => `
+              <span class="tag-chip" style="--chip-color:${tag.color}">
+                ${escapeHtml(tag.name)}
+                <span class="tag-x" onclick="deleteTag('${tag.id}')">✕</span>
+              </span>
+            `).join('')}
+          </div>
+          <div class="new-tag-row">
+            <input type="text" id="new-tag-name" placeholder="نام تگ جدید…" />
+            <input type="color" id="new-tag-color" value="#8B95A1" />
+            <button onclick="addTag()">افزودن تگ</button>
+          </div>
+        </div>
+      ` : ''}
+    </div>
+  `;
+}
+
+/* ---------- rendering: task editor modal ---------- */
+function renderTaskEditorModal(){
+  if(!state.taskEditor) return '';
+  const ed = state.taskEditor;
+  const d = ed.draft;
+  const todayStr = dateKey(new Date());
+  const tomorrowStr = dateKey(tomorrowDate());
+  return `
+    <div class="modal-overlay" onclick="if(event.target===this) closeTaskEditor()">
+      <div class="modal-box">
+        <h3>${ed.mode === 'create' ? 'کار جدید' : 'ویرایش کار'}</h3>
+        <input type="text" id="editor-title" class="modal-title-input" placeholder="اسم کار…"
+          value="${escapeHtml(d.title)}" oninput="state.taskEditor.draft.title=this.value" />
+
+        <div class="modal-section">
+          <span class="modal-section-label">تگ‌ها</span>
+          ${state.tags.map(t => `<span class="pick-chip ${d.tagIds.includes(t.id)?'on':''}" style="--chip-color:${t.color}" onclick="editorToggleTag('${t.id}')">${escapeHtml(t.name)}</span>`).join('')}
+        </div>
+
+        <div class="modal-section">
+          <span class="modal-section-label">اولویت</span>
+          <span class="priority-chip high ${d.priority==='high'?'active':''}" onclick="editorSetPriority('high')">بالا</span>
+          <span class="priority-chip medium ${d.priority==='medium'?'active':''}" onclick="editorSetPriority('medium')">متوسط</span>
+          <span class="priority-chip low ${d.priority==='low'?'active':''}" onclick="editorSetPriority('low')">پایین</span>
+        </div>
+
+        <div class="modal-section">
+          <span class="modal-section-label">تاریخ</span>
+          <div class="quick-group">
+            <span class="quick-chip ${d.date===todayStr?'active':''}" onclick="editorQuickDate('today')">امروز</span>
+            <span class="quick-chip ${d.date===tomorrowStr?'active':''}" onclick="editorQuickDate('tomorrow')">فردا</span>
+            <input type="date" value="${d.date}" onchange="editorSetDate(this.value)" />
+          </div>
+        </div>
+
+        <div class="modal-section">
+          <span class="modal-section-label">مدت (دقیقه)</span>
+          <div class="quick-group">
+            <span class="quick-chip ${d.durationMin===15?'active':''}" onclick="editorQuickDuration(15)">۱۵</span>
+            <span class="quick-chip ${d.durationMin===30?'active':''}" onclick="editorQuickDuration(30)">۳۰</span>
+            <span class="quick-chip ${d.durationMin===60?'active':''}" onclick="editorQuickDuration(60)">۶۰</span>
+            <input type="number" min="1" placeholder="سفارشی" value="${d.durationMin||''}" onchange="editorSetDurationCustom(this.value)" />
+          </div>
+        </div>
+
+        <div class="modal-section">
+          <span class="modal-section-label">ریز کارها</span>
+          ${d.subtasks.map(s => `
+            <div class="modal-subtask-row">
+              <span>${escapeHtml(s.title)}</span>
+              <button class="subtask-del" onclick="editorDeleteSubtask('${s.id}')">✕</button>
+            </div>
+          `).join('')}
+          <div class="modal-add-subtask">
+            <input type="text" id="editor-subtask-input" placeholder="ریز کار جدید…" onkeydown="if(event.key==='Enter'){event.preventDefault(); editorAddSubtask();}" />
+            <button onclick="editorAddSubtask()">+ افزودن</button>
+          </div>
+        </div>
+
+        <div class="modal-actions">
+          <button class="cancel" onclick="closeTaskEditor()">انصراف</button>
+          <button class="confirm" onclick="confirmTaskEditor()">${ed.mode === 'create' ? 'افزودن' : 'تایید'}</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+/* ---------- rendering: task card (Tasks page) ---------- */
+function renderTaskCard(task){
+  const dateLabel = formatDateShort(task.date);
+  return `
+    <div class="task-card ${task.done ? 'done' : ''}">
+      <div class="task-main">
+        <button class="task-check ${task.done ? 'checked' : ''}" onclick="toggleTaskDone('${task.id}')">${task.done ? '✓' : ''}</button>
+        <div class="task-body">
+          <input class="task-title ${task.done ? 'done-text' : ''}" type="text" value="${escapeHtml(task.title)}"
+            onblur="commitTaskTitle('${task.id}', this.value)" onkeydown="if(event.key==='Enter')this.blur()" />
+
+          <div class="task-meta-row">
+            ${task.priority ? `<span class="priority-dot ${task.priority}"></span><span class="summary-text">${PRIORITY_LABEL[task.priority]}</span>` : ''}
+            ${dateLabel ? `<span class="summary-text">· ${dateLabel}</span>` : ''}
+            ${task.durationMin ? `<span class="summary-text">· ${toFaDigits(task.durationMin)} دقیقه</span>` : ''}
+          </div>
+          ${task.tagIds.length ? `
+            <div class="task-meta-row">
+              ${task.tagIds.map(tid => { const tag = state.tags.find(t => t.id===tid); return tag ? `<span class="mini-tag" style="--chip-color:${tag.color}">${escapeHtml(tag.name)}</span>` : ''; }).join('')}
+            </div>
+          ` : ''}
+
+          <div class="subtasks">
+            ${task.subtasks.map(s => `
+              <div class="subtask-row">
+                <button class="subtask-check ${s.done ? 'checked' : ''}" onclick="toggleSubtask('${task.id}','${s.id}')">${s.done ? '✓' : ''}</button>
+                <span class="subtask-title ${s.done ? 'done-text' : ''}">${escapeHtml(s.title)}</span>
+                <button class="subtask-del" onclick="deleteSubtask('${task.id}','${s.id}')">✕</button>
+              </div>
+            `).join('')}
+            <div class="add-subtask-row">
+              <input type="text" id="subtask-input-${task.id}" placeholder="ریز کردن این کار…" onkeydown="subtaskKeydown(event,'${task.id}')" />
+              <button onclick="addSubtask('${task.id}')">+ افزودن</button>
+            </div>
+          </div>
+
+          <button class="edit-link" onclick="openTaskEditorEdit('${task.id}')">✎ ویرایش</button>
+        </div>
+        <button class="task-del" onclick="deleteTask('${task.id}')">✕</button>
+      </div>
+    </div>
+  `;
+}
+
+function renderTasksView(){
+  const filtered = applyFiltersAndSort(state.tasks, 'tasksFilters', { dateFilter:true });
+  return `
+    <button class="add-task-btn" onclick="openTaskEditorNew()">+ کار جدید</button>
+    ${renderTagManager()}
+    ${renderFilterPanel('tasksFilters', { dateFilter:true })}
+    ${filtered.length === 0 ? `<div class="empty-state">کاری با این فیلترها پیدا نشد</div>` : filtered.map(renderTaskCard).join('')}
+  `;
+}
+
+/* ---------- rendering: progress ---------- */
+function computeProgress(days){
+  const from = new Date();
+  from.setDate(from.getDate() - days + 1);
+  from.setHours(0,0,0,0);
+  const counts = {};
+  state.tasks.forEach(t => {
+    if(t.done && t.completedAt){
+      const cd = new Date(t.completedAt);
+      if(cd >= from){
+        if(t.tagIds.length === 0){ counts['__none__'] = (counts['__none__']||0) + 1; }
+        t.tagIds.forEach(tid => { counts[tid] = (counts[tid]||0) + 1; });
+      }
+    }
+  });
+  return counts;
+}
+function setProgressRange(d){ state.progressRange = d; render(); }
+function renderProgress(){
+  const counts = computeProgress(state.progressRange);
+  const entries = Object.entries(counts).map(([tid, count]) => {
+    if(tid === '__none__') return { name:'بدون تگ', color:'var(--gray-tag)', count };
+    const tag = state.tags.find(t => t.id === tid);
+    return tag ? { name: tag.name, color: tag.color, count } : null;
+  }).filter(Boolean).sort((a,b) => b.count - a.count);
+  const max = entries.length ? entries[0].count : 1;
+  const rangeLabels = { 7:'۷ روز اخیر', 30:'۳۰ روز اخیر', 90:'۹۰ روز اخیر' };
+  return `
+    <div class="progress-box">
+      <div class="progress-header">
+        <h2 class="section-title">پیشرفت</h2>
+        <div class="range-chips">
+          ${[7,30,90].map(d => `<span class="filter-chip ${state.progressRange===d?'active':''}" onclick="setProgressRange(${d})">${rangeLabels[d]}</span>`).join('')}
+        </div>
+      </div>
+      ${entries.length === 0
+        ? `<div class="empty-state" style="padding:14px 0;">در این بازه کاری تکمیل نشده</div>`
+        : entries.map(e => `
+          <div class="progress-row">
+            <span class="progress-label">${escapeHtml(e.name)}</span>
+            <div class="progress-bar-track"><div class="progress-bar-fill" style="width:${Math.max(4, e.count/max*100)}%; background:${e.color}"></div></div>
+            <span class="progress-count mono">${toFaDigits(e.count)}</span>
+          </div>
+        `).join('')
+      }
+    </div>
+  `;
+}
+
+/* ---------- rendering: time-spent-today ---------- */
+function renderTimeBox(todayTasks){
+  const total = todayTasks.reduce((s,t) => s + (t.durationMin||0), 0);
+  const done = todayTasks.filter(t => t.done).reduce((s,t) => s + (t.durationMin||0), 0);
+  const remaining = Math.max(0, total - done);
+  const pct = total > 0 ? Math.round(done/total*100) : 0;
+  if(total === 0){
+    return `
+      <div class="time-box">
+        <h2 class="section-title">زمان امروز</h2>
+        <div class="empty-state" style="padding:8px 0;">برای کارهای امروز مدتی ثبت نشده</div>
+      </div>
+    `;
+  }
+  return `
+    <div class="time-box">
+      <h2 class="section-title">زمان امروز</h2>
+      <div class="time-stats">
+        <div class="time-stat"><span class="time-num">${formatDuration(total)}</span><span class="time-lbl">کل برنامه‌ریزی‌شده</span></div>
+        <div class="time-stat"><span class="time-num" style="color:var(--freelance)">${formatDuration(done)}</span><span class="time-lbl">صرف‌شده</span></div>
+        <div class="time-stat"><span class="time-num" style="color:var(--accent)">${formatDuration(remaining)}</span><span class="time-lbl">باقی‌مانده</span></div>
+      </div>
+      <div class="progress-bar-track" style="height:8px;margin-top:12px;"><div class="progress-bar-fill" style="width:${pct}%;background:var(--freelance)"></div></div>
+    </div>
+  `;
+}
+
+/* ---------- rendering: today view ---------- */
+function renderTodayItem(t){
+  const expanded = !!state.todayExpanded[t.id];
+  const hasSub = t.subtasks.length > 0;
+  return `
+    <div class="today-item ${t.done ? 'done' : ''}">
+      <div class="today-item-row" onclick="${hasSub ? `toggleTodayExpand('${t.id}')` : ''}">
+        ${t.priority ? `<span class="priority-dot ${t.priority}" title="اولویت ${PRIORITY_LABEL[t.priority]}"></span>` : ''}
+        <button class="task-check ${t.done ? 'checked' : ''}" onclick="toggleTaskDone('${t.id}', event)">${t.done ? '✓' : ''}</button>
+        <span class="ti-title ${t.done ? 'done-text' : ''}">${escapeHtml(t.title)}</span>
+        <div class="ti-tags">
+          ${t.tagIds.map(tid => { const tag = state.tags.find(x => x.id===tid); return tag ? `<span class="mini-tag" style="--chip-color:${tag.color}">${escapeHtml(tag.name)}</span>` : ''; }).join('')}
+        </div>
+        <span class="dur">${t.durationMin ? toFaDigits(t.durationMin) + ' د' : '—'}</span>
+        ${hasSub ? `<span class="expand-arrow ${expanded ? 'open' : ''}">▾</span>` : ''}
+        <button class="item-del" onclick="deleteTask('${t.id}', event)">✕</button>
+      </div>
+      ${expanded ? `
+        <div class="today-subtasks">
+          ${t.subtasks.map(s => `
+            <div class="subtask-row">
+              <button class="subtask-check ${s.done ? 'checked' : ''}" onclick="toggleSubtask('${t.id}','${s.id}', event)">${s.done ? '✓' : ''}</button>
+              <span class="subtask-title ${s.done ? 'done-text' : ''}">${escapeHtml(s.title)}</span>
+            </div>
+          `).join('')}
+        </div>
+      ` : ''}
+    </div>
+  `;
+}
+
+function renderToday(){
+  const { wd } = fmtHeaderDate(state.today);
+  const todayStr = dateKey(state.today);
+  const todayTasksRaw = state.tasks.filter(t => t.date === todayStr);
+  const scheduled = applyFiltersAndSort(todayTasksRaw, 'todayFilters', { dateFilter:false });
+
+  return `
+    <div style="font-size:12px;color:var(--text-muted);margin-bottom:14px;">${wd}</div>
+    ${renderProgress()}
+    ${renderTimeBox(todayTasksRaw)}
+    <h2 class="section-title">برنامه امروز</h2>
+    ${renderFilterPanel('todayFilters', { dateFilter:false })}
+    ${scheduled.length === 0 ? `<div class="empty-state">کاری با این فیلترها برای امروز نیست</div>` : scheduled.map(renderTodayItem).join('')}
+  `;
+}
+
+/* ---------- rendering: pomodoro ---------- */
+function formatTime(sec){
+  const m = Math.floor(sec/60), s = sec % 60;
+  return toFaDigits(String(m).padStart(2,'0')) + ':' + toFaDigits(String(s).padStart(2,'0'));
+}
+function renderPomodoro(){
+  const p = state.pomo;
+  return `
+    <div class="pomo-box">
+      <div class="pomo-mode ${p.mode}">${p.mode === 'work' ? 'زمان تمرکز' : 'زمان استراحت'}</div>
+      <div class="pomo-timer">${formatTime(p.remaining)}</div>
+      <div class="pomo-controls">
+        <button class="primary" onclick="pomoToggle()">${p.running ? 'توقف' : 'شروع'}</button>
+        <button onclick="pomoReset()">ریست</button>
+        <button onclick="pomoSkip()">رد کردن</button>
+      </div>
+      <div class="pomo-settings">
+        <label>تمرکز (دقیقه)<input type="number" min="1" max="90" value="${p.workMin}" onchange="setPomoSetting('workMin', this.value)" /></label>
+        <label>استراحت (دقیقه)<input type="number" min="1" max="60" value="${p.breakMin}" onchange="setPomoSetting('breakMin', this.value)" /></label>
+      </div>
+      <div class="pomo-cycles">دورهای تکمیل‌شده امروز: <b class="mono">${toFaDigits(p.cyclesDone)}</b></div>
+      <div class="pomo-focus">
+        <input type="text" placeholder="الان روی چی کار می‌کنی؟ (اختیاری)" value="${escapeHtml(p.focusLabel)}" onchange="p_setFocusLabel(this.value)" />
+      </div>
+    </div>
+  `;
+}
+
+let pomoAudioCtx = null;
+function playAlarm(){
+  try{
+    if(!pomoAudioCtx) pomoAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const ctx = pomoAudioCtx;
+    for(let i=0;i<4;i++){
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = 880;
+      gain.gain.value = 0.15;
+      osc.connect(gain); gain.connect(ctx.destination);
+      const start = ctx.currentTime + i*0.5;
+      osc.start(start);
+      osc.stop(start + 0.3);
+    }
+  }catch(e){ console.error('alarm failed', e); }
+}
+
+function pomoTick(){
+  const p = state.pomo;
+  if(p.remaining > 0){
+    p.remaining--;
+    const el = document.querySelector('.pomo-timer');
+    if(el) el.textContent = formatTime(p.remaining);
+  } else {
+    playAlarm();
+    if(p.mode === 'work'){
+      p.cyclesDone++;
+      p.mode = 'break';
+      p.remaining = p.breakMin * 60;
+    } else {
+      p.mode = 'work';
+      p.remaining = p.workMin * 60;
+    }
+    render();
+  }
+}
+function pomoToggle(){
+  const p = state.pomo;
+  p.running = !p.running;
+  if(p.running) p.timerId = setInterval(pomoTick, 1000);
+  else clearInterval(p.timerId);
+  render();
+}
+function pomoReset(){
+  const p = state.pomo;
+  clearInterval(p.timerId);
+  p.running = false;
+  p.mode = 'work';
+  p.remaining = p.workMin * 60;
+  render();
+}
+function pomoSkip(){
+  const p = state.pomo;
+  if(p.mode === 'work'){ p.mode = 'break'; p.remaining = p.breakMin*60; }
+  else { p.mode = 'work'; p.remaining = p.workMin*60; }
+  render();
+}
+async function setPomoSetting(key, value){
+  const v = Math.max(1, parseInt(value) || 1);
+  state.pomo[key] = v;
+  if(!state.pomo.running){
+    state.pomo.remaining = (state.pomo.mode === 'work' ? state.pomo.workMin : state.pomo.breakMin) * 60;
+  }
+  render();
+  const { error } = await sb.from('pomo_settings').update({ work_min:state.pomo.workMin, break_min:state.pomo.breakMin }).eq('id', 1);
+  if(error) console.error('setPomoSetting failed', error);
+}
+function p_setFocusLabel(v){ state.pomo.focusLabel = v; }
+
+/* ---------- rendering: review ---------- */
+function renderReview(){
+  const sorted = [...state.reviews].sort((a,b) => b.date.localeCompare(a.date));
+  return `
+    <div class="review-box">
+      <h3>ریویو این هفته</h3>
+      <ul class="review-prompts">
+        <li>• این هفته کجاها رو موند و کجاها پیش رفت؟</li>
+        <li>• الگوی فراموشی → استرس → فرار به گوشی تکرار شد؟</li>
+        <li>• کدوم تگ بیشترین کار انجام‌نشده رو داشت؟</li>
+      </ul>
+      <textarea id="review-input" placeholder="بنویس…"></textarea>
+      <button class="save-btn" onclick="submitReview()">ذخیره ریویو</button>
+    </div>
+    <div id="past-reviews">
+      ${sorted.length === 0 ? `<div class="empty-state">هنوز ریویویی ثبت نشده</div>` : sorted.map(r => {
+        const d = new Date(r.date);
+        const { wd, jalali } = fmtHeaderDate(d);
+        return `<div class="past-review"><div class="pr-date">${wd} — ${jalali}</div><div class="pr-text">${escapeHtml(r.text)}</div></div>`;
+      }).join('')}
+    </div>
+  `;
+}
+async function submitReview(){
+  const el = document.getElementById('review-input');
+  const text = el.value.trim();
+  if(!text) return;
+  const now = new Date().toISOString();
+  state.reviews.unshift({ date: now, text });
+  el.value = '';
+  render();
+  const { error } = await sb.from('reviews').insert({ body:text, created_at:now });
+  if(error) console.error('submitReview failed', error);
+}
+
+/* ---------- nav / render ---------- */
+function setView(v){ state.view = v; render(); }
+
+function render(){
+  const { jalali, gregorian } = fmtHeaderDate(state.today);
+  const app = document.getElementById('app');
+  app.innerHTML = `
+    <header>
+      <div class="brand">
+        <h1>پایه</h1>
+        <div class="sub">سیستم برنامه‌ریزی شخصی</div>
+      </div>
+      <div class="date-block">
+        <div class="jalali">${jalali}</div>
+        <div class="gregorian">${gregorian}</div>
+      </div>
+    </header>
+
+    <nav>
+      <button class="${state.view==='today' ? 'active' : ''}" onclick="setView('today')">امروز</button>
+      <button class="${state.view==='tasks' ? 'active' : ''}" onclick="setView('tasks')">تسک‌ها</button>
+      <button class="${state.view==='pomodoro' ? 'active' : ''}" onclick="setView('pomodoro')">پومودورو</button>
+      <button class="${state.view==='review' ? 'active' : ''}" onclick="setView('review')">ریویو هفتگی</button>
+    </nav>
+
+    ${loadError ? `<div class="empty-state" style="background:var(--surface);border:1px solid var(--danger);border-radius:10px;color:var(--danger);margin-bottom:16px;">اتصال به دیتابیس برقرار نشد — اینترنتت رو چک کن و صفحه رو رفرش کن.</div>` : ''}
+
+    <main>
+      ${state.view === 'today' ? renderToday() : ''}
+      ${state.view === 'tasks' ? renderTasksView() : ''}
+      ${state.view === 'pomodoro' ? renderPomodoro() : ''}
+      ${state.view === 'review' ? renderReview() : ''}
+    </main>
+    ${renderTaskEditorModal()}
+  `;
+}
+
+loadAll();
+</script>
+</body>
+</html>
