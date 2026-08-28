@@ -630,26 +630,6 @@ global.jalaali = {
     padding:9px 12px; border-radius:8px; outline:none; text-align:center;
   }
 
-  /* Review */
-  .review-box{background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:18px; margin-bottom:18px;}
-  .review-box h3{font-size:14px; font-weight:700; margin-bottom:10px;}
-  .review-box textarea{
-    width:100%; min-height:110px; background:var(--surface-2); border:1px solid var(--line);
-    border-radius:8px; color:var(--text); font-size:13.5px; padding:12px;
-    resize:vertical; outline:none; line-height:1.7;
-  }
-  .review-box textarea:focus{border-color:var(--accent);}
-  .save-btn{
-    margin-top:10px; background:var(--accent); color:#12161C; border:none; font-weight:700;
-    font-size:13.5px; padding:10px 18px; border-radius:8px; cursor:pointer;
-  }
-  .save-btn:hover{opacity:.9;}
-  .review-prompts{font-size:12px; color:var(--text-muted); margin-bottom:12px; line-height:1.9;}
-  .review-prompts li{margin-right:16px;}
-  .past-review{border-top:1px solid var(--line); padding:14px 0;}
-  .past-review .pr-date{font-size:11px; color:var(--text-muted); margin-bottom:6px; font-weight:600;}
-  .past-review .pr-text{font-size:13.5px; line-height:1.8; white-space:pre-wrap; color:var(--text);}
-
   .loading{text-align:center; color:var(--text-muted); font-size:13px; padding:60px 0;}
 
   /* Floating add-task button */
@@ -853,7 +833,6 @@ function emptyFilters(){ return { tagIds:[], priorities:[], sortBy:'default' }; 
 let state = {
   tags: null,
   tasks: null,
-  reviews: [],
   view: 'today',
   tagManagerOpen: false,
   todayFilters: emptyFilters(),
@@ -899,10 +878,6 @@ async function loadAll(){
       date: t.date || '',
       durationMin: t.duration_min,
     }));
-
-    const { data: reviews, error: reviewsErr } = await sb.from('reviews').select('*').order('created_at', { ascending:false });
-    if(reviewsErr) throw reviewsErr;
-    state.reviews = reviews.map(r => ({ date: r.created_at, text: r.body }));
 
     const { data: pomo, error: pomoErr } = await sb.from('pomo_settings').select('*').eq('id', 1).maybeSingle();
     if(pomoErr) throw pomoErr;
@@ -2179,40 +2154,6 @@ async function setPomoSetting(key, value){
 }
 function p_setFocusLabel(v){ state.pomo.focusLabel = v; }
 
-/* ---------- rendering: review ---------- */
-function renderReview(){
-  const sorted = [...state.reviews].sort((a,b) => b.date.localeCompare(a.date));
-  return `
-    <div class="review-box">
-      <h3>ریویو این هفته</h3>
-      <ul class="review-prompts">
-        <li>• این هفته کجاها رو موند و کجاها پیش رفت؟</li>
-        <li>• الگوی فراموشی → استرس → فرار به گوشی تکرار شد؟</li>
-        <li>• کدوم تگ بیشترین کار انجام‌نشده رو داشت؟</li>
-      </ul>
-      <textarea id="review-input" placeholder="بنویس…"></textarea>
-      <button class="save-btn" onclick="submitReview()">ذخیره ریویو</button>
-    </div>
-    <div id="past-reviews">
-      ${sorted.length === 0 ? `<div class="empty-state">هنوز ریویویی ثبت نشده</div>` : sorted.map(r => {
-        const d = new Date(r.date);
-        const { wd, jalali } = fmtHeaderDate(d);
-        return `<div class="past-review"><div class="pr-date">${wd} — ${jalali}</div><div class="pr-text">${escapeHtml(r.text)}</div></div>`;
-      }).join('')}
-    </div>
-  `;
-}
-async function submitReview(){
-  const el = document.getElementById('review-input');
-  const text = el.value.trim();
-  if(!text) return;
-  const now = new Date().toISOString();
-  state.reviews.unshift({ date: now, text });
-  el.value = '';
-  render();
-  const { error } = await sb.from('reviews').insert({ body:text, created_at:now });
-  if(error) console.error('submitReview failed', error);
-}
 
 /* ---------- floating add-task button ---------- */
 function renderFab(){
@@ -2248,7 +2189,7 @@ function renderStreakBadge(){
 }
 
 /* ---------- archive (completed tasks older than the threshold, hidden from the main list) ---------- */
-const ARCHIVE_THRESHOLD_DAYS = 30;
+const ARCHIVE_THRESHOLD_DAYS = 7;
 function isArchived(t){
   if(!t.done || !t.completedAt) return false;
   const days = (Date.now() - new Date(t.completedAt).getTime()) / (1000*60*60*24);
@@ -2287,7 +2228,6 @@ function render(){
       <button class="${state.view==='tasks' ? 'active' : ''}" onclick="setView('tasks')">تسک‌ها</button>
       <button class="${state.view==='calendar' ? 'active' : ''}" onclick="setView('calendar')">تقویم</button>
       <button class="${state.view==='pomodoro' ? 'active' : ''}" onclick="setView('pomodoro')">پومودورو</button>
-      <button class="${state.view==='review' ? 'active' : ''}" onclick="setView('review')">ریویو هفتگی</button>
       <button class="${state.view==='archive' ? 'active' : ''}" onclick="setView('archive')">آرشیو</button>
     </nav>
 
@@ -2298,7 +2238,6 @@ function render(){
       ${state.view === 'tasks' ? renderTasksView() : ''}
       ${state.view === 'calendar' ? renderCalendarPage() : ''}
       ${state.view === 'pomodoro' ? renderPomodoro() : ''}
-      ${state.view === 'review' ? renderReview() : ''}
       ${state.view === 'archive' ? renderArchivePage() : ''}
     </main>
     ${(state.view === 'today' || state.view === 'tasks') ? renderFab() : ''}
