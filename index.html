@@ -447,6 +447,13 @@ global.jalaali = {
   }
   .add-task-btn:hover{border-color:var(--accent); color:var(--accent);}
 
+  .add-task-for-day-btn{
+    width:100%; background:var(--chip-shine), color-mix(in srgb, var(--accent) 14%, var(--surface));
+    border:1px dashed color-mix(in srgb, var(--accent) 50%, var(--line)); color:var(--accent);
+    font-size:13px; font-weight:700; padding:11px; border-radius:10px; cursor:pointer; margin-bottom:14px; text-align:center;
+  }
+  .add-task-for-day-btn:hover{opacity:.9;}
+
   /* Progress box */
   .progress-box{background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:16px 18px; margin-bottom:16px;}
   .progress-header{display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;}
@@ -565,6 +572,11 @@ global.jalaali = {
   /* Today view scheduled items */
   .today-item{background:var(--surface); border:1px solid var(--line); border-radius:10px; margin-bottom:8px; overflow:hidden;}
   .today-item.done{opacity:.5;}
+  .today-item.overdue:not(.done){border-color:color-mix(in srgb, var(--danger) 45%, var(--line));}
+  .overdue-badge{
+    font-size:10px; font-weight:700; color:var(--danger); background:color-mix(in srgb, var(--danger) 18%, transparent);
+    border:1px solid color-mix(in srgb, var(--danger) 40%, transparent); padding:2px 8px; border-radius:20px; flex-shrink:0; white-space:nowrap;
+  }
   .today-item-row{display:flex; align-items:center; gap:10px; padding:12px 14px; cursor:pointer;}
   .today-item .dur{font-size:13px; color:var(--accent); font-weight:700; font-family:'JetBrains Mono',monospace; min-width:48px; direction:ltr;}
   .today-item .ti-title{flex:1; font-size:13.5px;}
@@ -1325,6 +1337,13 @@ function openTaskEditorNew(){
   };
   render();
 }
+function openTaskEditorNewForDate(dateStr){
+  state.taskEditor = {
+    mode:'create', taskId:null, draft:{ title:'', tagIds:[], priority:null, date:dateStr, durationMin:null, subtasks:[] },
+    calendarOpen:false, calendarPanel:'grid', calendarViewJY:null, calendarViewJM:null, calendarSelectedDayKey:null,
+  };
+  render();
+}
 function openTaskEditorEdit(taskId){
   const t = state.tasks.find(t => t.id === taskId);
   if(!t) return;
@@ -1797,6 +1816,7 @@ function renderCalendarPageDayPanel(){
         <button type="button" class="cal-back" onclick="calendarPageBackToGrid()">→ بازگشت به تقویم</button>
         <span class="cal-day-title">${jalaliLabel}</span>
       </div>
+      <button type="button" class="add-task-for-day-btn" onclick="openTaskEditorNewForDate('${key}')">+ اضافه کردن کار برای این روز</button>
       ${dayTasks.length === 0 ? `<div class="empty-state" style="padding:16px 0;">کاری برای این روز ثبت نشده</div>` : dayTasks.map(t => `
         <div class="cal-day-task ${t.done ? 'done' : ''}">
           <div class="cal-day-task-title ${t.done ? 'done-text' : ''}">${t.done ? '✓ ' : ''}${escapeHtml(t.title)}</div>
@@ -2084,15 +2104,17 @@ function renderTimeBadge(todayTasks){
 }
 
 /* ---------- rendering: today view ---------- */
-function renderTodayItem(t){
+function renderTodayItem(t, todayStr){
   const expanded = !!state.todayExpanded[t.id];
   const hasSub = t.subtasks.length > 0;
+  const isOverdue = t.date !== todayStr;
   return `
-    <div class="today-item ${t.done ? 'done' : ''}">
+    <div class="today-item ${t.done ? 'done' : ''} ${isOverdue ? 'overdue' : ''}">
       <div class="today-item-row" onclick="${hasSub ? `toggleTodayExpand('${t.id}')` : ''}">
         ${t.priority ? `<span class="priority-dot ${t.priority}" title="اولویت ${PRIORITY_LABEL[t.priority]}"></span>` : ''}
         <button class="task-check ${t.done ? 'checked' : ''}" onclick="toggleTaskDone('${t.id}', event)">${t.done ? '✓' : ''}</button>
         <span class="ti-title ${t.done ? 'done-text' : ''}">${escapeHtml(t.title)}</span>
+        ${isOverdue ? `<span class="overdue-badge" title="این کار برای ${formatDateShort(t.date)} بود و انجام نشده">عقب‌افتاده · ${formatDateShort(t.date)}</span>` : ''}
         <div class="ti-tags">
           ${t.tagIds.map(tid => { const tag = state.tags.find(x => x.id===tid); return tag ? `<span class="mini-tag" style="--chip-color:${tag.color}">${escapeHtml(tag.name)}</span>` : ''; }).join('')}
         </div>
@@ -2119,7 +2141,10 @@ function renderTodayItem(t){
 function renderToday(){
   const { wd } = fmtHeaderDate(state.today);
   const todayStr = dateKey(state.today);
-  const todayTasksRaw = state.tasks.filter(t => t.date === todayStr);
+  /* Today's own tasks, plus any still-undone task from a past day — those stay
+     visible here (not silently dropped back into the Tasks list) until the
+     person edits them, reschedules them, or finishes them. */
+  const todayTasksRaw = state.tasks.filter(t => t.date === todayStr || (!t.done && t.date && t.date < todayStr));
   const scheduled = applyFiltersAndSort(todayTasksRaw, 'todayFilters', { dateFilter:false });
 
   return `
@@ -2131,7 +2156,7 @@ function renderToday(){
     ${renderProgress()}
     <h2 class="section-title">برنامه امروز</h2>
     ${renderFilterPanel('todayFilters', { dateFilter:false })}
-    ${scheduled.length === 0 ? `<div class="empty-state">کاری با این فیلترها برای امروز نیست</div>` : scheduled.map(renderTodayItem).join('')}
+    ${scheduled.length === 0 ? `<div class="empty-state">کاری با این فیلترها برای امروز نیست</div>` : scheduled.map(t => renderTodayItem(t, todayStr)).join('')}
   `;
 }
 
