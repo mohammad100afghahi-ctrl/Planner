@@ -393,6 +393,7 @@ global.jalaali = {
       0 4px 12px -6px rgba(0,0,0,0.5),
       inset 0 1px 0.5px rgba(255,255,255,0.25),
       inset 0 -4px 8px -8px rgba(0,0,0,0.45);
+    --chip-shine: radial-gradient(130% 220% at 22% -60%, rgba(255,255,255,0.4), transparent 55%);
     color-scheme: dark;
   }
   *{box-sizing:border-box; margin:0; padding:0;}
@@ -576,7 +577,10 @@ global.jalaali = {
   .today-subtasks{padding:0 14px 12px 14px; border-top:1px solid var(--line); padding-top:8px;}
 
   /* Task editor modal */
-  .modal-overlay{position:fixed; inset:0; background:rgba(0,0,0,.6); display:flex; align-items:center; justify-content:center; padding:20px; z-index:50;}
+  .modal-overlay{
+    position:fixed; inset:0; background:rgba(8,10,20,0.4); display:flex; align-items:center; justify-content:center;
+    padding:20px; z-index:50; backdrop-filter:blur(3px); -webkit-backdrop-filter:blur(3px);
+  }
   .modal-box{background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:22px; max-width:480px; width:100%; max-height:85vh; overflow-y:auto;}
   .modal-box h3{font-size:15px; font-weight:700; margin-bottom:16px;}
   .modal-title-input{
@@ -647,6 +651,7 @@ global.jalaali = {
     font-size:13px; padding:6px; border-radius:7px; outline:none; font-family:'JetBrains Mono',monospace;
   }
   .pomo-cycles{font-size:12px; color:var(--text-muted); margin-top:14px;}
+  .pomo-alarm-note{font-size:11px; color:var(--text-muted); margin-top:12px; line-height:1.7; opacity:.75;}
   .pomo-focus{margin-top:16px;}
   .pomo-focus input{
     width:100%; background:var(--surface-2); border:1px solid var(--line); color:var(--text); font-size:13px;
@@ -792,19 +797,17 @@ global.jalaali = {
     box-shadow:var(--glass-shadow-sm);
   }
 
-  /* pill-shaped tags/chips: convex glass pebble look, tinted by --chip-color where present */
+  /* pill-shaped tags/chips: convex glass pebble look, tinted by --chip-color where present.
+     Shine is baked into the gradient itself (not a separate blurred element), so it can
+     never leak past the pill's own rounded border like an absolutely-positioned layer can. */
   .tag-chip, .mini-tag, .pick-chip, .filter-chip, .priority-chip, .quick-chip{
-    position:relative; overflow:hidden;
+    position:relative;
   }
-  .tag-chip::after, .mini-tag::after, .pick-chip::after, .filter-chip::after,
-  .priority-chip::after, .quick-chip::after{
-    content:'';
-    position:absolute; top:-70%; left:6%; width:34%; height:200%;
-    background:rgba(255,255,255,0.30); border-radius:50%; filter:blur(3px);
-    transform:rotate(18deg); pointer-events:none;
+  .filter-chip, .priority-chip, .quick-chip{
+    background:var(--chip-shine), var(--surface-2);
   }
   .tag-chip, .mini-tag, .pick-chip.on{
-    background:linear-gradient(160deg, color-mix(in srgb, var(--chip-color) 55%, transparent), color-mix(in srgb, var(--chip-color) 16%, transparent) 60%);
+    background:var(--chip-shine), linear-gradient(160deg, color-mix(in srgb, var(--chip-color) 55%, transparent), color-mix(in srgb, var(--chip-color) 16%, transparent) 60%);
     box-shadow:
       0 3px 8px -3px color-mix(in srgb, var(--chip-color) 45%, transparent),
       inset 0 1px 0.5px rgba(255,255,255,0.5),
@@ -2158,6 +2161,7 @@ function renderPomodoro(){
       <div class="pomo-focus">
         <input type="text" placeholder="الان روی چی کار می‌کنی؟ (اختیاری)" value="${escapeHtml(p.focusLabel)}" onchange="p_setFocusLabel(this.value)" />
       </div>
+      <div class="pomo-alarm-note">برای شنیدن هشدار، صفحه‌ی گوشی باید روشن و این تب باز بمونه؛ با صفحه‌ی خاموش هشدار نمی‌رسه.</div>
     </div>
     ${state.pomoTaskPicker ? renderPomoTaskPicker() : ''}
   `;
@@ -2194,22 +2198,43 @@ function renderPomoTaskPicker(){
 }
 
 let pomoAudioCtx = null;
-function playAlarm(){
+function playAlarm(endedMode){
   try{
     if(!pomoAudioCtx) pomoAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
     const ctx = pomoAudioCtx;
-    for(let i=0;i<4;i++){
+    if(ctx.state === 'suspended') ctx.resume();
+    /* urgent alternating two-tone pattern (like a real alarm clock), louder
+       and much longer than a few soft beeps — repeats for ~6 seconds */
+    const pattern = [988, 740, 988, 740, 988, 740, 988, 740, 988, 740, 988, 740];
+    pattern.forEach((freq, i) => {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
-      osc.type = 'sine';
-      osc.frequency.value = 880;
-      gain.gain.value = 0.15;
-      osc.connect(gain); gain.connect(ctx.destination);
+      osc.type = 'square';
+      osc.frequency.value = freq;
       const start = ctx.currentTime + i*0.5;
+      gain.gain.setValueAtTime(0.0001, start);
+      gain.gain.exponentialRampToValueAtTime(0.55, start + 0.03);
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.38);
+      osc.connect(gain); gain.connect(ctx.destination);
       osc.start(start);
-      osc.stop(start + 0.3);
-    }
+      osc.stop(start + 0.4);
+    });
   }catch(e){ console.error('alarm failed', e); }
+  if(navigator.vibrate) navigator.vibrate([350,150,350,150,350,150,350,150,350]);
+  notifyPomodoroDone(endedMode);
+}
+async function notifyPomodoroDone(endedMode){
+  try{
+    if(!('Notification' in window) || Notification.permission !== 'granted') return;
+    const title = endedMode === 'work' ? '⏰ وقت کار تموم شد' : '⏰ وقت استراحت تموم شد';
+    const body = endedMode === 'work' ? 'وقت یه استراحت کوتاهه' : 'وقت شروع دوباره‌ست';
+    if('serviceWorker' in navigator){
+      const reg = await navigator.serviceWorker.ready;
+      reg.showNotification(title, { body, icon:'./icon-192.png', badge:'./icon-192.png', vibrate:[350,150,350,150,350] });
+    } else {
+      new Notification(title, { body, icon:'./icon-192.png' });
+    }
+  }catch(e){ console.error('notify failed', e); }
 }
 
 async function addActualMinToTask(taskId, deltaMin){
@@ -2242,7 +2267,7 @@ function pomoTick(){
     const el = document.querySelector('.pomo-timer');
     if(el) el.textContent = formatTime(p.remaining);
   } else {
-    playAlarm();
+    playAlarm(p.mode);
     if(p.mode === 'work'){
       pomoFlushCredit();
       p.creditedMin = 0;
@@ -2258,6 +2283,9 @@ function pomoTick(){
 }
 function pomoActuallyStart(){
   const p = state.pomo;
+  if('Notification' in window && Notification.permission === 'default'){
+    Notification.requestPermission();
+  }
   p.running = true;
   p.timerId = setInterval(pomoTick, 1000);
   render();
