@@ -524,8 +524,9 @@ global.jalaali = {
   .task-body{flex:1; min-width:0;}
   .task-title{
     font-size:14.5px; font-weight:600; background:transparent; border:none; color:var(--text);
-    width:100%; outline:none; padding:2px 0;
+    width:100%; outline:none; padding:2px 0; text-overflow:ellipsis; overflow:hidden;
   }
+  .task-title:focus{text-overflow:clip;}
   .task-title.done-text{text-decoration:line-through; color:var(--text-muted);}
   .task-del{background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:15px; padding:2px 6px; flex-shrink:0;}
   .task-del:hover{color:var(--danger);}
@@ -575,15 +576,22 @@ global.jalaali = {
   .today-item.overdue:not(.done){border-color:color-mix(in srgb, var(--danger) 45%, var(--line));}
   .overdue-badge{
     font-size:10px; font-weight:700; color:var(--danger); background:color-mix(in srgb, var(--danger) 18%, transparent);
-    border:1px solid color-mix(in srgb, var(--danger) 40%, transparent); padding:2px 8px; border-radius:20px; flex-shrink:0; white-space:nowrap;
+    border:1px solid color-mix(in srgb, var(--danger) 40%, transparent); padding:2px 8px; border-radius:20px; white-space:nowrap;
   }
-  .today-item-row{display:flex; align-items:center; gap:10px; padding:12px 14px; cursor:pointer;}
-  .today-item .dur{font-size:13px; color:var(--accent); font-weight:700; font-family:'JetBrains Mono',monospace; min-width:48px; direction:ltr;}
-  .today-item .ti-title{flex:1; font-size:13.5px;}
+  .today-item-row{display:flex; align-items:flex-start; gap:10px; padding:12px 14px; cursor:pointer;}
+  .today-item-row .priority-dot, .today-item-row .task-check{margin-top:2px;}
+  .today-item .ti-main{flex:1; min-width:0;}
+  .today-item .ti-title-row{display:flex; align-items:center; gap:6px;}
+  .today-item .ti-title{
+    flex:1; font-size:13.5px; min-width:0; line-height:1.5;
+    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
+  }
   .today-item .ti-title.done-text{text-decoration:line-through; color:var(--text-muted);}
-  .today-item .ti-tags{display:flex; gap:4px;}
-  .today-item .expand-arrow{font-size:10px; color:var(--text-muted); transition:transform .15s;}
+  .today-item .ti-meta-row{display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin-top:6px;}
+  .today-item .dur{font-size:12px; color:var(--accent); font-weight:700; font-family:'JetBrains Mono',monospace; direction:ltr;}
+  .today-item .expand-arrow{font-size:10px; color:var(--text-muted); transition:transform .15s; flex-shrink:0; margin-top:4px;}
   .today-item .expand-arrow.open{transform:rotate(180deg);}
+  .today-item .ti-actions{display:flex; align-items:center; gap:0; flex-shrink:0;}
   .today-item .item-del{background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:14px; padding:2px 4px; flex-shrink:0;}
   .today-item .item-del:hover{color:var(--danger);}
   .today-subtasks{padding:0 14px 12px 14px; border-top:1px solid var(--line); padding-top:8px;}
@@ -2113,16 +2121,22 @@ function renderTodayItem(t, todayStr){
       <div class="today-item-row" onclick="${hasSub ? `toggleTodayExpand('${t.id}')` : ''}">
         ${t.priority ? `<span class="priority-dot ${t.priority}" title="اولویت ${PRIORITY_LABEL[t.priority]}"></span>` : ''}
         <button class="task-check ${t.done ? 'checked' : ''}" onclick="toggleTaskDone('${t.id}', event)">${t.done ? '✓' : ''}</button>
-        <span class="ti-title ${t.done ? 'done-text' : ''}">${escapeHtml(t.title)}</span>
-        ${isOverdue ? `<span class="overdue-badge" title="این کار برای ${formatDateShort(t.date)} بود و انجام نشده">عقب‌افتاده · ${formatDateShort(t.date)}</span>` : ''}
-        <div class="ti-tags">
-          ${t.tagIds.map(tid => { const tag = state.tags.find(x => x.id===tid); return tag ? `<span class="mini-tag" style="--chip-color:${tag.color}">${escapeHtml(tag.name)}</span>` : ''; }).join('')}
+        <div class="ti-main">
+          <div class="ti-title-row">
+            <span class="ti-title ${t.done ? 'done-text' : ''}">${escapeHtml(t.title)}</span>
+            ${hasSub ? `<span class="expand-arrow ${expanded ? 'open' : ''}">▾</span>` : ''}
+          </div>
+          <div class="ti-meta-row">
+            ${t.tagIds.map(tid => { const tag = state.tags.find(x => x.id===tid); return tag ? `<span class="mini-tag" style="--chip-color:${tag.color}">${escapeHtml(tag.name)}</span>` : ''; }).join('')}
+            ${isOverdue ? `<span class="overdue-badge" title="این کار برای ${formatDateShort(t.date)} بود و انجام نشده">عقب‌افتاده · ${formatDateShort(t.date)}</span>` : ''}
+            <span class="dur">${t.durationMin ? toFaDigits(t.durationMin) + ' د' : '—'}</span>
+          </div>
         </div>
-        <span class="dur">${t.durationMin ? toFaDigits(t.durationMin) + ' د' : '—'}</span>
-        ${hasSub ? `<span class="expand-arrow ${expanded ? 'open' : ''}">▾</span>` : ''}
-        <button class="item-edit" onclick="openTaskEditorEdit('${t.id}'); if(event) event.stopPropagation();" title="ویرایش">✎</button>
-        <button class="item-copy" onclick="copyTaskToEditor('${t.id}'); if(event) event.stopPropagation();" title="کپی">⧉</button>
-        <button class="item-del" onclick="deleteTask('${t.id}', event)">✕</button>
+        <div class="ti-actions">
+          <button class="item-edit" onclick="openTaskEditorEdit('${t.id}'); if(event) event.stopPropagation();" title="ویرایش">✎</button>
+          <button class="item-copy" onclick="copyTaskToEditor('${t.id}'); if(event) event.stopPropagation();" title="کپی">⧉</button>
+          <button class="item-del" onclick="deleteTask('${t.id}', event)">✕</button>
+        </div>
       </div>
       ${expanded ? `
         <div class="today-subtasks">
