@@ -838,6 +838,7 @@ let state = {
 };
 
 let loadError = false;
+let realtimeStarted = false;
 
 async function loadAll(){
   loadError = false;
@@ -873,7 +874,117 @@ async function loadAll(){
     if(!state.tags) state.tags = DEFAULT_TAGS;
     if(!state.tasks) state.tasks = [];
   }
+  if(!realtimeStarted){ realtimeStarted = true; startRealtimeSync(); }
   render();
+}
+
+/* ---------- realtime sync (incremental — no full reload per change) ----------
+   Registers per-table INSERT/UPDATE/DELETE handlers on a shared channel. Each
+   handler patches only the affected slice of local state, so the cost of every
+   change stays constant no matter how much data or how many tables exist.
+   To wire up a future table: call registerRealtimeSync(channel, 'table_name',
+   { onInsert, onUpdate, onDelete }) inside startRealtimeSync — the rest of the
+   plumbing (channel, subscribe, reconnect-reconcile) is already shared. */
+function registerRealtimeSync(channel, table, handlers){
+  if(handlers.onInsert) channel.on('postgres_changes', { event:'INSERT', schema:'public', table }, payload => handlers.onInsert(payload.new));
+  if(handlers.onUpdate) channel.on('postgres_changes', { event:'UPDATE', schema:'public', table }, payload => handlers.onUpdate(payload.new, payload.old));
+  if(handlers.onDelete) channel.on('postgres_changes', { event:'DELETE', schema:'public', table }, payload => handlers.onDelete(payload.old));
+  return channel;
+}
+function startRealtimeSync(){
+  const channel = sb.channel('planner-sync');
+
+  registerRealtimeSync(channel, 'tags', {
+    onInsert(row){
+      if(state.tags.some(t => t.id === row.id)) return;
+      state.tags.push({ id:row.id, name:row.name, color:row.color });
+      render();
+    },
+    onUpdate(row){
+      const t = state.tags.find(t => t.id === row.id);
+      if(!t) return;
+      t.name = row.name; t.color = row.color;
+      render();
+    },
+    onDelete(old){
+      state.tags = state.tags.filter(t => t.id !== old.id);
+      state.tasks.forEach(task => { task.tagIds = task.tagIds.filter(id => id !== old.id); });
+      state.todayFilters.tagIds = state.todayFilters.tagIds.filter(id => id !== old.id);
+      state.tasksFilters.tagIds = state.tasksFilters.tagIds.filter(id => id !== old.id);
+      render();
+    },
+  });
+
+  registerRealtimeSync(channel, 'tasks', {
+    onInsert(row){
+      if(state.tasks.some(t => t.id === row.id)) return;
+      state.tasks.unshift({
+        id:row.id, title:row.title, done:!!row.done, completedAt:row.completed_at,
+        tagIds:[], priority:row.priority, subtasks:[], date:row.date || '', durationMin:row.duration_min,
+      });
+      render();
+    },
+    onUpdate(row){
+      const t = state.tasks.find(t => t.id === row.id);
+      if(!t) return;
+      t.title = row.title; t.done = !!row.done; t.completedAt = row.completed_at;
+      t.priority = row.priority; t.date = row.date || ''; t.durationMin = row.duration_min;
+      render();
+    },
+    onDelete(old){
+      state.tasks = state.tasks.filter(t => t.id !== old.id);
+      render();
+    },
+  });
+
+  registerRealtimeSync(channel, 'task_tags', {
+    onInsert(row){
+      const t = state.tasks.find(t => t.id === row.task_id);
+      if(!t || t.tagIds.includes(row.tag_id)) return;
+      t.tagIds.push(row.tag_id);
+      render();
+    },
+    onDelete(old){
+      const t = state.tasks.find(t => t.id === old.task_id);
+      if(!t) return;
+      t.tagIds = t.tagIds.filter(id => id !== old.tag_id);
+      render();
+    },
+  });
+
+  registerRealtimeSync(channel, 'subtasks', {
+    onInsert(row){
+      const t = state.tasks.find(t => t.id === row.task_id);
+      if(!t || t.subtasks.some(s => s.id === row.id)) return;
+      t.subtasks.push({ id:row.id, title:row.title, done:!!row.done });
+      render();
+    },
+    onUpdate(row){
+      const t = state.tasks.find(t => t.id === row.task_id);
+      if(!t) return;
+      const s = t.subtasks.find(s => s.id === row.id);
+      if(!s) return;
+      s.title = row.title; s.done = !!row.done;
+      render();
+    },
+    onDelete(old){
+      // default replica identity only guarantees the primary key (id) on DELETE,
+      // so we can't rely on old.task_id here — sweep every task's subtasks by id instead.
+      state.tasks.forEach(t => { t.subtasks = t.subtasks.filter(s => s.id !== old.id); });
+      render();
+    },
+  });
+
+  let hasSubscribedBefore = false;
+  channel.subscribe(status => {
+    if(status === 'SUBSCRIBED'){
+      // a re-subscribe after a dropped connection may have missed events in between;
+      // one full reconciliation load fixes that. First-ever subscribe is a no-op here
+      // since loadAll() already populated state right before this was called.
+      if(hasSubscribedBefore) loadAll();
+      hasSubscribedBefore = true;
+    }
+  });
 }
 
 function uid(){ return (crypto.randomUUID ? crypto.randomUUID() : 'id-'+Date.now()+'-'+Math.random()); }
