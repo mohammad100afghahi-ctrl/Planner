@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>مدار</title>
 <link rel="manifest" href="./manifest.json">
-<meta name="theme-color" content="#12161C">
+<meta name="theme-color" content="#0A0E18">
 <link rel="icon" type="image/png" sizes="32x32" href="./favicon-32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="./favicon-16.png">
 <link rel="apple-touch-icon" href="./apple-touch-icon.png">
@@ -364,20 +364,35 @@ global.jalaali = {
 </script>
 <style>
   :root{
-    --bg:#12161C;
-    --surface:#1B2129;
-    --surface-2:#212934;
-    --surface-3:#2A323D;
-    --line:#2A323D;
-    --text:#E8EAED;
-    --text-muted:#8B95A1;
+    --bg:#0A0E18;
+    --surface: rgba(40, 51, 78, 0.40);
+    --surface-2: rgba(46, 58, 88, 0.48);
+    --surface-3: rgba(56, 70, 104, 0.56);
+    --line: rgba(255,255,255,0.14);
+    --text:#EDEFF6;
+    --text-muted:#9BA4B8;
     --accent:#E8A33D;
+    --accent2:#7C8CFF;
     --danger:#E8697A;
     --python:#5EC8D8;
     --english:#C97BD0;
     --freelance:#7FD99A;
     --fitness:#E8697A;
-    --gray-tag:#8B95A1;
+    --gray-tag:#9BA4B8;
+    --glass-blur: blur(22px) saturate(180%);
+    --glass-fill: linear-gradient(155deg, rgba(255,255,255,0.10), var(--surface) 45%);
+    --glass-fill-2: linear-gradient(155deg, rgba(255,255,255,0.09), var(--surface-2) 45%);
+    --glass-fill-3: linear-gradient(155deg, rgba(255,255,255,0.11), var(--surface-3) 45%);
+    --glass-shadow:
+      0 1px 1px rgba(0,0,0,0.28),
+      0 10px 26px -10px rgba(0,0,0,0.55),
+      inset 0 1px 0.5px rgba(255,255,255,0.30),
+      inset 0 -9px 15px -12px rgba(0,0,0,0.5);
+    --glass-shadow-sm:
+      0 1px 1px rgba(0,0,0,0.25),
+      0 4px 12px -6px rgba(0,0,0,0.5),
+      inset 0 1px 0.5px rgba(255,255,255,0.25),
+      inset 0 -4px 8px -8px rgba(0,0,0,0.45);
     color-scheme: dark;
   }
   *{box-sizing:border-box; margin:0; padding:0;}
@@ -388,7 +403,19 @@ global.jalaali = {
     font-family:'Vazirmatn', sans-serif;
     min-height:100vh;
     -webkit-font-smoothing:antialiased;
+    position:relative;
   }
+  body::before{
+    content:'';
+    position:fixed; inset:0; z-index:0; pointer-events:none;
+    background:
+      radial-gradient(380px 380px at 95% -6%, rgba(232,163,61,0.42), transparent 68%),
+      radial-gradient(340px 340px at -8% 28%, rgba(124,140,255,0.34), transparent 68%),
+      radial-gradient(280px 280px at 88% 60%, rgba(127,217,154,0.20), transparent 68%),
+      radial-gradient(260px 260px at 15% 88%, rgba(201,123,208,0.18), transparent 68%);
+    filter:blur(55px);
+  }
+  .app{position:relative; z-index:1;}
   .mono{font-family:'JetBrains Mono', monospace; direction:ltr; display:inline-block;}
   button, input, textarea, select{font-family:inherit;}
 
@@ -724,6 +751,86 @@ global.jalaali = {
     padding:9px 12px; border-radius:9px; outline:none;
   }
   .archive-search-input:focus{border-color:var(--accent);}
+
+  /* ============ Liquid-glass surface system ============
+     Applied broadly across containers/cards/badges/buttons. Each gets:
+     - a backdrop blur (real glass refraction against the page's glow blobs)
+     - a diagonal gradient fill (light corner -> darker corner = curvature)
+     - a layered box-shadow (outer lift + inset top highlight + inset bottom depth)
+     - a thin bright rim across the top edge (::before) = specular highlight */
+  nav, .add-task-btn, .progress-box, .tag-manager, .filter-panel, .task-card, .today-item,
+  .modal-box, .pomo-box, .task-calendar, .cal-day-task, .streak-badge, .cal-nav, .cal-back,
+  .date-picker-btn, .reset-filters-btn, .new-tag-row button, .modal-add-subtask button,
+  .modal-actions button, .pomo-task-pick-row, .pomo-cycles, .archive-search-input{
+    background:var(--glass-fill);
+    backdrop-filter:var(--glass-blur);
+    -webkit-backdrop-filter:var(--glass-blur);
+    border:1px solid var(--line);
+    box-shadow:var(--glass-shadow);
+    position:relative;
+  }
+  nav::before, .add-task-btn::before, .progress-box::before, .tag-manager::before, .filter-panel::before,
+  .task-card::before, .today-item::before, .modal-box::before, .pomo-box::before, .task-calendar::before,
+  .cal-day-task::before, .streak-badge::before, .cal-nav::before, .cal-back::before, .date-picker-btn::before,
+  .reset-filters-btn::before, .new-tag-row button::before, .modal-add-subtask button::before,
+  .modal-actions button::before, .pomo-task-pick-row::before, .archive-search-input::before{
+    content:'';
+    position:absolute; top:0; left:12%; right:12%; height:1px;
+    background:linear-gradient(90deg, transparent, rgba(255,255,255,0.55), transparent);
+    pointer-events:none;
+  }
+  .modal-actions button.confirm{box-shadow:var(--glass-shadow-sm), 0 6px 16px -6px rgba(232,163,61,0.5);}
+
+  /* smaller controls: same glass fill, lighter shadow, no rim (too small to read one) */
+  .modal-title-input, .new-tag-row input[type=text], .modal-add-subtask input, .modal-subtask-row,
+  .modal-section input[type=date], .modal-section input[type=number], .modal-section input.num-text,
+  .filter-group input[type=date], .cal-cell:not(.empty){
+    background:var(--glass-fill-2);
+    backdrop-filter:var(--glass-blur);
+    -webkit-backdrop-filter:var(--glass-blur);
+    border:1px solid var(--line);
+    box-shadow:var(--glass-shadow-sm);
+  }
+
+  /* pill-shaped tags/chips: convex glass pebble look, tinted by --chip-color where present */
+  .tag-chip, .mini-tag, .pick-chip, .filter-chip, .priority-chip, .quick-chip{
+    position:relative; overflow:hidden;
+  }
+  .tag-chip::after, .mini-tag::after, .pick-chip::after, .filter-chip::after,
+  .priority-chip::after, .quick-chip::after{
+    content:'';
+    position:absolute; top:-70%; left:6%; width:34%; height:200%;
+    background:rgba(255,255,255,0.30); border-radius:50%; filter:blur(3px);
+    transform:rotate(18deg); pointer-events:none;
+  }
+  .tag-chip, .mini-tag, .pick-chip.on{
+    background:linear-gradient(160deg, color-mix(in srgb, var(--chip-color) 55%, transparent), color-mix(in srgb, var(--chip-color) 16%, transparent) 60%);
+    box-shadow:
+      0 3px 8px -3px color-mix(in srgb, var(--chip-color) 45%, transparent),
+      inset 0 1px 0.5px rgba(255,255,255,0.5),
+      inset 0 -3px 6px -4px rgba(0,0,0,0.4);
+    border-color:color-mix(in srgb, var(--chip-color) 45%, white 10%);
+  }
+  .filter-chip.active, .priority-chip.high.active, .priority-chip.medium.active, .priority-chip.low.active,
+  .quick-chip.active, .quick-chip.suggestion-chip{
+    box-shadow:
+      0 3px 8px -3px rgba(0,0,0,0.3),
+      inset 0 1px 0.5px rgba(255,255,255,0.4),
+      inset 0 -3px 6px -4px rgba(0,0,0,0.35);
+  }
+
+  .fab{
+    background:linear-gradient(155deg, color-mix(in srgb, var(--accent) 60%, white 30%), var(--accent) 65%);
+    box-shadow:
+      0 10px 24px -6px rgba(232,163,61,0.55),
+      inset 0 1px 1px rgba(255,255,255,0.65),
+      inset 0 -6px 10px -8px rgba(0,0,0,0.4);
+  }
+  .fab::before{
+    content:'';
+    position:absolute; top:6px; left:16px; right:16px; height:1px;
+    background:linear-gradient(90deg, transparent, rgba(255,255,255,0.8), transparent);
+  }
 </style>
 </head>
 <body>
