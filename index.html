@@ -4,6 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>مدار</title>
+<link rel="manifest" href="./manifest.json">
+<meta name="theme-color" content="#12161C">
+<link rel="icon" type="image/png" sizes="32x32" href="./favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="./favicon-16.png">
+<link rel="apple-touch-icon" href="./apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="مدار">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -711,6 +719,34 @@ global.jalaali = {
   .cal-day-task.done{opacity:.55;}
   .cal-day-task-title{font-size:13.5px; font-weight:600; color:var(--text); margin-bottom:6px;}
   .cal-day-task-title.done-text{text-decoration:line-through; color:var(--text-muted);}
+
+  /* streak badge */
+  .streak-badge{
+    display:flex; align-items:center; gap:8px; background:var(--surface); border:1px solid var(--line);
+    border-radius:12px; padding:10px 14px; margin-bottom:16px; width:fit-content;
+  }
+  .streak-flame{font-size:20px; filter:grayscale(0); transition:filter .2s;}
+  .streak-badge.at-risk .streak-flame{filter:grayscale(1); opacity:.55;}
+  .streak-count{font-size:17px; font-weight:800; color:var(--text);}
+  .streak-badge.at-risk .streak-count{color:var(--text-muted);}
+  .streak-label{font-size:11.5px; color:var(--text-muted);}
+
+  /* pomodoro <-> task link */
+  .pomo-linked-task{font-size:12.5px; color:var(--freelance); text-align:center; margin-top:6px;}
+  .pomo-task-pick-list{max-height:260px; overflow-y:auto; margin-top:10px; display:flex; flex-direction:column; gap:6px;}
+  .pomo-task-pick-row{
+    display:flex; align-items:center; justify-content:space-between; gap:8px; background:var(--surface-2);
+    border:1px solid var(--line); border-radius:9px; padding:9px 12px; cursor:pointer; color:var(--text); font-size:13px;
+    font-family:inherit; text-align:right; width:100%;
+  }
+  .pomo-task-pick-row:hover{border-color:var(--accent);}
+
+  /* archive */
+  .archive-search-input{
+    width:100%; background:var(--surface-2); border:1px solid var(--line); color:var(--text); font-size:13px;
+    padding:9px 12px; border-radius:9px; outline:none;
+  }
+  .archive-search-input:focus{border-color:var(--accent);}
 </style>
 </head>
 <body>
@@ -822,6 +858,7 @@ let state = {
   tagManagerOpen: false,
   todayFilters: emptyFilters(),
   tasksFilters: Object.assign(emptyFilters(), { date:null }),
+  archiveFilters: { search:'', tagIds:[], dateFrom:null, dateTo:null },
   todayExpanded: {},
   progressRange: 7,
   today: new Date(),
@@ -834,7 +871,9 @@ let state = {
     workMin: 25, breakMin: 5,
     mode: 'work', remaining: 25*60, running: false, cyclesDone: 0, focusLabel: '',
     timerId: null,
+    linkedTaskId: null, taskDecided: false, creditedMin: 0,
   },
+  pomoTaskPicker: null, // { search:'' } when the "which task?" modal is open
 };
 
 let loadError = false;
@@ -1776,11 +1815,44 @@ function renderTaskCard(task){
 }
 
 function renderTasksView(){
-  const filtered = applyFiltersAndSort(state.tasks, 'tasksFilters', { dateFilter:true });
+  const filtered = applyFiltersAndSort(state.tasks.filter(t => !isArchived(t)), 'tasksFilters', { dateFilter:true });
   return `
     ${renderTagManager()}
     ${renderFilterPanel('tasksFilters', { dateFilter:true })}
     ${filtered.length === 0 ? `<div class="empty-state">کاری با این فیلترها پیدا نشد</div>` : filtered.map(renderTaskCard).join('')}
+  `;
+}
+
+function renderArchivePage(){
+  const f = state.archiveFilters;
+  const search = f.search.trim();
+  let list = state.tasks.filter(isArchived);
+  if(search) list = list.filter(t => t.title.includes(search));
+  if(f.tagIds.length) list = list.filter(t => t.tagIds.some(id => f.tagIds.includes(id)));
+  if(f.dateFrom) list = list.filter(t => t.completedAt && t.completedAt.slice(0,10) >= f.dateFrom);
+  if(f.dateTo) list = list.filter(t => t.completedAt && t.completedAt.slice(0,10) <= f.dateTo);
+  list = [...list].sort((a,b) => (b.completedAt||'').localeCompare(a.completedAt||''));
+  const active = !!(search || f.tagIds.length || f.dateFrom || f.dateTo);
+  return `
+    <h2 class="section-title">آرشیو</h2>
+    <div class="filter-panel">
+      <div class="filter-group">
+        <input type="text" class="archive-search-input" placeholder="جست‌وجو در عنوان تسک‌ها…" value="${escapeHtml(f.search)}" oninput="setArchiveSearch(this.value)" />
+      </div>
+      <div class="filter-group">
+        <span class="filter-group-label">تگ:</span>
+        ${state.tags.map(t => `<span class="filter-chip ${f.tagIds.includes(t.id)?'active':''}" onclick="toggleArchiveTag('${t.id}')">${escapeHtml(t.name)}</span>`).join('')}
+      </div>
+      <div class="filter-group">
+        <span class="filter-group-label">بازه‌ی تکمیل:</span>
+        <input type="date" value="${f.dateFrom||''}" onchange="setArchiveDateFrom(this.value)" />
+        <span style="color:var(--text-muted);font-size:11px;">تا</span>
+        <input type="date" value="${f.dateTo||''}" onchange="setArchiveDateTo(this.value)" />
+      </div>
+      ${active ? `<button class="reset-filters-btn" onclick="resetArchiveFilters()">پاک‌کردن فیلترها</button>` : ''}
+    </div>
+    <div style="font-size:11.5px;color:var(--text-muted);margin-bottom:12px;">تسک‌های تکمیل‌شده‌ای که بیش از ${toFaDigits(ARCHIVE_THRESHOLD_DAYS)} روز از تکمیلشون گذشته، این‌جا نگه‌داری می‌شن.</div>
+    ${list.length === 0 ? `<div class="empty-state">چیزی توی آرشیو با این فیلترها پیدا نشد</div>` : list.map(renderTaskCard).join('')}
   `;
 }
 
@@ -1901,6 +1973,7 @@ function renderToday(){
 
   return `
     <div style="font-size:12px;color:var(--text-muted);margin-bottom:14px;">${wd}</div>
+    ${renderStreakBadge()}
     ${renderProgress()}
     ${renderTimeBox(todayTasksRaw)}
     <h2 class="section-title">برنامه امروز</h2>
@@ -1916,10 +1989,12 @@ function formatTime(sec){
 }
 function renderPomodoro(){
   const p = state.pomo;
+  const linkedTask = p.linkedTaskId ? state.tasks.find(t => t.id === p.linkedTaskId) : null;
   return `
     <div class="pomo-box">
       <div class="pomo-mode ${p.mode}">${p.mode === 'work' ? 'زمان تمرکز' : 'زمان استراحت'}</div>
       <div class="pomo-timer">${formatTime(p.remaining)}</div>
+      ${linkedTask ? `<div class="pomo-linked-task">🔗 در حال کار روی: <b>${escapeHtml(linkedTask.title)}</b></div>` : ''}
       <div class="pomo-controls">
         <button class="primary" onclick="pomoToggle()">${p.running ? 'توقف' : 'شروع'}</button>
         <button onclick="pomoReset()">ریست</button>
@@ -1932,6 +2007,37 @@ function renderPomodoro(){
       <div class="pomo-cycles">دورهای تکمیل‌شده امروز: <b class="mono">${toFaDigits(p.cyclesDone)}</b></div>
       <div class="pomo-focus">
         <input type="text" placeholder="الان روی چی کار می‌کنی؟ (اختیاری)" value="${escapeHtml(p.focusLabel)}" onchange="p_setFocusLabel(this.value)" />
+      </div>
+    </div>
+    ${state.pomoTaskPicker ? renderPomoTaskPicker() : ''}
+  `;
+}
+function renderPomoTaskPicker(){
+  const search = state.pomoTaskPicker.search.trim();
+  const todayStr = dateKey(new Date());
+  let list = state.tasks.filter(t => !t.done && t.date === todayStr);
+  if(search) list = list.filter(t => t.title.includes(search));
+  return `
+    <div class="modal-overlay" onclick="if(event.target===this) pomoCancelTaskPick()">
+      <div class="modal-box">
+        <h3>روی کدوم تسک کار می‌کنی؟</h3>
+        <input type="text" class="modal-title-input" placeholder="جست‌وجو در تسک‌های امروز…"
+          value="${escapeHtml(state.pomoTaskPicker.search)}" oninput="pomoSetTaskPickerSearch(this.value)" />
+        <div class="pomo-task-pick-list">
+          ${list.length === 0
+            ? `<div class="empty-state" style="padding:14px 0;">تسک بازِ امروزی با این جست‌وجو پیدا نشد</div>`
+            : list.map(t => `
+              <button class="pomo-task-pick-row" onclick="pomoPickTask('${t.id}')">
+                <span>${escapeHtml(t.title)}</span>
+                ${t.durationMin ? `<span class="summary-text">${toFaDigits(t.durationMin)} د</span>` : ''}
+              </button>
+            `).join('')
+          }
+        </div>
+        <div class="modal-actions">
+          <button class="cancel" onclick="pomoCancelTaskPick()">انصراف</button>
+          <button class="confirm" onclick="pomoSkipTaskPick()">بدون تسک خاص، فقط تایمر</button>
+        </div>
       </div>
     </div>
   `;
@@ -1956,6 +2062,29 @@ function playAlarm(){
   }catch(e){ console.error('alarm failed', e); }
 }
 
+async function addDurationToTask(taskId, deltaMin){
+  const t = state.tasks.find(t => t.id === taskId);
+  if(!t || deltaMin <= 0) return;
+  t.durationMin = (t.durationMin || 0) + deltaMin;
+  render();
+  const { error } = await sb.from('tasks').update({ duration_min: t.durationMin }).eq('id', taskId);
+  if(error) console.error('addDurationToTask failed', error);
+}
+/* Credits whatever work-time has elapsed in the current phase to the linked task,
+   without double-counting time already credited (tracked via creditedMin). Safe to
+   call on every stop/skip/natural-completion. */
+function pomoFlushCredit(){
+  const p = state.pomo;
+  if(p.mode !== 'work' || !p.linkedTaskId) return;
+  const elapsedSec = p.workMin*60 - p.remaining;
+  const elapsedMin = Math.floor(elapsedSec/60);
+  const deltaMin = elapsedMin - p.creditedMin;
+  if(deltaMin > 0){
+    addDurationToTask(p.linkedTaskId, deltaMin);
+    p.creditedMin = elapsedMin;
+  }
+}
+
 function pomoTick(){
   const p = state.pomo;
   if(p.remaining > 0){
@@ -1965,6 +2094,8 @@ function pomoTick(){
   } else {
     playAlarm();
     if(p.mode === 'work'){
+      pomoFlushCredit();
+      p.creditedMin = 0;
       p.cyclesDone++;
       p.mode = 'break';
       p.remaining = p.breakMin * 60;
@@ -1975,25 +2106,65 @@ function pomoTick(){
     render();
   }
 }
-function pomoToggle(){
+function pomoActuallyStart(){
   const p = state.pomo;
-  p.running = !p.running;
-  if(p.running) p.timerId = setInterval(pomoTick, 1000);
-  else clearInterval(p.timerId);
+  p.running = true;
+  p.timerId = setInterval(pomoTick, 1000);
   render();
 }
+function pomoToggle(){
+  const p = state.pomo;
+  if(p.running){
+    pomoFlushCredit();
+    p.running = false;
+    clearInterval(p.timerId);
+    render();
+    return;
+  }
+  if(!p.taskDecided){
+    state.pomoTaskPicker = { search:'' };
+    render();
+    return;
+  }
+  pomoActuallyStart();
+}
+function pomoPickTask(taskId){
+  state.pomo.linkedTaskId = taskId;
+  state.pomo.taskDecided = true;
+  state.pomoTaskPicker = null;
+  pomoActuallyStart();
+}
+function pomoSkipTaskPick(){
+  state.pomo.linkedTaskId = null;
+  state.pomo.taskDecided = true;
+  state.pomoTaskPicker = null;
+  pomoActuallyStart();
+}
+function pomoCancelTaskPick(){
+  state.pomoTaskPicker = null;
+  render();
+}
+function pomoSetTaskPickerSearch(v){ state.pomoTaskPicker.search = v; render(); }
 function pomoReset(){
   const p = state.pomo;
   clearInterval(p.timerId);
   p.running = false;
   p.mode = 'work';
   p.remaining = p.workMin * 60;
+  p.creditedMin = 0;
+  p.linkedTaskId = null;
+  p.taskDecided = false;
   render();
 }
 function pomoSkip(){
   const p = state.pomo;
-  if(p.mode === 'work'){ p.mode = 'break'; p.remaining = p.breakMin*60; }
-  else { p.mode = 'work'; p.remaining = p.workMin*60; }
+  if(p.mode === 'work'){
+    pomoFlushCredit();
+    p.creditedMin = 0;
+    p.mode = 'break'; p.remaining = p.breakMin*60;
+  } else {
+    p.mode = 'work'; p.remaining = p.workMin*60;
+  }
   render();
 }
 async function setPomoSetting(key, value){
@@ -2048,6 +2219,51 @@ function renderFab(){
   return `<button class="fab" onclick="openTaskEditorNew()" title="افزودن تسک" aria-label="افزودن تسک">+</button>`;
 }
 
+/* ---------- streak (Duolingo-style: consecutive days with >=1 task completed on that task's own date) ---------- */
+function computeStreak(){
+  const doneDates = new Set();
+  state.tasks.forEach(t => { if(t.done && t.date) doneDates.add(t.date); });
+
+  const todayKey = dateKey(new Date());
+  const atRisk = !doneDates.has(todayKey);
+
+  let streak = 0;
+  const cursor = new Date();
+  if(atRisk) cursor.setDate(cursor.getDate() - 1); // today not done yet: count contiguous days ending yesterday
+  while(doneDates.has(dateKey(cursor))){
+    streak++;
+    cursor.setDate(cursor.getDate() - 1);
+  }
+  return { streak, atRisk };
+}
+function renderStreakBadge(){
+  const { streak, atRisk } = computeStreak();
+  return `
+    <div class="streak-badge ${atRisk ? 'at-risk' : ''}" title="${atRisk ? 'امروز هنوز تسکی تکمیل نکردی — استریکت در خطره' : 'امروز حفظ شد'}">
+      <span class="streak-flame">🔥</span>
+      <span class="streak-count mono">${toFaDigits(streak)}</span>
+      <span class="streak-label">روز پیاپی</span>
+    </div>
+  `;
+}
+
+/* ---------- archive (completed tasks older than the threshold, hidden from the main list) ---------- */
+const ARCHIVE_THRESHOLD_DAYS = 30;
+function isArchived(t){
+  if(!t.done || !t.completedAt) return false;
+  const days = (Date.now() - new Date(t.completedAt).getTime()) / (1000*60*60*24);
+  return days > ARCHIVE_THRESHOLD_DAYS;
+}
+function setArchiveSearch(v){ state.archiveFilters.search = v; render(); }
+function toggleArchiveTag(tagId){
+  const f = state.archiveFilters;
+  f.tagIds = f.tagIds.includes(tagId) ? f.tagIds.filter(id => id !== tagId) : [...f.tagIds, tagId];
+  render();
+}
+function setArchiveDateFrom(v){ state.archiveFilters.dateFrom = v || null; render(); }
+function setArchiveDateTo(v){ state.archiveFilters.dateTo = v || null; render(); }
+function resetArchiveFilters(){ state.archiveFilters = { search:'', tagIds:[], dateFrom:null, dateTo:null }; render(); }
+
 /* ---------- nav / render ---------- */
 function setView(v){ state.view = v; render(); }
 
@@ -2072,6 +2288,7 @@ function render(){
       <button class="${state.view==='calendar' ? 'active' : ''}" onclick="setView('calendar')">تقویم</button>
       <button class="${state.view==='pomodoro' ? 'active' : ''}" onclick="setView('pomodoro')">پومودورو</button>
       <button class="${state.view==='review' ? 'active' : ''}" onclick="setView('review')">ریویو هفتگی</button>
+      <button class="${state.view==='archive' ? 'active' : ''}" onclick="setView('archive')">آرشیو</button>
     </nav>
 
     ${loadError ? `<div class="empty-state" style="background:var(--surface);border:1px solid var(--danger);border-radius:10px;color:var(--danger);margin-bottom:16px;">اتصال به دیتابیس برقرار نشد — اینترنتت رو چک کن و صفحه رو رفرش کن.</div>` : ''}
@@ -2082,6 +2299,7 @@ function render(){
       ${state.view === 'calendar' ? renderCalendarPage() : ''}
       ${state.view === 'pomodoro' ? renderPomodoro() : ''}
       ${state.view === 'review' ? renderReview() : ''}
+      ${state.view === 'archive' ? renderArchivePage() : ''}
     </main>
     ${(state.view === 'today' || state.view === 'tasks') ? renderFab() : ''}
     ${renderTaskEditorModal()}
@@ -2089,6 +2307,13 @@ function render(){
 }
 
 loadAll();
+
+/* ---------- PWA: register the app-shell service worker ---------- */
+if('serviceWorker' in navigator){
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(e => console.error('SW register failed', e));
+  });
+}
 </script>
 </body>
 </html>
