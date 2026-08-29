@@ -467,7 +467,6 @@ global.jalaali = {
   .progress-box{background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:16px 18px; margin-bottom:16px;}
   .progress-header{display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;}
   .progress-header h2{margin:0;}
-  .range-chips{display:flex; gap:6px;}
   .progress-row{display:flex; align-items:center; gap:10px; margin-bottom:9px;}
   .progress-label{font-size:12px; width:64px; flex-shrink:0; color:var(--text-muted); font-weight:600;}
   .progress-bar-track{flex:1; height:9px; background:var(--surface-2); border-radius:5px; overflow:hidden;}
@@ -498,6 +497,9 @@ global.jalaali = {
   .new-tag-row input[type=color]{
     width:34px; height:34px; border:1px solid var(--line); border-radius:7px; background:none; cursor:pointer; padding:2px;
   }
+  .tag-goals-section{margin-top:16px; padding-top:14px; border-top:1px solid var(--line);}
+  .tag-goal-row{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:8px;}
+  .tag-goal-row .num-text{width:60px;}
   .recurring-tpl-row{
     display:flex; align-items:center; justify-content:space-between; gap:10px; padding:9px 12px;
     background:var(--surface-2); border:1px solid var(--line); border-radius:9px; margin-bottom:8px;
@@ -996,7 +998,6 @@ let state = {
   tasksFilters: Object.assign(emptyFilters(), { date:null }),
   archiveFilters: { search:'', tagIds:[], dateFrom:null, dateTo:null },
   todayExpanded: {},
-  progressRange: 7,
   today: new Date(),
   taskEditor: null, // { mode:'create'|'edit', taskId, draft:{title,tagIds,priority,date,durationMin,subtasks} }
   calendarPage: (function(){
@@ -1013,6 +1014,7 @@ let state = {
   moveTaskPicker: null, // { search:'', dateStr } when picking an existing task to move into a calendar day
   recurringTemplates: [], // [{ id, title, priority, durationMin, weekdays:[0-6], active, tagIds }]
   recurringManagerOpen: false,
+  tagGoals: [], // [{ tagId, weeklyMinutes }] — standing weekly time targets per tag
 };
 
 let loadError = false;
@@ -1052,6 +1054,10 @@ async function loadAll(){
       tagIds: (r.recurring_template_tags||[]).map(tt => tt.tag_id),
     }));
 
+    const { data: goals, error: goalsErr } = await sb.from('tag_goals').select('*');
+    if(goalsErr) throw goalsErr;
+    state.tagGoals = goals.map(g => ({ tagId: g.tag_id, weeklyMinutes: g.weekly_minutes }));
+
     const { data: pomo, error: pomoErr } = await sb.from('pomo_settings').select('*').eq('id', 1).maybeSingle();
     if(pomoErr) throw pomoErr;
     if(pomo){ state.pomo.workMin = pomo.work_min; state.pomo.breakMin = pomo.break_min; state.pomo.remaining = pomo.work_min*60; }
@@ -1061,6 +1067,7 @@ async function loadAll(){
     if(!state.tags) state.tags = DEFAULT_TAGS;
     if(!state.tasks) state.tasks = [];
     if(!state.recurringTemplates) state.recurringTemplates = [];
+    if(!state.tagGoals) state.tagGoals = [];
   }
   generateRecurringInstances();
   if(!realtimeStarted){ realtimeStarted = true; startRealtimeSync(); }
@@ -1199,6 +1206,24 @@ function startRealtimeSync(){
     },
   });
 
+  registerRealtimeSync(channel, 'tag_goals', {
+    onInsert(row){
+      if(state.tagGoals.some(g => g.tagId === row.tag_id)) return;
+      state.tagGoals.push({ tagId:row.tag_id, weeklyMinutes:row.weekly_minutes });
+      render();
+    },
+    onUpdate(row){
+      const g = state.tagGoals.find(g => g.tagId === row.tag_id);
+      if(!g) return;
+      g.weeklyMinutes = row.weekly_minutes;
+      render();
+    },
+    onDelete(old){
+      state.tagGoals = state.tagGoals.filter(g => g.tagId !== old.tag_id);
+      render();
+    },
+  });
+
   let hasSubscribedBefore = false;
   channel.subscribe(status => {
     if(status === 'SUBSCRIBED'){
@@ -1231,12 +1256,46 @@ async function deleteTag(tagId){
   state.tasks.forEach(task => { task.tagIds = task.tagIds.filter(id => id !== tagId); });
   state.todayFilters.tagIds = state.todayFilters.tagIds.filter(id => id !== tagId);
   state.tasksFilters.tagIds = state.tasksFilters.tagIds.filter(id => id !== tagId);
+  state.tagGoals = state.tagGoals.filter(g => g.tagId !== tagId);
   render();
   const { error } = await sb.from('tags').delete().eq('id', tagId);
   if(error) console.error('deleteTag failed', error);
 }
 function toggleTagManager(){ state.tagManagerOpen = !state.tagManagerOpen; render(); }
 function toggleRecurringManager(){ state.recurringManagerOpen = !state.recurringManagerOpen; render(); }
+
+function getCurrentWeekRange(){
+  const today = new Date();
+  const daysSinceSaturday = (today.getDay() + 1) % 7; // Sat=0, Sun=1, ... Fri=6
+  const start = new Date(today);
+  start.setDate(start.getDate() - daysSinceSaturday);
+  const end = new Date(start);
+  end.setDate(end.getDate() + 6);
+  return { start: dateKey(start), end: dateKey(end) };
+}
+function computeTagWeeklyMinutes(tagId){
+  const { start, end } = getCurrentWeekRange();
+  return state.tasks
+    .filter(t => t.tagIds.includes(tagId) && t.date && t.date >= start && t.date <= end)
+    .reduce((s,t) => s + (t.actualMin || 0), 0);
+}
+async function setTagGoal(tagId, weeklyMinutes){
+  const existing = state.tagGoals.find(g => g.tagId === tagId);
+  if(weeklyMinutes <= 0){
+    state.tagGoals = state.tagGoals.filter(g => g.tagId !== tagId);
+    render();
+    if(existing){
+      const { error } = await sb.from('tag_goals').delete().eq('tag_id', tagId);
+      if(error) console.error('removeTagGoal failed', error);
+    }
+    return;
+  }
+  if(existing) existing.weeklyMinutes = weeklyMinutes;
+  else state.tagGoals.push({ tagId, weeklyMinutes });
+  render();
+  const { error } = await sb.from('tag_goals').upsert({ tag_id:tagId, weekly_minutes:weeklyMinutes });
+  if(error) console.error('setTagGoal failed', error);
+}
 
 /* ---------- filters (shared by today & tasks pages) ---------- */
 function toggleFilterTag(pageKey, tagId){
@@ -2112,6 +2171,22 @@ function renderTagManager(){
             <input type="color" id="new-tag-color" value="#8B95A1" />
             <button onclick="addTag()">افزودن تگ</button>
           </div>
+          ${state.tags.length ? `
+            <div class="tag-goals-section">
+              <span class="modal-section-label">🎯 هدف هفتگی هر تگ (ساعت)</span>
+              ${state.tags.map(tag => {
+                const g = state.tagGoals.find(g => g.tagId === tag.id);
+                const hours = g ? Math.round(g.weeklyMinutes / 60) : '';
+                return `
+                  <div class="tag-goal-row">
+                    <span class="tag-chip" style="--chip-color:${tag.color}">${escapeHtml(tag.name)}</span>
+                    <input type="text" inputmode="numeric" class="num-text" placeholder="بدون هدف" value="${hours}"
+                      oninput="normalizeNumericInput(this)" onchange="setTagGoal('${tag.id}', (parseInt(toEnDigits(this.value))||0)*60)" />
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          ` : ''}
         </div>
       ` : ''}
     </div>
@@ -2345,50 +2420,30 @@ function renderArchivePage(){
 }
 
 /* ---------- rendering: progress ---------- */
-function computeProgress(days){
-  const from = new Date();
-  from.setDate(from.getDate() - days + 1);
-  from.setHours(0,0,0,0);
-  const counts = {};
-  state.tasks.forEach(t => {
-    if(t.done && t.completedAt){
-      const cd = new Date(t.completedAt);
-      if(cd >= from){
-        if(t.tagIds.length === 0){ counts['__none__'] = (counts['__none__']||0) + 1; }
-        t.tagIds.forEach(tid => { counts[tid] = (counts[tid]||0) + 1; });
-      }
-    }
-  });
-  return counts;
-}
-function setProgressRange(d){ state.progressRange = d; render(); }
-function renderProgress(){
-  const counts = computeProgress(state.progressRange);
-  const entries = Object.entries(counts).map(([tid, count]) => {
-    if(tid === '__none__') return { name:'بدون تگ', color:'var(--gray-tag)', count };
-    const tag = state.tags.find(t => t.id === tid);
-    return tag ? { name: tag.name, color: tag.color, count } : null;
-  }).filter(Boolean).sort((a,b) => b.count - a.count);
-  const max = entries.length ? entries[0].count : 1;
-  const rangeLabels = { 7:'۷ روز اخیر', 30:'۳۰ روز اخیر', 90:'۹۰ روز اخیر' };
+function renderWeeklyGoals(){
+  const goals = state.tagGoals.filter(g => g.weeklyMinutes > 0);
+  if(goals.length === 0) return '';
+  const rows = goals.map(g => {
+    const tag = state.tags.find(t => t.id === g.tagId);
+    if(!tag) return null;
+    const actual = computeTagWeeklyMinutes(g.tagId);
+    const pct = Math.min(100, Math.round(actual / g.weeklyMinutes * 100));
+    const reached = actual >= g.weeklyMinutes;
+    return { tag, actual, target: g.weeklyMinutes, pct, reached };
+  }).filter(Boolean);
+  if(rows.length === 0) return '';
   return `
     <div class="progress-box">
       <div class="progress-header">
-        <h2 class="section-title">پیشرفت</h2>
-        <div class="range-chips">
-          ${[7,30,90].map(d => `<span class="filter-chip ${state.progressRange===d?'active':''}" onclick="setProgressRange(${d})">${rangeLabels[d]}</span>`).join('')}
-        </div>
+        <h2 class="section-title">اهداف هفتگی</h2>
       </div>
-      ${entries.length === 0
-        ? `<div class="empty-state" style="padding:14px 0;">در این بازه کاری تکمیل نشده</div>`
-        : entries.map(e => `
-          <div class="progress-row">
-            <span class="progress-label">${escapeHtml(e.name)}</span>
-            <div class="progress-bar-track"><div class="progress-bar-fill" style="width:${Math.max(4, e.count/max*100)}%; background:${e.color}"></div></div>
-            <span class="progress-count mono">${toFaDigits(e.count)}</span>
-          </div>
-        `).join('')
-      }
+      ${rows.map(r => `
+        <div class="progress-row">
+          <span class="progress-label">${escapeHtml(r.tag.name)}</span>
+          <div class="progress-bar-track"><div class="progress-bar-fill" style="width:${Math.max(4, r.pct)}%; background:${r.reached ? 'var(--freelance)' : r.tag.color}"></div></div>
+          <span class="progress-count" style="width:auto; white-space:nowrap;">${r.reached ? '✓ ' : ''}${formatDuration(r.actual)} از ${formatDuration(r.target)}</span>
+        </div>
+      `).join('')}
     </div>
   `;
 }
@@ -2462,7 +2517,7 @@ function renderToday(){
       ${renderStreakBadge()}
       ${renderTimeBadge(todayTasksRaw)}
     </div>
-    ${renderProgress()}
+    ${renderWeeklyGoals()}
     <h2 class="section-title">برنامه امروز</h2>
     ${renderFilterPanel('todayFilters', { dateFilter:false })}
     ${scheduled.length === 0 ? `<div class="empty-state">کاری با این فیلترها برای امروز نیست</div>` : scheduled.map(t => renderTodayItem(t, todayStr)).join('')}
