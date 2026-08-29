@@ -498,6 +498,21 @@ global.jalaali = {
   .new-tag-row input[type=color]{
     width:34px; height:34px; border:1px solid var(--line); border-radius:7px; background:none; cursor:pointer; padding:2px;
   }
+  .recurring-tpl-row{
+    display:flex; align-items:center; justify-content:space-between; gap:10px; padding:9px 12px;
+    background:var(--surface-2); border:1px solid var(--line); border-radius:9px; margin-bottom:8px;
+  }
+  .recurring-tpl-title{font-size:13px; font-weight:600; color:var(--text);}
+  .recurring-tpl-days{font-size:11px; color:var(--text-muted); margin-top:3px;}
+  .recurring-toggle, .apply-future-check{
+    display:flex; align-items:center; gap:8px; font-size:12.5px; color:var(--text); cursor:pointer; user-select:none;
+  }
+  .recurring-toggle input, .apply-future-check input{width:16px; height:16px; accent-color:var(--accent); cursor:pointer;}
+  .recurring-instance-note{
+    font-size:12px; color:var(--text-muted); background:var(--surface-2); border:1px solid var(--line);
+    border-radius:9px; padding:10px 12px; margin-bottom:14px; line-height:1.8;
+  }
+  .recurring-instance-note .apply-future-check{margin-top:8px;}
   .new-tag-row button{
     background:var(--surface-3); color:var(--text); border:1px solid var(--line); font-size:12.5px; font-weight:600;
     padding:8px 14px; border-radius:7px; cursor:pointer;
@@ -889,6 +904,7 @@ const DEFAULT_TAGS = [
 ];
 
 const WEEKDAYS_FA = ['یکشنبه','دوشنبه','سه‌شنبه','چهارشنبه','پنجشنبه','جمعه','شنبه'];
+const WEEKDAY_DISPLAY_ORDER = [6,0,1,2,3,4,5]; // Saturday-first, matching the calendar grid
 const MONTHS_GREG_FA = ['ژانویه','فوریه','مارس','آوریل','مه','ژوئن','ژوئیه','اوت','سپتامبر','اکتبر','نوامبر','دسامبر'];
 const MONTHS_JALALI = ['فروردین','اردیبهشت','خرداد','تیر','مرداد','شهریور','مهر','آبان','آذر','دی','بهمن','اسفند'];
 const PRIORITY_RANK = { high:0, medium:1, low:2 };
@@ -995,6 +1011,8 @@ let state = {
   },
   pomoTaskPicker: null, // { search:'' } when the "which task?" modal is open
   moveTaskPicker: null, // { search:'', dateStr } when picking an existing task to move into a calendar day
+  recurringTemplates: [], // [{ id, title, priority, durationMin, weekdays:[0-6], active, tagIds }]
+  recurringManagerOpen: false,
 };
 
 let loadError = false;
@@ -1020,6 +1038,18 @@ async function loadAll(){
       date: t.date || '',
       durationMin: t.duration_min,
       actualMin: t.actual_min,
+      recurringTemplateId: t.recurring_template_id,
+    }));
+
+    const { data: recurring, error: recurringErr } = await sb
+      .from('recurring_templates')
+      .select('*, recurring_template_tags(tag_id)')
+      .order('created_at');
+    if(recurringErr) throw recurringErr;
+    state.recurringTemplates = recurring.map(r => ({
+      id: r.id, title: r.title, priority: r.priority, durationMin: r.duration_min,
+      weekdays: r.weekdays || [], active: !!r.active,
+      tagIds: (r.recurring_template_tags||[]).map(tt => tt.tag_id),
     }));
 
     const { data: pomo, error: pomoErr } = await sb.from('pomo_settings').select('*').eq('id', 1).maybeSingle();
@@ -1030,7 +1060,9 @@ async function loadAll(){
     loadError = true;
     if(!state.tags) state.tags = DEFAULT_TAGS;
     if(!state.tasks) state.tasks = [];
+    if(!state.recurringTemplates) state.recurringTemplates = [];
   }
+  generateRecurringInstances();
   if(!realtimeStarted){ realtimeStarted = true; startRealtimeSync(); }
   render();
 }
@@ -1078,6 +1110,7 @@ function startRealtimeSync(){
       state.tasks.unshift({
         id:row.id, title:row.title, done:!!row.done, completedAt:row.completed_at,
         tagIds:[], priority:row.priority, subtasks:[], date:row.date || '', durationMin:row.duration_min, actualMin:row.actual_min,
+        recurringTemplateId:row.recurring_template_id,
       });
       render();
     },
@@ -1090,6 +1123,40 @@ function startRealtimeSync(){
     },
     onDelete(old){
       state.tasks = state.tasks.filter(t => t.id !== old.id);
+      render();
+    },
+  });
+
+  registerRealtimeSync(channel, 'recurring_templates', {
+    onInsert(row){
+      if(state.recurringTemplates.some(t => t.id === row.id)) return;
+      state.recurringTemplates.push({ id:row.id, title:row.title, priority:row.priority, durationMin:row.duration_min, weekdays:row.weekdays||[], active:!!row.active, tagIds:[] });
+      render();
+    },
+    onUpdate(row){
+      const t = state.recurringTemplates.find(t => t.id === row.id);
+      if(!t) return;
+      t.title = row.title; t.priority = row.priority; t.durationMin = row.duration_min; t.weekdays = row.weekdays||[]; t.active = !!row.active;
+      render();
+    },
+    onDelete(old){
+      state.recurringTemplates = state.recurringTemplates.filter(t => t.id !== old.id);
+      state.tasks.forEach(t => { if(t.recurringTemplateId === old.id) t.recurringTemplateId = null; });
+      render();
+    },
+  });
+
+  registerRealtimeSync(channel, 'recurring_template_tags', {
+    onInsert(row){
+      const t = state.recurringTemplates.find(t => t.id === row.template_id);
+      if(!t || t.tagIds.includes(row.tag_id)) return;
+      t.tagIds.push(row.tag_id);
+      render();
+    },
+    onDelete(old){
+      const t = state.recurringTemplates.find(t => t.id === old.template_id);
+      if(!t) return;
+      t.tagIds = t.tagIds.filter(id => id !== old.tag_id);
       render();
     },
   });
@@ -1169,6 +1236,7 @@ async function deleteTag(tagId){
   if(error) console.error('deleteTag failed', error);
 }
 function toggleTagManager(){ state.tagManagerOpen = !state.tagManagerOpen; render(); }
+function toggleRecurringManager(){ state.recurringManagerOpen = !state.recurringManagerOpen; render(); }
 
 /* ---------- filters (shared by today & tasks pages) ---------- */
 function toggleFilterTag(pageKey, tagId){
@@ -1355,15 +1423,17 @@ function toggleTodayExpand(taskId){ state.todayExpanded[taskId] = !state.todayEx
 /* ---------- task editor modal (create / edit — all settings first, applied on confirm) ---------- */
 function openTaskEditorNew(){
   state.taskEditor = {
-    mode:'create', taskId:null, draft:{ title:'', tagIds:[], priority:null, date:'', durationMin:null, subtasks:[] },
+    mode:'create', taskId:null, draft:{ title:'', tagIds:[], priority:null, date:'', durationMin:null, subtasks:[], recurring:{ enabled:false, weekdays:[] } },
     calendarOpen:false, calendarPanel:'grid', calendarViewJY:null, calendarViewJM:null, calendarSelectedDayKey:null,
+    isRecurringInstance:false, applyToFutureRecurring:false,
   };
   render();
 }
 function openTaskEditorNewForDate(dateStr){
   state.taskEditor = {
-    mode:'create', taskId:null, draft:{ title:'', tagIds:[], priority:null, date:dateStr, durationMin:null, subtasks:[] },
+    mode:'create', taskId:null, draft:{ title:'', tagIds:[], priority:null, date:dateStr, durationMin:null, subtasks:[], recurring:{ enabled:false, weekdays:[] } },
     calendarOpen:false, calendarPanel:'grid', calendarViewJY:null, calendarViewJM:null, calendarSelectedDayKey:null,
+    isRecurringInstance:false, applyToFutureRecurring:false,
   };
   render();
 }
@@ -1375,9 +1445,11 @@ function openTaskEditorEdit(taskId){
     draft: {
       title: t.title, tagIds: [...t.tagIds], priority: t.priority, date: t.date, durationMin: t.durationMin,
       subtasks: t.subtasks.map(s => ({ id:s.id, title:s.title, done:s.done })),
+      recurring:{ enabled:false, weekdays:[] },
     },
     calendarOpen:false, calendarPanel:'grid', calendarViewJY:null, calendarViewJM:null, calendarSelectedDayKey:null,
     actualMinReadonly: t.actualMin || null,
+    isRecurringInstance: !!t.recurringTemplateId, recurringTemplateId: t.recurringTemplateId || null, applyToFutureRecurring:false,
   };
   render();
 }
@@ -1389,12 +1461,29 @@ function copyTaskToEditor(taskId){
     draft: {
       title: t.title, tagIds: [...t.tagIds], priority: t.priority, date: t.date, durationMin: t.durationMin,
       subtasks: t.subtasks.map(s => ({ id:uid(), title:s.title, done:false })),
+      recurring:{ enabled:false, weekdays:[] },
     },
     calendarOpen:false, calendarPanel:'grid', calendarViewJY:null, calendarViewJM:null, calendarSelectedDayKey:null,
+    isRecurringInstance:false, applyToFutureRecurring:false,
   };
   render();
 }
 function closeTaskEditor(){ state.taskEditor = null; render(); }
+function editorToggleRecurring(){
+  const d = state.taskEditor.draft;
+  d.recurring.enabled = !d.recurring.enabled;
+  render();
+}
+function editorToggleRecurringWeekday(dayIdx){
+  const w = state.taskEditor.draft.recurring.weekdays;
+  const i = w.indexOf(dayIdx);
+  if(i === -1) w.push(dayIdx); else w.splice(i, 1);
+  render();
+}
+function editorToggleApplyToFuture(){
+  state.taskEditor.applyToFutureRecurring = !state.taskEditor.applyToFutureRecurring;
+  render();
+}
 function editorToggleTag(tagId){
   const d = state.taskEditor.draft;
   d.tagIds = d.tagIds.includes(tagId) ? d.tagIds.filter(id => id !== tagId) : [...d.tagIds, tagId];
@@ -1605,6 +1694,12 @@ async function confirmTaskEditor(){
   const ed = state.taskEditor;
   ed.draft.title = title;
 
+  if(ed.mode === 'create' && ed.draft.recurring.enabled){
+    if(ed.draft.recurring.weekdays.length === 0){ return; } // need at least one day picked
+    await createRecurringTemplate();
+    return;
+  }
+
   const taskRow = {
     title: ed.draft.title, priority: ed.draft.priority,
     date: ed.draft.date || null, duration_min: ed.draft.durationMin,
@@ -1615,6 +1710,7 @@ async function confirmTaskEditor(){
       id: uid(), title: ed.draft.title, done:false, completedAt:null,
       tagIds: ed.draft.tagIds, priority: ed.draft.priority,
       subtasks: ed.draft.subtasks, date: ed.draft.date, durationMin: ed.draft.durationMin, actualMin: null,
+      recurringTemplateId: null,
     };
     state.tasks.unshift(newTask);
     state.taskEditor = null;
@@ -1635,6 +1731,7 @@ async function confirmTaskEditor(){
     if(!t){ state.taskEditor = null; render(); return; }
     t.title = ed.draft.title; t.tagIds = ed.draft.tagIds; t.priority = ed.draft.priority;
     t.date = ed.draft.date; t.durationMin = ed.draft.durationMin; t.subtasks = ed.draft.subtasks;
+    const applyToFuture = ed.isRecurringInstance && ed.applyToFutureRecurring && ed.recurringTemplateId;
     state.taskEditor = null;
     render();
 
@@ -1654,7 +1751,80 @@ async function confirmTaskEditor(){
       const { error: subErr } = await sb.from('subtasks').insert(t.subtasks.map(s => ({ id: uid(), task_id:t.id, title:s.title, done:s.done })));
       if(subErr) console.error('recreate subtasks failed', subErr);
     }
+
+    if(applyToFuture){
+      await updateRecurringTemplateFromInstance(ed.recurringTemplateId, t);
+    }
   }
+}
+async function createRecurringTemplate(){
+  const ed = state.taskEditor;
+  const d = ed.draft;
+  const tpl = {
+    id: uid(), title: d.title, priority: d.priority, durationMin: d.durationMin,
+    weekdays: [...d.recurring.weekdays], active:true, tagIds: [...d.tagIds],
+  };
+  state.recurringTemplates.push(tpl);
+  state.taskEditor = null;
+  render();
+
+  const { error: tplErr } = await sb.from('recurring_templates').insert({
+    id: tpl.id, title: tpl.title, priority: tpl.priority, duration_min: tpl.durationMin,
+    weekdays: tpl.weekdays, active: true,
+  });
+  if(tplErr){ console.error('create recurring template failed', tplErr); return; }
+  if(tpl.tagIds.length){
+    const { error: tagErr } = await sb.from('recurring_template_tags').insert(tpl.tagIds.map(tagId => ({ template_id:tpl.id, tag_id:tagId })));
+    if(tagErr) console.error('link recurring template tags failed', tagErr);
+  }
+  await maybeGenerateTodayForTemplate(tpl);
+}
+async function updateRecurringTemplateFromInstance(templateId, instance){
+  const tpl = state.recurringTemplates.find(t => t.id === templateId);
+  if(!tpl) return;
+  tpl.title = instance.title; tpl.priority = instance.priority; tpl.durationMin = instance.durationMin; tpl.tagIds = [...instance.tagIds];
+  render();
+
+  const { error: tplErr } = await sb.from('recurring_templates')
+    .update({ title: tpl.title, priority: tpl.priority, duration_min: tpl.durationMin })
+    .eq('id', templateId);
+  if(tplErr) console.error('update recurring template failed', tplErr);
+
+  const { error: delErr } = await sb.from('recurring_template_tags').delete().eq('template_id', templateId);
+  if(delErr) console.error('clear recurring template tags failed', delErr);
+  if(tpl.tagIds.length){
+    const { error: tagErr } = await sb.from('recurring_template_tags').insert(tpl.tagIds.map(tagId => ({ template_id:templateId, tag_id:tagId })));
+    if(tagErr) console.error('relink recurring template tags failed', tagErr);
+  }
+}
+async function maybeGenerateTodayForTemplate(tpl){
+  if(!tpl.active) return;
+  const todayStr = dateKey(new Date());
+  const todayWeekday = new Date().getDay();
+  if(!tpl.weekdays.includes(todayWeekday)) return;
+  if(state.tasks.some(t => t.recurringTemplateId === tpl.id && t.date === todayStr)) return;
+  if(state.tasks.some(t => t.recurringTemplateId === tpl.id && !t.done)) return;
+
+  const newTask = {
+    id: uid(), title: tpl.title, done:false, completedAt:null,
+    tagIds: [...tpl.tagIds], priority: tpl.priority, subtasks:[], date: todayStr,
+    durationMin: tpl.durationMin, actualMin: null, recurringTemplateId: tpl.id,
+  };
+  state.tasks.unshift(newTask);
+  render();
+
+  const { error: taskErr } = await sb.from('tasks').insert({
+    id:newTask.id, title:newTask.title, priority:newTask.priority, date:newTask.date,
+    duration_min:newTask.durationMin, done:false, recurring_template_id:tpl.id,
+  });
+  if(taskErr){ console.error('generate recurring instance failed', taskErr); return; }
+  if(newTask.tagIds.length){
+    const { error: tagErr } = await sb.from('task_tags').insert(newTask.tagIds.map(tagId => ({ task_id:newTask.id, tag_id:tagId })));
+    if(tagErr) console.error('link recurring instance tags failed', tagErr);
+  }
+}
+function generateRecurringInstances(){
+  state.recurringTemplates.forEach(tpl => { maybeGenerateTodayForTemplate(tpl); });
 }
 
 /* ---------- rendering: custom Jalali calendar ---------- */
@@ -1948,6 +2118,37 @@ function renderTagManager(){
   `;
 }
 
+function renderRecurringManager(){
+  return `
+    <div class="tag-manager">
+      <div class="tag-manager-header" onclick="toggleRecurringManager()">
+        <h3>مدیریت کارهای تکرارشونده</h3>
+        <span class="chev">${state.recurringManagerOpen ? '▲' : '▼'}</span>
+      </div>
+      ${state.recurringManagerOpen ? `
+        <div class="tag-manager-body">
+          ${state.recurringTemplates.length === 0 ? `<div class="empty-state" style="padding:10px 0;">هنوز کار تکرارشونده‌ای نساختی — از فرم «افزودن کار» می‌تونی بسازی</div>` : state.recurringTemplates.map(tpl => `
+            <div class="recurring-tpl-row">
+              <div>
+                <div class="recurring-tpl-title">${escapeHtml(tpl.title)}</div>
+                <div class="recurring-tpl-days">${WEEKDAY_DISPLAY_ORDER.filter(d => tpl.weekdays.includes(d)).map(d => WEEKDAYS_FA[d].slice(0,2)).join('، ')}</div>
+              </div>
+              <button class="tag-x" onclick="deleteRecurringTemplate('${tpl.id}')" title="حذف تکرار">✕</button>
+            </div>
+          `).join('')}
+        </div>
+      ` : ''}
+    </div>
+  `;
+}
+async function deleteRecurringTemplate(templateId){
+  state.recurringTemplates = state.recurringTemplates.filter(t => t.id !== templateId);
+  state.tasks.forEach(t => { if(t.recurringTemplateId === templateId) t.recurringTemplateId = null; });
+  render();
+  const { error } = await sb.from('recurring_templates').delete().eq('id', templateId);
+  if(error) console.error('deleteRecurringTemplate failed', error);
+}
+
 /* ---------- rendering: task editor modal ---------- */
 function renderTaskEditorModal(){
   if(!state.taskEditor) return '';
@@ -1974,7 +2175,34 @@ function renderTaskEditorModal(){
           <span class="priority-chip low ${d.priority==='low'?'active':''}" onclick="editorSetPriority('low')">پایین</span>
         </div>
 
-        <div class="modal-section">
+        ${(ed.mode === 'edit' && ed.isRecurringInstance) ? `
+          <div class="recurring-instance-note">
+            🔁 این کار بخشی از یه سری تکرارشونده‌ست.
+            <label class="apply-future-check">
+              <input type="checkbox" ${ed.applyToFutureRecurring ? 'checked' : ''} onchange="editorToggleApplyToFuture()" />
+              این تغییرات برای تکرارهای بعدی هم اعمال بشه
+            </label>
+          </div>
+        ` : ''}
+
+        ${ed.mode === 'create' ? `
+          <div class="modal-section">
+            <span class="modal-section-label">تکرار</span>
+            <label class="recurring-toggle">
+              <input type="checkbox" ${d.recurring.enabled ? 'checked' : ''} onchange="editorToggleRecurring()" />
+              این کار تکرارشونده باشه
+            </label>
+            ${d.recurring.enabled ? `
+              <div class="quick-group" style="margin-top:8px;">
+                ${WEEKDAY_DISPLAY_ORDER.map(dayIdx => `
+                  <span class="quick-chip ${d.recurring.weekdays.includes(dayIdx)?'active':''}" onclick="editorToggleRecurringWeekday(${dayIdx})">${WEEKDAYS_FA[dayIdx].slice(0,2)}</span>
+                `).join('')}
+              </div>
+            ` : ''}
+          </div>
+        ` : ''}
+
+        <div class="modal-section" ${(ed.mode === 'create' && d.recurring.enabled) ? 'style="display:none;"' : ''}>
           <span class="modal-section-label">تاریخ</span>
           <div class="quick-group">
             <span class="quick-chip ${d.date===todayStr?'active':''}" onclick="editorQuickDate('today')">امروز</span>
@@ -2077,6 +2305,7 @@ function renderTasksView(){
   const filtered = applyFiltersAndSort(state.tasks.filter(t => !isArchived(t)), 'tasksFilters', { dateFilter:true });
   return `
     ${renderTagManager()}
+    ${renderRecurringManager()}
     ${renderFilterPanel('tasksFilters', { dateFilter:true })}
     ${filtered.length === 0 ? `<div class="empty-state">کاری با این فیلترها پیدا نشد</div>` : filtered.map(renderTaskCard).join('')}
   `;
