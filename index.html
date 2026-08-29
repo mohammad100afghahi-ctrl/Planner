@@ -450,9 +450,18 @@ global.jalaali = {
   .add-task-for-day-btn{
     width:100%; background:var(--chip-shine), color-mix(in srgb, var(--accent) 14%, var(--surface));
     border:1px dashed color-mix(in srgb, var(--accent) 50%, var(--line)); color:var(--accent);
-    font-size:13px; font-weight:700; padding:11px; border-radius:10px; cursor:pointer; margin-bottom:14px; text-align:center;
+    font-size:13px; font-weight:700; padding:11px; border-radius:10px; cursor:pointer; text-align:center;
   }
   .add-task-for-day-btn:hover{opacity:.9;}
+  .add-task-for-day-btn.secondary{
+    background:var(--chip-shine), var(--surface-2); border-color:var(--line); color:var(--text-muted);
+  }
+  .cal-day-actions{display:flex; flex-direction:column; gap:8px; margin-bottom:14px;}
+  .cal-day-total{
+    font-size:12.5px; font-weight:700; color:var(--freelance); margin-bottom:12px; padding:8px 12px;
+    background:color-mix(in srgb, var(--freelance) 12%, transparent); border:1px solid color-mix(in srgb, var(--freelance) 30%, transparent);
+    border-radius:9px; text-align:center;
+  }
 
   /* Progress box */
   .progress-box{background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:16px 18px; margin-bottom:16px;}
@@ -985,6 +994,7 @@ let state = {
     linkedTaskId: null, taskDecided: false, creditedMin: 0,
   },
   pomoTaskPicker: null, // { search:'' } when the "which task?" modal is open
+  moveTaskPicker: null, // { search:'', dateStr } when picking an existing task to move into a calendar day
 };
 
 let loadError = false;
@@ -1820,6 +1830,7 @@ function renderCalendarPageDayPanel(){
   const c = state.calendarPage;
   const key = c.selectedDayKey;
   const dayTasks = state.tasks.filter(t => t.date === key);
+  const totalMin = dayTasks.reduce((s,t) => s + (t.durationMin||0), 0);
   const jObj = window.jalaali.toJalaali(new Date(key));
   const jalaliLabel = `${toFaDigits(jObj.jd)} ${MONTHS_JALALI[jObj.jm-1]} ${toFaDigits(jObj.jy)}`;
   return `
@@ -1829,7 +1840,11 @@ function renderCalendarPageDayPanel(){
         <button type="button" class="cal-back" onclick="calendarPageBackToGrid()">→ بازگشت به تقویم</button>
         <span class="cal-day-title">${jalaliLabel}</span>
       </div>
-      <button type="button" class="add-task-for-day-btn" onclick="openTaskEditorNewForDate('${key}')">+ اضافه کردن کار برای این روز</button>
+      ${totalMin > 0 ? `<div class="cal-day-total">⏱ جمع مدت کارهای این روز: ${formatDuration(totalMin)}</div>` : ''}
+      <div class="cal-day-actions">
+        <button type="button" class="add-task-for-day-btn" onclick="openTaskEditorNewForDate('${key}')">+ اضافه کردن کار جدید</button>
+        <button type="button" class="add-task-for-day-btn secondary" onclick="openMoveTaskPicker('${key}')">↪ انتخاب از تسک‌های موجود</button>
+      </div>
       ${dayTasks.length === 0 ? `<div class="empty-state" style="padding:16px 0;">کاری برای این روز ثبت نشده</div>` : dayTasks.map(t => `
         <div class="cal-day-task ${t.done ? 'done' : ''}">
           <div class="cal-day-task-title ${t.done ? 'done-text' : ''}">${t.done ? '✓ ' : ''}${escapeHtml(t.title)}</div>
@@ -1854,6 +1869,52 @@ function renderCalendarPageDayPanel(){
           <button class="edit-link" style="margin-top:10px;" onclick="calendarPageEditTask('${t.id}')">✎ ویرایش</button>
         </div>
       `).join('')}
+    </div>
+    ${state.moveTaskPicker ? renderMoveTaskPicker() : ''}
+  `;
+}
+function openMoveTaskPicker(dateStr){
+  state.moveTaskPicker = { search:'', dateStr };
+  render();
+}
+function moveTaskPickerSetSearch(v){ state.moveTaskPicker.search = v; render(); }
+function cancelMoveTaskPicker(){ state.moveTaskPicker = null; render(); }
+async function moveTaskToDate(taskId){
+  const dateStr = state.moveTaskPicker.dateStr;
+  const t = state.tasks.find(t => t.id === taskId);
+  if(!t) return;
+  t.date = dateStr;
+  state.moveTaskPicker = null;
+  render();
+  const { error } = await sb.from('tasks').update({ date: dateStr }).eq('id', taskId);
+  if(error) console.error('moveTaskToDate failed', error);
+}
+function renderMoveTaskPicker(){
+  const search = state.moveTaskPicker.search.trim();
+  const dateStr = state.moveTaskPicker.dateStr;
+  let list = state.tasks.filter(t => !t.done && t.date !== dateStr);
+  if(search) list = list.filter(t => t.title.includes(search));
+  return `
+    <div class="modal-overlay" onclick="if(event.target===this) cancelMoveTaskPicker()">
+      <div class="modal-box">
+        <h3>کدوم کار بیاد توی این روز؟</h3>
+        <input type="text" class="modal-title-input" placeholder="جست‌وجو در تسک‌های انجام‌نشده…"
+          value="${escapeHtml(state.moveTaskPicker.search)}" oninput="moveTaskPickerSetSearch(this.value)" />
+        <div class="pomo-task-pick-list">
+          ${list.length === 0
+            ? `<div class="empty-state" style="padding:14px 0;">تسک انجام‌نشده‌ای با این جست‌وجو پیدا نشد</div>`
+            : list.map(t => `
+              <button class="pomo-task-pick-row" onclick="moveTaskToDate('${t.id}')">
+                <span>${escapeHtml(t.title)}${t.date ? ` <span class="summary-text">(${formatDateShort(t.date)})</span>` : ''}</span>
+                ${t.durationMin ? `<span class="summary-text">${toFaDigits(t.durationMin)} د</span>` : ''}
+              </button>
+            `).join('')
+          }
+        </div>
+        <div class="modal-actions">
+          <button class="cancel" onclick="cancelMoveTaskPicker()">انصراف</button>
+        </div>
+      </div>
     </div>
   `;
 }
