@@ -728,11 +728,21 @@ global.jalaali = {
   .copy-link:hover{border-color:var(--freelance); color:var(--freelance);}
   .task-actions-row{display:flex; gap:0;}
 
-  /* drag-and-drop subtask reordering (editor modal) */
+  /* drag-and-drop subtask reordering (editor modal) — desktop mouse users */
   .modal-subtask-row{cursor:default;}
   .modal-subtask-row.dragging{opacity:.4;}
   .modal-subtask-row .drag-handle{cursor:grab; color:var(--text-muted); font-size:13px; padding:0 2px; flex-shrink:0; user-select:none;}
   .modal-subtask-row .drag-handle:active{cursor:grabbing;}
+
+  /* up/down reorder buttons — reliable fallback for touch/mobile, since native
+     HTML5 drag-and-drop does not work with touch on most mobile browsers */
+  .subtask-move-btns{display:flex; flex-direction:column; gap:1px; flex-shrink:0;}
+  .subtask-move-btn{
+    background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:9px; line-height:1;
+    padding:2px 4px; border-radius:4px;
+  }
+  .subtask-move-btn:hover:not(:disabled){color:var(--accent);}
+  .subtask-move-btn:disabled{opacity:.25; cursor:default;}
 
   /* Custom Jalali calendar (task date picker) */
   .date-picker-btn{
@@ -1030,7 +1040,8 @@ async function loadAll(){
     const { data: tasks, error: tasksErr } = await sb
       .from('tasks')
       .select('*, subtasks(*), task_tags(tag_id)')
-      .order('created_at', { ascending:false });
+      .order('created_at', { ascending:false })
+      .order('position', { foreignTable:'subtasks', ascending:true });
     if(tasksErr) throw tasksErr;
     state.tasks = tasks.map(t => ({
       id: t.id, title: t.title, done: !!t.done, completedAt: t.completed_at,
@@ -1746,6 +1757,13 @@ function editorSubtaskDragEnd(evt){
   evt.currentTarget.classList.remove('dragging');
   dragSubIndex = null;
 }
+function editorMoveSubtask(idx, direction){
+  const arr = state.taskEditor.draft.subtasks;
+  const newIdx = idx + direction;
+  if(newIdx < 0 || newIdx >= arr.length) return;
+  [arr[idx], arr[newIdx]] = [arr[newIdx], arr[idx]];
+  render();
+}
 async function confirmTaskEditor(){
   const titleInput = document.getElementById('editor-title');
   const title = titleInput.value.trim();
@@ -1782,12 +1800,13 @@ async function confirmTaskEditor(){
       if(tagErr) console.error('link tags failed', tagErr);
     }
     if(newTask.subtasks.length){
-      const { error: subErr } = await sb.from('subtasks').insert(newTask.subtasks.map(s => ({ id:s.id, task_id:newTask.id, title:s.title, done:false })));
+      const { error: subErr } = await sb.from('subtasks').insert(newTask.subtasks.map((s,i) => ({ id:s.id, task_id:newTask.id, title:s.title, done:false, position:i })));
       if(subErr) console.error('create subtasks failed', subErr);
     }
   } else {
     const t = state.tasks.find(t => t.id === ed.taskId);
     if(!t){ state.taskEditor = null; render(); return; }
+    const prevSubtasks = t.subtasks;
     t.title = ed.draft.title; t.tagIds = ed.draft.tagIds; t.priority = ed.draft.priority;
     t.date = ed.draft.date; t.durationMin = ed.draft.durationMin; t.subtasks = ed.draft.subtasks;
     const applyToFuture = ed.isRecurringInstance && ed.applyToFutureRecurring && ed.recurringTemplateId;
@@ -1804,12 +1823,29 @@ async function confirmTaskEditor(){
       if(tagErr) console.error('relink tags failed', tagErr);
     }
 
-    const { error: delSubErr } = await sb.from('subtasks').delete().eq('task_id', t.id);
-    if(delSubErr) console.error('clear subtasks failed', delSubErr);
-    if(t.subtasks.length){
-      const { error: subErr } = await sb.from('subtasks').insert(t.subtasks.map(s => ({ id: uid(), task_id:t.id, title:s.title, done:s.done })));
-      if(subErr) console.error('recreate subtasks failed', subErr);
+    /* Sync subtasks by diffing against what existed before, instead of deleting
+       everything and reinserting with brand-new ids — that used to desync local
+       state from the DB (and made realtime echo back a spurious delete). */
+    const prevIds = new Set(prevSubtasks.map(s => s.id));
+    const currIds = new Set(t.subtasks.map(s => s.id));
+    const removedIds = prevSubtasks.filter(s => !currIds.has(s.id)).map(s => s.id);
+    const newOnes = t.subtasks.filter(s => !prevIds.has(s.id));
+    const keptOnes = t.subtasks.filter(s => prevIds.has(s.id));
+
+    if(removedIds.length){
+      const { error } = await sb.from('subtasks').delete().in('id', removedIds);
+      if(error) console.error('delete removed subtasks failed', error);
     }
+    if(newOnes.length){
+      const { error } = await sb.from('subtasks').insert(newOnes.map(s => ({
+        id:s.id, task_id:t.id, title:s.title, done:s.done, position:t.subtasks.indexOf(s),
+      })));
+      if(error) console.error('insert new subtasks failed', error);
+    }
+    await Promise.all(keptOnes.map(s =>
+      sb.from('subtasks').update({ title:s.title, done:s.done, position:t.subtasks.indexOf(s) }).eq('id', s.id)
+        .then(({ error }) => { if(error) console.error('update subtask failed', error); })
+    ));
 
     if(applyToFuture){
       await updateRecurringTemplateFromInstance(ed.recurringTemplateId, t);
@@ -2309,6 +2345,10 @@ function renderTaskEditorModal(){
               ondrop="editorSubtaskDrop(event, ${idx})"
               ondragend="editorSubtaskDragEnd(event)">
               <span class="drag-handle">⋮⋮</span>
+              <span class="subtask-move-btns">
+                <button type="button" class="subtask-move-btn" onclick="editorMoveSubtask(${idx}, -1)" ${idx===0 ? 'disabled' : ''} title="انتقال به بالا">▲</button>
+                <button type="button" class="subtask-move-btn" onclick="editorMoveSubtask(${idx}, 1)" ${idx===d.subtasks.length-1 ? 'disabled' : ''} title="انتقال به پایین">▼</button>
+              </span>
               <span>${escapeHtml(s.title)}</span>
               <button class="subtask-del" onclick="editorDeleteSubtask('${s.id}')">✕</button>
             </div>
