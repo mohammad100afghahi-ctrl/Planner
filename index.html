@@ -453,6 +453,7 @@ global.jalaali = {
     font-size:13px; font-weight:700; padding:11px; border-radius:10px; cursor:pointer; text-align:center;
   }
   .add-task-for-day-btn:hover{opacity:.9;}
+  .add-task-for-day-btn:disabled{opacity:.5; cursor:default;}
   .add-task-for-day-btn.secondary{
     background:var(--chip-shine), var(--surface-2); border-color:var(--line); color:var(--text-muted);
   }
@@ -510,6 +511,19 @@ global.jalaali = {
   .goal-reason{
     font-size:11.5px; color:var(--accent); margin-top:2px; padding-right:74px; line-height:1.7; opacity:.9;
   }
+
+  /* undo toast */
+  .undo-toast{
+    position:fixed; bottom:92px; left:50%; transform:translateX(-50%); z-index:60;
+    display:flex; align-items:center; gap:12px; max-width:calc(100% - 32px);
+    background:var(--glass-fill-3); backdrop-filter:var(--glass-blur); -webkit-backdrop-filter:var(--glass-blur);
+    border:1px solid var(--glass-border); box-shadow:var(--glass-shadow); border-radius:14px; padding:12px 16px;
+  }
+  .undo-toast span{font-size:13px; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .undo-toast button{
+    background:none; border:none; color:var(--accent); font-weight:700; font-size:13px; cursor:pointer; flex-shrink:0; padding:2px 4px;
+  }
+  .undo-toast .undo-close{color:var(--text-muted); font-weight:400; font-size:12px;}
   .recurring-tpl-row{
     display:flex; align-items:center; justify-content:space-between; gap:10px; padding:9px 12px;
     background:var(--surface-2); border:1px solid var(--line); border-radius:9px; margin-bottom:8px;
@@ -827,6 +841,9 @@ global.jalaali = {
     padding:9px 12px; border-radius:9px; outline:none;
   }
   .archive-search-input:focus{border-color:var(--accent);}
+  .ai-report-card{background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:16px; margin-top:12px;}
+  .ai-report-period{font-size:11.5px; color:var(--text-muted); font-weight:700; margin-bottom:8px;}
+  .ai-report-text{font-size:13.5px; line-height:1.9; color:var(--text); white-space:pre-wrap;}
 
   /* ============ Liquid-glass surface system ============
      Applied broadly across containers/cards/badges/buttons. Each gets:
@@ -931,6 +948,7 @@ const MONTHS_GREG_FA = ['ژانویه','فوریه','مارس','آوریل','م�
 const MONTHS_JALALI = ['فروردین','اردیبهشت','خرداد','تیر','مرداد','شهریور','مهر','آبان','آذر','دی','بهمن','اسفند'];
 const PRIORITY_RANK = { high:0, medium:1, low:2 };
 const PRIORITY_LABEL = { high:'بالا', medium:'متوسط', low:'پایین' };
+const DIFFICULTY_EMOJI = { easy:'😌', medium:'😐', hard:'😫' };
 
 function toFaDigits(str){
   const map = {'0':'۰','1':'۱','2':'۲','3':'۳','4':'۴','5':'۵','6':'۶','7':'۷','8':'۸','9':'۹'};
@@ -1035,6 +1053,11 @@ let state = {
   recurringTemplates: [], // [{ id, title, priority, durationMin, weekdays:[0-6], active, tagIds }]
   recurringManagerOpen: false,
   tagGoals: [], // [{ tagId, weeklyMinutes }] — standing weekly time targets per tag
+  undoToast: null, // { message, undo } while a delete's undo window is open
+  taskCompletionModal: null, // { taskId, minutes, difficulty } shown right after checking a task done
+  aiReports: [], // [{ id, periodStart, periodEnd, text, createdAt }]
+  aiReportGenerating: false,
+  aiReportError: null,
 };
 
 let loadError = false;
@@ -1061,6 +1084,7 @@ async function loadAll(){
       date: t.date || '',
       durationMin: t.duration_min,
       actualMin: t.actual_min,
+      difficulty: t.difficulty,
       recurringTemplateId: t.recurring_template_id,
     }));
 
@@ -1079,6 +1103,10 @@ async function loadAll(){
     if(goalsErr) throw goalsErr;
     state.tagGoals = goals.map(g => ({ tagId: g.tag_id, weeklyMinutes: g.weekly_minutes, reason: g.reason || '' }));
 
+    const { data: aiReports, error: aiReportsErr } = await sb.from('ai_reports').select('*').order('period_end', { ascending:false });
+    if(aiReportsErr) throw aiReportsErr;
+    state.aiReports = aiReports.map(r => ({ id:r.id, periodStart:r.period_start, periodEnd:r.period_end, text:r.report_text, createdAt:r.created_at }));
+
     const { data: pomo, error: pomoErr } = await sb.from('pomo_settings').select('*').eq('id', 1).maybeSingle();
     if(pomoErr) throw pomoErr;
     if(pomo){ state.pomo.workMin = pomo.work_min; state.pomo.breakMin = pomo.break_min; state.pomo.remaining = pomo.work_min*60; }
@@ -1089,6 +1117,7 @@ async function loadAll(){
     if(!state.tasks) state.tasks = [];
     if(!state.recurringTemplates) state.recurringTemplates = [];
     if(!state.tagGoals) state.tagGoals = [];
+    if(!state.aiReports) state.aiReports = [];
   }
   generateRecurringInstances();
   if(!realtimeStarted){ realtimeStarted = true; startRealtimeSync(); }
@@ -1137,7 +1166,7 @@ function startRealtimeSync(){
       if(state.tasks.some(t => t.id === row.id)) return;
       state.tasks.unshift({
         id:row.id, title:row.title, done:!!row.done, completedAt:row.completed_at,
-        tagIds:[], priority:row.priority, subtasks:[], date:row.date || '', durationMin:row.duration_min, actualMin:row.actual_min,
+        tagIds:[], priority:row.priority, subtasks:[], date:row.date || '', durationMin:row.duration_min, actualMin:row.actual_min, difficulty:row.difficulty,
         recurringTemplateId:row.recurring_template_id,
       });
       render();
@@ -1146,7 +1175,7 @@ function startRealtimeSync(){
       const t = state.tasks.find(t => t.id === row.id);
       if(!t) return;
       t.title = row.title; t.done = !!row.done; t.completedAt = row.completed_at;
-      t.priority = row.priority; t.date = row.date || ''; t.durationMin = row.duration_min; t.actualMin = row.actual_min;
+      t.priority = row.priority; t.date = row.date || ''; t.durationMin = row.duration_min; t.actualMin = row.actual_min; t.difficulty = row.difficulty;
       render();
     },
     onDelete(old){
@@ -1242,6 +1271,19 @@ function startRealtimeSync(){
     },
     onDelete(old){
       state.tagGoals = state.tagGoals.filter(g => g.tagId !== old.tag_id);
+      render();
+    },
+  });
+
+  registerRealtimeSync(channel, 'ai_reports', {
+    onInsert(row){
+      if(state.aiReports.some(r => r.id === row.id)) return;
+      state.aiReports.unshift({ id:row.id, periodStart:row.period_start, periodEnd:row.period_end, text:row.report_text, createdAt:row.created_at });
+      state.aiReports.sort((a,b) => b.periodEnd.localeCompare(a.periodEnd));
+      render();
+    },
+    onDelete(old){
+      state.aiReports = state.aiReports.filter(r => r.id !== old.id);
       render();
     },
   });
@@ -1457,18 +1499,57 @@ function markDone(task, val){
   task.completedAt = val ? new Date().toISOString() : null;
   if(val) task.subtasks.forEach(s => s.done = true);
 }
+/* ---------- undo toast (shared by any deletion that should be reversible) ---------- */
+let undoToastTimer = null;
+function showUndoToast(message, undoFn){
+  state.undoToast = { message, undo: undoFn };
+  render();
+  if(undoToastTimer) clearTimeout(undoToastTimer);
+  undoToastTimer = setTimeout(() => {
+    state.undoToast = null;
+    render();
+  }, 5000);
+}
+function triggerUndo(){
+  if(!state.undoToast) return;
+  state.undoToast.undo();
+  state.undoToast = null;
+  if(undoToastTimer) clearTimeout(undoToastTimer);
+  render();
+}
+function dismissUndoToast(){
+  state.undoToast = null;
+  if(undoToastTimer) clearTimeout(undoToastTimer);
+  render();
+}
+
+const pendingTaskDeleteTimers = {}; // taskId -> timeoutId, while the undo window is open
 async function deleteTask(taskId, evt){
   if(evt) evt.stopPropagation();
-  state.tasks = state.tasks.filter(t => t.id !== taskId);
+  const idx = state.tasks.findIndex(t => t.id === taskId);
+  if(idx === -1) return;
+  const [removed] = state.tasks.splice(idx, 1);
+  showUndoToast(`«${removed.title}» حذف شد`, () => {
+    clearTimeout(pendingTaskDeleteTimers[taskId]);
+    delete pendingTaskDeleteTimers[taskId];
+    state.tasks.splice(idx, 0, removed);
+    render();
+  });
   render();
-  const { error } = await sb.from('tasks').delete().eq('id', taskId);
-  if(error) console.error('deleteTask failed', error);
+  /* the actual DB delete waits out the undo window — so undo never needs to
+     re-insert anything server-side, it just cancels this timer */
+  pendingTaskDeleteTimers[taskId] = setTimeout(async () => {
+    delete pendingTaskDeleteTimers[taskId];
+    const { error } = await sb.from('tasks').delete().eq('id', taskId);
+    if(error) console.error('deleteTask failed', error);
+  }, 5000);
 }
 async function toggleTaskDone(taskId, evt){
   if(evt) evt.stopPropagation();
   const t = state.tasks.find(t => t.id === taskId);
   if(!t) return;
-  markDone(t, !t.done);
+  const turningDone = !t.done;
+  markDone(t, turningDone);
   render();
   const { error } = await sb.from('tasks').update({ done:t.done, completed_at:t.completedAt }).eq('id', taskId);
   if(error) console.error('toggleTaskDone failed', error);
@@ -1476,7 +1557,32 @@ async function toggleTaskDone(taskId, evt){
     const { error: subErr } = await sb.from('subtasks').update({ done:true }).eq('task_id', taskId);
     if(subErr) console.error('subtask sync failed', subErr);
   }
+  if(turningDone){
+    state.taskCompletionModal = { taskId, minutes:null, difficulty:null };
+    render();
+  }
 }
+function completionSetMinutes(min){ state.taskCompletionModal.minutes = min; render(); }
+function completionSetCustomMinutes(value){
+  const v = parseInt(toEnDigits(value));
+  state.taskCompletionModal.minutes = (v && v > 0) ? v : null;
+}
+function completionSetDifficulty(level){ state.taskCompletionModal.difficulty = level; render(); }
+async function confirmTaskCompletion(){
+  const m = state.taskCompletionModal;
+  const t = state.tasks.find(t => t.id === m.taskId);
+  state.taskCompletionModal = null;
+  if(!t) return;
+  render();
+  if(m.minutes && m.minutes > 0) await addActualMinToTask(t.id, m.minutes);
+  if(m.difficulty){
+    t.difficulty = m.difficulty;
+    render();
+    const { error } = await sb.from('tasks').update({ difficulty:m.difficulty }).eq('id', t.id);
+    if(error) console.error('save difficulty failed', error);
+  }
+}
+function skipTaskCompletion(){ state.taskCompletionModal = null; render(); }
 async function commitTaskTitle(taskId, value){
   const t = state.tasks.find(t => t.id === taskId);
   if(!t || !value.trim()) return;
@@ -1760,7 +1866,16 @@ function editorAddSubtask(){
   render();
 }
 function editorDeleteSubtask(subId){
-  state.taskEditor.draft.subtasks = state.taskEditor.draft.subtasks.filter(s => s.id !== subId);
+  const ed = state.taskEditor;
+  const arr = ed.draft.subtasks;
+  const idx = arr.findIndex(s => s.id === subId);
+  if(idx === -1) return;
+  const [removed] = arr.splice(idx, 1);
+  showUndoToast(`ریزکار «${removed.title}» حذف شد`, () => {
+    if(!state.taskEditor || state.taskEditor.draft.subtasks !== arr) return;
+    arr.splice(idx, 0, removed);
+    render();
+  });
   render();
 }
 let dragSubIndex = null;
@@ -1836,6 +1951,7 @@ async function confirmTaskEditor(){
     const t = state.tasks.find(t => t.id === ed.taskId);
     if(!t){ state.taskEditor = null; render(); return; }
     const prevSubtasks = t.subtasks;
+    const prevDate = t.date;
     t.title = ed.draft.title; t.tagIds = ed.draft.tagIds; t.priority = ed.draft.priority;
     t.date = ed.draft.date; t.durationMin = ed.draft.durationMin; t.subtasks = ed.draft.subtasks;
     const applyToFuture = ed.isRecurringInstance && ed.applyToFutureRecurring && ed.recurringTemplateId;
@@ -1844,6 +1960,7 @@ async function confirmTaskEditor(){
 
     const { error: taskErr } = await sb.from('tasks').update(taskRow).eq('id', t.id);
     if(taskErr) console.error('update task failed', taskErr);
+    if(prevDate !== t.date) logTaskDateChange(t.id, prevDate, t.date);
 
     const { error: delTagErr } = await sb.from('task_tags').delete().eq('task_id', t.id);
     if(delTagErr) console.error('clear tags failed', delTagErr);
@@ -2177,11 +2294,17 @@ async function moveTaskToDate(taskId){
   const dateStr = state.moveTaskPicker.dateStr;
   const t = state.tasks.find(t => t.id === taskId);
   if(!t) return;
+  const prevDate = t.date;
   t.date = dateStr;
   state.moveTaskPicker = null;
   render();
   const { error } = await sb.from('tasks').update({ date: dateStr }).eq('id', taskId);
   if(error) console.error('moveTaskToDate failed', error);
+  if(prevDate !== dateStr) logTaskDateChange(taskId, prevDate, dateStr);
+}
+async function logTaskDateChange(taskId, oldDate, newDate){
+  const { error } = await sb.from('task_date_changes').insert({ task_id:taskId, old_date: oldDate || null, new_date: newDate || null });
+  if(error) console.error('logTaskDateChange failed', error);
 }
 function renderMoveTaskPicker(){
   const search = state.moveTaskPicker.search.trim();
@@ -2422,7 +2545,7 @@ function renderTaskCard(task){
               ${task.tagIds.map(tid => { const tag = state.tags.find(t => t.id===tid); return tag ? `<span class="mini-tag" style="--chip-color:${tag.color}">${escapeHtml(tag.name)}</span>` : ''; }).join('')}
             </div>
           ` : ''}
-          ${task.actualMin ? `<div class="actual-time-row">⏱ زمان واقعی: ${formatDuration(task.actualMin)}</div>` : ''}
+          ${task.actualMin ? `<div class="actual-time-row">⏱ زمان واقعی: ${formatDuration(task.actualMin)}${task.difficulty ? ` · ${DIFFICULTY_EMOJI[task.difficulty]}` : ''}</div>` : ''}
 
           <div class="subtasks">
             ${task.subtasks.map(s => `
@@ -2459,6 +2582,51 @@ function renderTasksView(){
   `;
 }
 
+async function generateAIReportNow(){
+  state.aiReportGenerating = true;
+  state.aiReportError = null;
+  render();
+  try{
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/generate-ai-report`, {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'Authorization':`Bearer ${SUPABASE_ANON_KEY}` },
+      body: JSON.stringify({ force:true }),
+    });
+    const data = await res.json();
+    if(!res.ok) throw new Error(data.error || 'خطای ناشناخته');
+    if(data.skipped){
+      state.aiReportError = 'هنوز وقتش نشده — هر ۴ روز یه گزارش تازه ساخته می‌شه.';
+    } else {
+      const { data: rows, error } = await sb.from('ai_reports').select('*').order('period_end', { ascending:false });
+      if(error) throw error;
+      state.aiReports = rows.map(r => ({ id:r.id, periodStart:r.period_start, periodEnd:r.period_end, text:r.report_text, createdAt:r.created_at }));
+    }
+  } catch(e){
+    console.error('generateAIReportNow failed', e);
+    state.aiReportError = e.message || 'خطا در تولید گزارش. اگه تازه کلید API رو اضافه کردی، چک کن درست ذخیره شده باشه.';
+  }
+  state.aiReportGenerating = false;
+  render();
+}
+function renderAIReportsPage(){
+  return `
+    <h2 class="section-title">گزارش هوشمند</h2>
+    <button type="button" class="add-task-for-day-btn" onclick="generateAIReportNow()" ${state.aiReportGenerating ? 'disabled' : ''}>
+      ${state.aiReportGenerating ? 'در حال تولید…' : '✨ تولید گزارش الان'}
+    </button>
+    ${state.aiReportError ? `<div class="empty-state" style="background:var(--surface);border:1px solid var(--danger);border-radius:10px;color:var(--danger);margin-top:12px;padding:12px;">${escapeHtml(state.aiReportError)}</div>` : ''}
+    ${state.aiReports.length === 0 ? `
+      <div class="empty-state" style="margin-top:16px;">
+        هنوز گزارشی ساخته نشده. یه گزارش خودکار هر ۴ روز ساخته می‌شه، یا همین الان با دکمه‌ی بالا بساز.
+      </div>
+    ` : state.aiReports.map(r => `
+      <div class="ai-report-card">
+        <div class="ai-report-period">${formatDateShort(r.periodStart)} تا ${formatDateShort(r.periodEnd)}</div>
+        <div class="ai-report-text">${escapeHtml(r.text)}</div>
+      </div>
+    `).join('')}
+  `;
+}
 function renderArchivePage(){
   const f = state.archiveFilters;
   const search = f.search.trim();
@@ -2721,8 +2889,14 @@ function pomoFlushCredit(){
   const deltaMin = elapsedMin - p.creditedMin;
   if(deltaMin > 0){
     addActualMinToTask(p.linkedTaskId, deltaMin);
+    logPomodoroSession(p.linkedTaskId, deltaMin);
     p.creditedMin = elapsedMin;
   }
+}
+async function logPomodoroSession(taskId, minutes){
+  const startedAt = new Date(Date.now() - minutes*60000).toISOString();
+  const { error } = await sb.from('pomodoro_sessions').insert({ task_id:taskId, started_at:startedAt, minutes });
+  if(error) console.error('logPomodoroSession failed', error);
 }
 
 function pomoTick(){
@@ -2897,6 +3071,7 @@ function render(){
       <button class="${state.view==='calendar' ? 'active' : ''}" onclick="setView('calendar')">تقویم</button>
       <button class="${state.view==='pomodoro' ? 'active' : ''}" onclick="setView('pomodoro')">پومودورو</button>
       <button class="${state.view==='archive' ? 'active' : ''}" onclick="setView('archive')">آرشیو</button>
+      <button class="${state.view==='ai-reports' ? 'active' : ''}" onclick="setView('ai-reports')">گزارش هوشمند</button>
     </nav>
 
     ${loadError ? `<div class="empty-state" style="background:var(--surface);border:1px solid var(--danger);border-radius:10px;color:var(--danger);margin-bottom:16px;">اتصال به دیتابیس برقرار نشد — اینترنتت رو چک کن و صفحه رو رفرش کن.</div>` : ''}
@@ -2907,9 +3082,55 @@ function render(){
       ${state.view === 'calendar' ? renderCalendarPage() : ''}
       ${state.view === 'pomodoro' ? renderPomodoro() : ''}
       ${state.view === 'archive' ? renderArchivePage() : ''}
+      ${state.view === 'ai-reports' ? renderAIReportsPage() : ''}
     </main>
     ${(state.view === 'today' || state.view === 'tasks') ? renderFab() : ''}
     ${renderTaskEditorModal()}
+    ${state.taskCompletionModal ? renderTaskCompletionModal() : ''}
+    ${state.undoToast ? renderUndoToast() : ''}
+  `;
+}
+function renderTaskCompletionModal(){
+  const m = state.taskCompletionModal;
+  const t = state.tasks.find(t => t.id === m.taskId);
+  if(!t){ state.taskCompletionModal = null; return ''; }
+  const quickVals = [15,30,45,60];
+  const customVal = (m.minutes && !quickVals.includes(m.minutes)) ? m.minutes : '';
+  return `
+    <div class="modal-overlay" onclick="if(event.target===this) skipTaskCompletion()">
+      <div class="modal-box">
+        <h3>✓ ${escapeHtml(t.title)}</h3>
+        <div class="modal-section">
+          <span class="modal-section-label">چقدر واقعاً طول کشید؟ (اختیاری)</span>
+          <div class="quick-group">
+            ${quickVals.map(v => `<span class="quick-chip ${m.minutes===v?'active':''}" onclick="completionSetMinutes(${v})">${toFaDigits(v)}</span>`).join('')}
+            <input type="text" inputmode="numeric" class="num-text" placeholder="سفارشی" value="${customVal}"
+              oninput="normalizeNumericInput(this); completionSetCustomMinutes(this.value)" />
+          </div>
+        </div>
+        <div class="modal-section">
+          <span class="modal-section-label">سختیش چقدر بود؟ (اختیاری)</span>
+          <div class="quick-group">
+            <span class="quick-chip ${m.difficulty==='easy'?'active':''}" onclick="completionSetDifficulty('easy')">😌 راحت</span>
+            <span class="quick-chip ${m.difficulty==='medium'?'active':''}" onclick="completionSetDifficulty('medium')">😐 معمولی</span>
+            <span class="quick-chip ${m.difficulty==='hard'?'active':''}" onclick="completionSetDifficulty('hard')">😫 سخت</span>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button class="confirm" onclick="confirmTaskCompletion()">ثبت</button>
+          <button class="cancel" onclick="skipTaskCompletion()">رد کردن</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+function renderUndoToast(){
+  return `
+    <div class="undo-toast">
+      <span>${escapeHtml(state.undoToast.message)}</span>
+      <button onclick="triggerUndo()">واگرد</button>
+      <button class="undo-close" onclick="dismissUndoToast()" title="بستن">✕</button>
+    </div>
   `;
 }
 
