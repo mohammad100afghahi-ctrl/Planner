@@ -1284,11 +1284,21 @@ function getCurrentWeekRange(){
   end.setDate(end.getDate() + 6);
   return { start: dateKey(start), end: dateKey(end) };
 }
+/* Minutes a single task contributes toward weekly goals.
+   Prefers real logged Pomodoro time; falls back to the planned estimate only for
+   tasks that were actually completed without ever running a Pomodoro on them, so
+   finishing work without the timer still counts. Never sums both — that would
+   conflate estimate with reality. */
+function taskGoalMinutes(t){
+  if(t.actualMin && t.actualMin > 0) return t.actualMin;
+  if(t.done && t.durationMin) return t.durationMin;
+  return 0;
+}
 function computeTagWeeklyMinutes(tagId){
   const { start, end } = getCurrentWeekRange();
   return state.tasks
     .filter(t => t.tagIds.includes(tagId) && t.date && t.date >= start && t.date <= end)
-    .reduce((s,t) => s + (t.actualMin || 0), 0);
+    .reduce((s,t) => s + taskGoalMinutes(t), 0);
 }
 async function setTagGoal(tagId, weeklyMinutes){
   const existing = state.tagGoals.find(g => g.tagId === tagId);
