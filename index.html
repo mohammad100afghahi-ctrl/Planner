@@ -500,6 +500,16 @@ global.jalaali = {
   .tag-goals-section{margin-top:16px; padding-top:14px; border-top:1px solid var(--line);}
   .tag-goal-row{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:8px;}
   .tag-goal-row .num-text{width:60px;}
+  .goal-reason-input{
+    width:100%; margin-top:6px; background:var(--surface-2); border:1px solid var(--line); color:var(--text);
+    font-size:11.5px; padding:7px 10px; border-radius:8px; outline:none; font-family:inherit;
+  }
+  .goal-reason-input:focus{border-color:var(--accent);}
+  .goal-block{margin-bottom:12px;}
+  .goal-block:last-child{margin-bottom:0;}
+  .goal-reason{
+    font-size:11.5px; color:var(--accent); margin-top:2px; padding-right:74px; line-height:1.7; opacity:.9;
+  }
   .recurring-tpl-row{
     display:flex; align-items:center; justify-content:space-between; gap:10px; padding:9px 12px;
     background:var(--surface-2); border:1px solid var(--line); border-radius:9px; margin-bottom:8px;
@@ -1067,7 +1077,7 @@ async function loadAll(){
 
     const { data: goals, error: goalsErr } = await sb.from('tag_goals').select('*');
     if(goalsErr) throw goalsErr;
-    state.tagGoals = goals.map(g => ({ tagId: g.tag_id, weeklyMinutes: g.weekly_minutes }));
+    state.tagGoals = goals.map(g => ({ tagId: g.tag_id, weeklyMinutes: g.weekly_minutes, reason: g.reason || '' }));
 
     const { data: pomo, error: pomoErr } = await sb.from('pomo_settings').select('*').eq('id', 1).maybeSingle();
     if(pomoErr) throw pomoErr;
@@ -1220,13 +1230,14 @@ function startRealtimeSync(){
   registerRealtimeSync(channel, 'tag_goals', {
     onInsert(row){
       if(state.tagGoals.some(g => g.tagId === row.tag_id)) return;
-      state.tagGoals.push({ tagId:row.tag_id, weeklyMinutes:row.weekly_minutes });
+      state.tagGoals.push({ tagId:row.tag_id, weeklyMinutes:row.weekly_minutes, reason:row.reason || '' });
       render();
     },
     onUpdate(row){
       const g = state.tagGoals.find(g => g.tagId === row.tag_id);
       if(!g) return;
       g.weeklyMinutes = row.weekly_minutes;
+      g.reason = row.reason || '';
       render();
     },
     onDelete(old){
@@ -1312,10 +1323,18 @@ async function setTagGoal(tagId, weeklyMinutes){
     return;
   }
   if(existing) existing.weeklyMinutes = weeklyMinutes;
-  else state.tagGoals.push({ tagId, weeklyMinutes });
+  else state.tagGoals.push({ tagId, weeklyMinutes, reason:'' });
   render();
-  const { error } = await sb.from('tag_goals').upsert({ tag_id:tagId, weekly_minutes:weeklyMinutes });
+  const { error } = await sb.from('tag_goals').upsert({ tag_id:tagId, weekly_minutes:weeklyMinutes, reason: (existing && existing.reason) || '' });
   if(error) console.error('setTagGoal failed', error);
+}
+async function setTagGoalReason(tagId, reason){
+  const g = state.tagGoals.find(g => g.tagId === tagId);
+  if(!g) return;
+  g.reason = reason.trim();
+  render();
+  const { error } = await sb.from('tag_goals').update({ reason: g.reason }).eq('tag_id', tagId);
+  if(error) console.error('setTagGoalReason failed', error);
 }
 
 /* ---------- filters (shared by today & tasks pages) ---------- */
@@ -2229,6 +2248,10 @@ function renderTagManager(){
                     <input type="text" inputmode="numeric" class="num-text" placeholder="بدون هدف" value="${hours}"
                       oninput="normalizeNumericInput(this)" onchange="setTagGoal('${tag.id}', (parseInt(toEnDigits(this.value))||0)*60)" />
                   </div>
+                  ${g ? `
+                    <input type="text" class="goal-reason-input" placeholder="چرا این هدف برات مهمه؟ (مثلاً: برای GED)"
+                      value="${escapeHtml(g.reason || '')}" onchange="setTagGoalReason('${tag.id}', this.value)" />
+                  ` : ''}
                 `;
               }).join('')}
             </div>
@@ -2479,7 +2502,7 @@ function renderWeeklyGoals(){
     const actual = computeTagWeeklyMinutes(g.tagId);
     const pct = Math.min(100, Math.round(actual / g.weeklyMinutes * 100));
     const reached = actual >= g.weeklyMinutes;
-    return { tag, actual, target: g.weeklyMinutes, pct, reached };
+    return { tag, actual, target: g.weeklyMinutes, pct, reached, reason: g.reason || '' };
   }).filter(Boolean);
   if(rows.length === 0) return '';
   return `
@@ -2488,10 +2511,13 @@ function renderWeeklyGoals(){
         <h2 class="section-title">اهداف هفتگی</h2>
       </div>
       ${rows.map(r => `
-        <div class="progress-row">
-          <span class="progress-label">${escapeHtml(r.tag.name)}</span>
-          <div class="progress-bar-track"><div class="progress-bar-fill" style="width:${Math.max(4, r.pct)}%; background:${r.reached ? 'var(--freelance)' : r.tag.color}"></div></div>
-          <span class="progress-count" style="width:auto; white-space:nowrap;">${r.reached ? '✓ ' : ''}${formatDuration(r.actual)} از ${formatDuration(r.target)}</span>
+        <div class="goal-block">
+          <div class="progress-row">
+            <span class="progress-label">${escapeHtml(r.tag.name)}</span>
+            <div class="progress-bar-track"><div class="progress-bar-fill" style="width:${Math.max(4, r.pct)}%; background:${r.reached ? 'var(--freelance)' : r.tag.color}"></div></div>
+            <span class="progress-count" style="width:auto; white-space:nowrap;">${r.reached ? '✓ ' : ''}${formatDuration(r.actual)} از ${formatDuration(r.target)}</span>
+          </div>
+          ${r.reason ? `<div class="goal-reason">🎯 ${escapeHtml(r.reason)}</div>` : ''}
         </div>
       `).join('')}
     </div>
