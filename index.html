@@ -2900,12 +2900,55 @@ async function logPomodoroSession(taskId, minutes){
   if(error) console.error('logPomodoroSession failed', error);
 }
 
+/* ---------- pomodoro: survive page reload / laptop sleep-wake ----------
+   The live countdown only ever existed in JS memory, so a tab reload or a
+   sleep-triggered tab discard silently reset it back to the full duration,
+   even if it had been paused. Persist to localStorage on every change and
+   restore it on load. */
+const POMO_STORAGE_KEY = 'medar_pomo_state_v1';
+function savePomoStateLocal(){
+  try{
+    const p = state.pomo;
+    localStorage.setItem(POMO_STORAGE_KEY, JSON.stringify({
+      mode:p.mode, remaining:p.remaining, running:p.running, workMin:p.workMin, breakMin:p.breakMin,
+      linkedTaskId:p.linkedTaskId, taskDecided:p.taskDecided, creditedMin:p.creditedMin,
+      cyclesDone:p.cyclesDone, focusLabel:p.focusLabel, savedAt:Date.now(),
+    }));
+  } catch(e){ /* localStorage unavailable (private mode etc) — non-fatal */ }
+}
+function restorePomoStateLocal(){
+  try{
+    const raw = localStorage.getItem(POMO_STORAGE_KEY);
+    if(!raw) return;
+    const saved = JSON.parse(raw);
+    const p = state.pomo;
+    p.mode = saved.mode; p.workMin = saved.workMin; p.breakMin = saved.breakMin;
+    p.linkedTaskId = saved.linkedTaskId; p.taskDecided = saved.taskDecided; p.creditedMin = saved.creditedMin;
+    p.cyclesDone = saved.cyclesDone; p.focusLabel = saved.focusLabel || '';
+    let remaining = saved.remaining;
+    if(saved.running){
+      // it was actively counting down when we last saw it — subtract the real
+      // wall-clock time that passed while the tab was asleep/unloaded
+      const elapsedSec = Math.floor((Date.now() - saved.savedAt) / 1000);
+      remaining = Math.max(0, saved.remaining - elapsedSec);
+    }
+    p.remaining = remaining;
+    if(saved.running && remaining > 0){
+      p.running = true;
+      p.timerId = setInterval(pomoTick, 1000);
+    } else {
+      p.running = false;
+    }
+  } catch(e){ console.error('restorePomoStateLocal failed', e); }
+}
+
 function pomoTick(){
   const p = state.pomo;
   if(p.remaining > 0){
     p.remaining--;
     const el = document.querySelector('.pomo-timer');
     if(el) el.textContent = formatTime(p.remaining);
+    savePomoStateLocal();
   } else {
     playAlarm(p.mode);
     if(p.mode === 'work'){
@@ -2918,6 +2961,7 @@ function pomoTick(){
       p.mode = 'work';
       p.remaining = p.workMin * 60;
     }
+    savePomoStateLocal();
     render();
   }
 }
@@ -2928,6 +2972,7 @@ function pomoActuallyStart(){
   }
   p.running = true;
   p.timerId = setInterval(pomoTick, 1000);
+  savePomoStateLocal();
   render();
 }
 function pomoToggle(){
@@ -2936,6 +2981,7 @@ function pomoToggle(){
     pomoFlushCredit();
     p.running = false;
     clearInterval(p.timerId);
+    savePomoStateLocal();
     render();
     return;
   }
@@ -2972,6 +3018,7 @@ function pomoReset(){
   p.creditedMin = 0;
   p.linkedTaskId = null;
   p.taskDecided = false;
+  savePomoStateLocal();
   render();
 }
 function pomoSkip(){
@@ -2983,6 +3030,7 @@ function pomoSkip(){
   } else {
     p.mode = 'work'; p.remaining = p.workMin*60;
   }
+  savePomoStateLocal();
   render();
 }
 async function setPomoSetting(key, value){
@@ -2991,11 +3039,12 @@ async function setPomoSetting(key, value){
   if(!state.pomo.running){
     state.pomo.remaining = (state.pomo.mode === 'work' ? state.pomo.workMin : state.pomo.breakMin) * 60;
   }
+  savePomoStateLocal();
   render();
   const { error } = await sb.from('pomo_settings').update({ work_min:state.pomo.workMin, break_min:state.pomo.breakMin }).eq('id', 1);
   if(error) console.error('setPomoSetting failed', error);
 }
-function p_setFocusLabel(v){ state.pomo.focusLabel = v; }
+function p_setFocusLabel(v){ state.pomo.focusLabel = v; savePomoStateLocal(); }
 
 
 /* ---------- floating add-task button ---------- */
@@ -3135,7 +3184,26 @@ function renderUndoToast(){
   `;
 }
 
-loadAll();
+/* re-sync the countdown whenever the tab becomes visible again — covers the case
+   where the JS context survived sleep but missed however many ticks happened
+   while the laptop/phone was asleep, so the on-screen number was stale */
+document.addEventListener('visibilitychange', () => {
+  if(document.visibilityState !== 'visible' || !state.pomo.running) return;
+  try{
+    const raw = localStorage.getItem(POMO_STORAGE_KEY);
+    if(!raw) return;
+    const saved = JSON.parse(raw);
+    if(!saved.running) return;
+    const elapsedSec = Math.floor((Date.now() - saved.savedAt) / 1000);
+    const corrected = Math.max(0, saved.remaining - elapsedSec);
+    if(corrected !== state.pomo.remaining){
+      state.pomo.remaining = corrected;
+      render();
+    }
+  } catch(e){ console.error('pomo visibility resync failed', e); }
+});
+
+loadAll().then(() => { restorePomoStateLocal(); render(); });
 
 /* ---------- PWA: register the app-shell service worker ---------- */
 if('serviceWorker' in navigator){
