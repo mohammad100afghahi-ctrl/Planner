@@ -1350,7 +1350,14 @@ function taskGoalMinutes(t){
 function computeTagWeeklyMinutes(tagId){
   const { start, end } = getCurrentWeekRange();
   return state.tasks
-    .filter(t => t.tagIds.includes(tagId) && t.date && t.date >= start && t.date <= end)
+    .filter(t => t.tagIds.includes(tagId))
+    .filter(t => {
+      // count a completed task toward the week it was actually FINISHED in,
+      // not the week it was originally scheduled for — otherwise an overdue
+      // task from last week never counts even though you just did the work now
+      const relevantDate = (t.done && t.completedAt) ? dateKey(new Date(t.completedAt)) : t.date;
+      return relevantDate && relevantDate >= start && relevantDate <= end;
+    })
     .reduce((s,t) => s + taskGoalMinutes(t), 0);
 }
 async function setTagGoal(tagId, weeklyMinutes){
@@ -3071,7 +3078,14 @@ function renderFab(){
 /* ---------- streak (Duolingo-style: consecutive days with >=1 task completed on that task's own date) ---------- */
 function computeStreak(){
   const doneDates = new Set();
-  state.tasks.forEach(t => { if(t.done && t.date) doneDates.add(t.date); });
+  state.tasks.forEach(t => {
+    if(!t.done) return;
+    // same fix as the weekly goals: a completed task counts toward the day it was
+    // actually FINISHED, not the day it was originally scheduled for — otherwise
+    // finishing an overdue task today never credits today's streak
+    const completedKey = t.completedAt ? dateKey(new Date(t.completedAt)) : t.date;
+    if(completedKey) doneDates.add(completedKey);
+  });
 
   const todayKey = dateKey(new Date());
   const atRisk = !doneDates.has(todayKey);
