@@ -2802,20 +2802,21 @@ function renderPomodoro(){
 function renderPomoTaskPicker(){
   const search = state.pomoTaskPicker.search.trim();
   const todayStr = dateKey(new Date());
-  let list = state.tasks.filter(t => !t.done && t.date === todayStr);
+  /* same rule as the Today page: today's tasks plus any still-open overdue ones */
+  let list = state.tasks.filter(t => !t.done && (t.date === todayStr || (t.date && t.date < todayStr)));
   if(search) list = list.filter(t => t.title.includes(search));
   return `
     <div class="modal-overlay" onclick="if(event.target===this) pomoCancelTaskPick()">
       <div class="modal-box">
         <h3>روی کدوم تسک کار می‌کنی؟</h3>
-        <input type="text" class="modal-title-input" placeholder="جست‌وجو در تسک‌های امروز…"
+        <input type="text" class="modal-title-input" placeholder="جست‌وجو در تسک‌های امروز و عقب‌افتاده…"
           value="${escapeHtml(state.pomoTaskPicker.search)}" oninput="pomoSetTaskPickerSearch(this.value)" />
         <div class="pomo-task-pick-list">
           ${list.length === 0
-            ? `<div class="empty-state" style="padding:14px 0;">تسک بازِ امروزی با این جست‌وجو پیدا نشد</div>`
+            ? `<div class="empty-state" style="padding:14px 0;">تسک بازی با این جست‌وجو پیدا نشد</div>`
             : list.map(t => `
               <button class="pomo-task-pick-row" onclick="pomoPickTask('${t.id}')">
-                <span>${escapeHtml(t.title)}</span>
+                <span>${escapeHtml(t.title)}${t.date !== todayStr ? ` <span class="summary-text">(عقب‌افتاده)</span>` : ''}</span>
                 ${t.durationMin ? `<span class="summary-text">${toFaDigits(t.durationMin)} د</span>` : ''}
               </button>
             `).join('')
