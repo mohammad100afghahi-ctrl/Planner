@@ -1740,6 +1740,12 @@ function editorQuickDate(which){
   d.date = dateKey(dt);
   render();
 }
+function editorClearDate(){
+  const ed = state.taskEditor;
+  ed.draft.date = '';
+  ed.calendarOpen = false;
+  render();
+}
 function editorSetDate(value){ state.taskEditor.draft.date = value; render(); }
 
 /* ---------- custom Jalali calendar (task date picker) ---------- */
@@ -2509,6 +2515,7 @@ function renderTaskEditorModal(){
           <div class="quick-group">
             <span class="quick-chip ${d.date===todayStr?'active':''}" onclick="editorQuickDate('today')">امروز</span>
             <span class="quick-chip ${d.date===tomorrowStr?'active':''}" onclick="editorQuickDate('tomorrow')">فردا</span>
+            <span class="quick-chip ${!d.date?'active':''}" onclick="editorClearDate()">بدون تاریخ</span>
             <button type="button" class="date-picker-btn" onclick="toggleTaskCalendar()">📅 ${d.date ? formatDateShort(d.date) : 'انتخاب از تقویم'}</button>
           </div>
           ${ed.calendarOpen ? renderTaskCalendar() : ''}
