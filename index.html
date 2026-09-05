@@ -1174,8 +1174,12 @@ function startRealtimeSync(){
     onUpdate(row){
       const t = state.tasks.find(t => t.id === row.id);
       if(!t) return;
+      const doneChanged = t.done !== !!row.done;
       t.title = row.title; t.done = !!row.done; t.completedAt = row.completed_at;
       t.priority = row.priority; t.date = row.date || ''; t.durationMin = row.duration_min; t.actualMin = row.actual_min; t.difficulty = row.difficulty;
+      // only cascade to subtasks when the completion state itself flipped — a plain
+      // title/date edit from another device must not wipe in-progress subtask ticks
+      if(doneChanged) syncSubtaskDoneFromTask(t);
       render();
     },
     onDelete(old){
@@ -1504,7 +1508,15 @@ function renderFilterPanel(pageKey, opts){
 function markDone(task, val){
   task.done = val;
   task.completedAt = val ? new Date().toISOString() : null;
-  if(val) task.subtasks.forEach(s => s.done = true);
+  /* completing a task completes all its subtasks; re-opening it must re-open them
+     too, otherwise you get an "unfinished" task whose every step reads finished */
+  task.subtasks.forEach(s => s.done = val);
+}
+function syncSubtaskDoneFromTask(task){
+  /* keep local subtask state consistent when the parent's done flag arrives from
+     another device — completing a task completes all its subtasks and re-opening
+     it re-opens them, so a realtime echo has to mirror the same rule */
+  task.subtasks.forEach(s => s.done = task.done);
 }
 /* ---------- undo toast (shared by any deletion that should be reversible) ---------- */
 let undoToastTimer = null;
@@ -1560,16 +1572,15 @@ async function toggleTaskDone(taskId, evt){
   render();
   const { error } = await sb.from('tasks').update({ done:t.done, completed_at:t.completedAt }).eq('id', taskId);
   if(error) console.error('toggleTaskDone failed', error);
-  if(t.done && t.subtasks.length){
-    const { error: subErr } = await sb.from('subtasks').update({ done:true }).eq('task_id', taskId);
+  if(t.subtasks.length){
+    const { error: subErr } = await sb.from('subtasks').update({ done:t.done }).eq('task_id', taskId);
     if(subErr) console.error('subtask sync failed', subErr);
   }
   if(turningDone){
     state.taskCompletionModal = { taskId, minutes:null, difficulty:null };
     render();
   }
-}
-function completionSetMinutes(min){ state.taskCompletionModal.minutes = min; render(); }
+}function completionSetMinutes(min){ state.taskCompletionModal.minutes = min; render(); }
 function completionSetCustomMinutes(value){
   const v = parseInt(toEnDigits(value));
   state.taskCompletionModal.minutes = (v && v > 0) ? v : null;
@@ -1613,14 +1624,31 @@ async function toggleSubtask(taskId, subId, evt){
   const t = state.tasks.find(t => t.id === taskId);
   const s = t.subtasks.find(s => s.id === subId);
   s.done = !s.done;
+  const wasDone = t.done;
   const allDone = t.subtasks.length && t.subtasks.every(s => s.done);
-  if(allDone) markDone(t, true);
-  else markDone(t, false);
+  /* only flip the parent when the completion state actually changes — calling
+     markDone(t, true) unconditionally would re-tick every subtask and clobber the
+     very unticking the user just did */
+  if(allDone && !wasDone){
+    t.done = true;
+    t.completedAt = new Date().toISOString();
+  } else if(!allDone && wasDone){
+    t.done = false;
+    t.completedAt = null;
+  }
   render();
   const { error } = await sb.from('subtasks').update({ done:s.done }).eq('id', subId);
   if(error) console.error('toggleSubtask failed', error);
-  const { error: taskErr } = await sb.from('tasks').update({ done:t.done, completed_at:t.completedAt }).eq('id', taskId);
-  if(taskErr) console.error('parent sync failed', taskErr);
+  if(t.done !== wasDone){
+    const { error: taskErr } = await sb.from('tasks').update({ done:t.done, completed_at:t.completedAt }).eq('id', taskId);
+    if(taskErr) console.error('parent sync failed', taskErr);
+    // finishing a task by ticking its last subtask should prompt for time/difficulty
+    // just like ticking the task itself does
+    if(t.done){
+      state.taskCompletionModal = { taskId, minutes:null, difficulty:null };
+      render();
+    }
+  }
 }
 async function deleteSubtask(taskId, subId){
   const t = state.tasks.find(t => t.id === taskId);
@@ -2756,10 +2784,16 @@ function renderTodayItem(t, todayStr){
 function renderToday(){
   const { wd } = fmtHeaderDate(state.today);
   const todayStr = dateKey(state.today);
-  /* Today's own tasks, plus any still-undone task from a past day — those stay
-     visible here (not silently dropped back into the Tasks list) until the
-     person edits them, reschedules them, or finishes them. */
-  const todayTasksRaw = state.tasks.filter(t => t.date === todayStr || (!t.done && t.date && t.date < todayStr));
+  /* Today's own tasks, plus any overdue task from a past day — an overdue task
+     stays visible until it's actually finished, and once finished TODAY it stays
+     on today's list for the rest of the day (so you see the completion, and can
+     untick it if it was a misclick) instead of vanishing the instant you tap it. */
+  const todayTasksRaw = state.tasks.filter(t => {
+    if(t.date === todayStr) return true;
+    if(!t.date || t.date >= todayStr) return false;
+    if(!t.done) return true; // still-open overdue task
+    return t.completedAt && dateKey(new Date(t.completedAt)) === todayStr; // finished today
+  });
   const scheduled = applyFiltersAndSort(todayTasksRaw, 'todayFilters', { dateFilter:false });
 
   return `
