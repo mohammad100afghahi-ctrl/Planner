@@ -806,6 +806,7 @@ global.jalaali = {
   .cal-info-btn{position:absolute; top:2px; left:2px; font-size:10px; color:var(--text-muted); cursor:pointer; line-height:1; padding:1px;}
   .cal-info-btn:hover{color:var(--accent);}
   .cal-tags{display:flex; gap:2px; margin-top:4px; align-items:center;}
+  .cal-recurring-mark{position:absolute; top:2px; right:2px; font-size:9px; opacity:.85; line-height:1;}
   .cal-tag-dot{width:6px; height:6px; border-radius:50%; display:inline-block; flex-shrink:0;}
   .cal-tag-more{font-size:9px; color:var(--text-muted);}
   .cal-day-header{display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; gap:8px;}
@@ -813,6 +814,7 @@ global.jalaali = {
   .cal-back:hover{border-color:var(--accent); color:var(--accent);}
   .cal-day-title{font-size:13px; font-weight:700; color:var(--text);}
   .cal-day-task{background:var(--surface); border:1px solid var(--line); border-radius:9px; padding:10px 12px; margin-bottom:8px;}
+  .cal-day-task.preview{background:transparent; border:1px dashed var(--line); opacity:.8;}
   .cal-day-task:last-child{margin-bottom:0;}
   .cal-day-task.done{opacity:.55;}
   .cal-day-task-title{font-size:13.5px; font-weight:600; color:var(--text); margin-bottom:6px;}
@@ -2220,6 +2222,16 @@ function renderCalendarDayPanel(){
 }
 
 /* ---------- rendering: standalone تقویم tab ---------- */
+function getRecurringPreviewsForDate(dateStr){
+  const todayStr = dateKey(new Date());
+  if(dateStr < todayStr) return [];
+  const weekday = new Date(dateStr).getDay();
+  return state.recurringTemplates.filter(tpl =>
+    tpl.active &&
+    tpl.weekdays.includes(weekday) &&
+    !state.tasks.some(t => t.recurringTemplateId === tpl.id && t.date === dateStr)
+  );
+}
 function renderCalendarPage(){
   const c = state.calendarPage;
   if(c.panel === 'day') return renderCalendarPageDayPanel();
@@ -2267,9 +2279,11 @@ function renderCalendarPage(){
           const g = window.jalaali.toGregorian(jy, jm, dnum);
           const key = dateKey(new Date(g.gy, g.gm - 1, g.gd));
           const isToday = (jy===todayJ.jy && jm===todayJ.jm && dnum===todayJ.jd);
+          const previews = getRecurringPreviewsForDate(key);
           return `
             <div class="cal-cell ${isToday?'today':''}" onclick="calendarPageShowDay('${key}')">
               <span class="cal-daynum">${toFaDigits(dnum)}</span>
+              ${previews.length ? `<span class="cal-recurring-mark" title="کارِ تکرارشونده برای این روز">🔁</span>` : ''}
               ${info ? `
                 <div class="cal-tags">
                   ${info.tagIds.slice(0,3).map(tid => { const tag = state.tags.find(t=>t.id===tid); return tag ? `<span class="cal-tag-dot" style="background:${tag.color}" title="${escapeHtml(tag.name)}"></span>` : ''; }).join('')}
@@ -2287,6 +2301,7 @@ function renderCalendarPageDayPanel(){
   const c = state.calendarPage;
   const key = c.selectedDayKey;
   const dayTasks = state.tasks.filter(t => t.date === key);
+  const previews = getRecurringPreviewsForDate(key);
   const totalMin = dayTasks.reduce((s,t) => s + (t.durationMin||0), 0);
   const jObj = window.jalaali.toJalaali(new Date(key));
   const jalaliLabel = `${toFaDigits(jObj.jd)} ${MONTHS_JALALI[jObj.jm-1]} ${toFaDigits(jObj.jy)}`;
@@ -2302,7 +2317,21 @@ function renderCalendarPageDayPanel(){
         <button type="button" class="add-task-for-day-btn" onclick="openTaskEditorNewForDate('${key}')">+ اضافه کردن کار جدید</button>
         <button type="button" class="add-task-for-day-btn secondary" onclick="openMoveTaskPicker('${key}')">↪ انتخاب از تسک‌های موجود</button>
       </div>
-      ${dayTasks.length === 0 ? `<div class="empty-state" style="padding:16px 0;">کاری برای این روز ثبت نشده</div>` : dayTasks.map(t => `
+      ${(dayTasks.length === 0 && previews.length === 0) ? `<div class="empty-state" style="padding:16px 0;">کاری برای این روز ثبت نشده</div>` : ''}
+      ${previews.map(tpl => `
+        <div class="cal-day-task preview">
+          <div class="cal-day-task-title">🔁 ${escapeHtml(tpl.title)}</div>
+          <div class="task-meta-row">
+            <span class="summary-text">کارِ تکرارشونده — وقتی این روز برسه، خودش به‌صورتِ تسکِ واقعی ساخته می‌شه</span>
+          </div>
+          ${tpl.tagIds.length ? `
+            <div class="task-meta-row">
+              ${tpl.tagIds.map(tid => { const tag = state.tags.find(x => x.id===tid); return tag ? `<span class="mini-tag" style="--chip-color:${tag.color}">${escapeHtml(tag.name)}</span>` : ''; }).join('')}
+            </div>
+          ` : ''}
+        </div>
+      `).join('')}
+      ${dayTasks.map(t => `
         <div class="cal-day-task ${t.done ? 'done' : ''}">
           <div class="cal-day-task-title ${t.done ? 'done-text' : ''}">${t.done ? '✓ ' : ''}${escapeHtml(t.title)}</div>
           <div class="task-meta-row">
