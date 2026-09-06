@@ -509,7 +509,8 @@ global.jalaali = {
   .goal-block{margin-bottom:12px;}
   .goal-block:last-child{margin-bottom:0;}
   .goal-reason{
-    font-size:11.5px; color:var(--accent); margin-top:2px; padding-right:74px; line-height:1.7; opacity:.9;
+    font-size:11.5px; color:var(--text-muted); margin-top:4px; line-height:1.7;
+    margin-right:74px; border-right:2px solid var(--chip-color); padding-right:8px;
   }
 
   /* undo toast */
@@ -806,7 +807,6 @@ global.jalaali = {
   .cal-info-btn{position:absolute; top:2px; left:2px; font-size:10px; color:var(--text-muted); cursor:pointer; line-height:1; padding:1px;}
   .cal-info-btn:hover{color:var(--accent);}
   .cal-tags{display:flex; gap:2px; margin-top:4px; align-items:center;}
-  .cal-recurring-mark{position:absolute; top:2px; right:2px; font-size:9px; opacity:.85; line-height:1;}
   .cal-tag-dot{width:6px; height:6px; border-radius:50%; display:inline-block; flex-shrink:0;}
   .cal-tag-more{font-size:9px; color:var(--text-muted);}
   .cal-day-header{display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; gap:8px;}
@@ -2132,10 +2132,12 @@ function renderTaskCalendar(){
     const g = window.jalaali.toGregorian(jy, jm, dnum);
     const key = dateKey(new Date(g.gy, g.gm - 1, g.gd));
     const dayTasks = state.tasks.filter(t => t.date === key);
-    if(dayTasks.length){
+    const previews = getRecurringPreviewsForDate(key);
+    if(dayTasks.length || previews.length){
       const tagIds = [];
       dayTasks.forEach(t => t.tagIds.forEach(tid => { if(!tagIds.includes(tid)) tagIds.push(tid); }));
-      dayTagsMap[dnum] = { tagIds, key };
+      previews.forEach(tpl => tpl.tagIds.forEach(tid => { if(!tagIds.includes(tid)) tagIds.push(tid); }));
+      dayTagsMap[dnum] = { tagIds, key, hasReal: dayTasks.length > 0 };
     }
   }
 
@@ -2167,7 +2169,7 @@ function renderTaskCalendar(){
           const isSelected = selJ && jy===selJ.jy && jm===selJ.jm && dnum===selJ.jd;
           return `
             <div class="cal-cell ${isToday?'today':''} ${isSelected?'selected':''}" onclick="calendarPickDay(${jy},${jm},${dnum})">
-              ${info ? `<span class="cal-info-btn" onclick="calendarShowDayDetail('${info.key}', event)" title="جزئیات این روز">ⓘ</span>` : ''}
+              ${(info && info.hasReal) ? `<span class="cal-info-btn" onclick="calendarShowDayDetail('${info.key}', event)" title="جزئیات این روز">ⓘ</span>` : ''}
               <span class="cal-daynum">${toFaDigits(dnum)}</span>
               ${info ? `
                 <div class="cal-tags">
@@ -2247,9 +2249,11 @@ function renderCalendarPage(){
     const g = window.jalaali.toGregorian(jy, jm, dnum);
     const key = dateKey(new Date(g.gy, g.gm - 1, g.gd));
     const dayTasks = state.tasks.filter(t => t.date === key);
-    if(dayTasks.length){
+    const previews = getRecurringPreviewsForDate(key);
+    if(dayTasks.length || previews.length){
       const tagIds = [];
       dayTasks.forEach(t => t.tagIds.forEach(tid => { if(!tagIds.includes(tid)) tagIds.push(tid); }));
+      previews.forEach(tpl => tpl.tagIds.forEach(tid => { if(!tagIds.includes(tid)) tagIds.push(tid); }));
       dayTagsMap[dnum] = { tagIds, key };
     }
   }
@@ -2279,11 +2283,9 @@ function renderCalendarPage(){
           const g = window.jalaali.toGregorian(jy, jm, dnum);
           const key = dateKey(new Date(g.gy, g.gm - 1, g.gd));
           const isToday = (jy===todayJ.jy && jm===todayJ.jm && dnum===todayJ.jd);
-          const previews = getRecurringPreviewsForDate(key);
           return `
             <div class="cal-cell ${isToday?'today':''}" onclick="calendarPageShowDay('${key}')">
               <span class="cal-daynum">${toFaDigits(dnum)}</span>
-              ${previews.length ? `<span class="cal-recurring-mark" title="کارِ تکرارشونده برای این روز">🔁</span>` : ''}
               ${info ? `
                 <div class="cal-tags">
                   ${info.tagIds.slice(0,3).map(tid => { const tag = state.tags.find(t=>t.id===tid); return tag ? `<span class="cal-tag-dot" style="background:${tag.color}" title="${escapeHtml(tag.name)}"></span>` : ''; }).join('')}
@@ -2320,7 +2322,7 @@ function renderCalendarPageDayPanel(){
       ${(dayTasks.length === 0 && previews.length === 0) ? `<div class="empty-state" style="padding:16px 0;">کاری برای این روز ثبت نشده</div>` : ''}
       ${previews.map(tpl => `
         <div class="cal-day-task preview">
-          <div class="cal-day-task-title">🔁 ${escapeHtml(tpl.title)}</div>
+          <div class="cal-day-task-title">${escapeHtml(tpl.title)}</div>
           <div class="task-meta-row">
             <span class="summary-text">کارِ تکرارشونده — وقتی این روز برسه، خودش به‌صورتِ تسکِ واقعی ساخته می‌شه</span>
           </div>
@@ -2436,7 +2438,7 @@ function renderTagManager(){
           </div>
           ${state.tags.length ? `
             <div class="tag-goals-section">
-              <span class="modal-section-label">🎯 هدف هفتگی هر تگ (ساعت)</span>
+              <span class="modal-section-label">هدف هفتگی هر تگ (ساعت)</span>
               ${state.tags.map(tag => {
                 const g = state.tagGoals.find(g => g.tagId === tag.id);
                 const hours = g ? Math.round(g.weeklyMinutes / 60) : '';
@@ -2761,7 +2763,7 @@ function renderWeeklyGoals(){
             <div class="progress-bar-track"><div class="progress-bar-fill" style="width:${Math.max(4, r.pct)}%; background:${r.reached ? 'var(--freelance)' : r.tag.color}"></div></div>
             <span class="progress-count" style="width:auto; white-space:nowrap;">${r.reached ? '✓ ' : ''}${formatDuration(r.actual)} از ${formatDuration(r.target)}</span>
           </div>
-          ${r.reason ? `<div class="goal-reason">🎯 ${escapeHtml(r.reason)}</div>` : ''}
+          ${r.reason ? `<div class="goal-reason" style="--chip-color:${r.tag.color}">${escapeHtml(r.reason)}</div>` : ''}
         </div>
       `).join('')}
     </div>
