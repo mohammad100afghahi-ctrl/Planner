@@ -707,33 +707,6 @@ global.jalaali = {
   .modal-actions button.confirm:hover{opacity:.9;}
   .modal-actions button.cancel:hover{border-color:var(--danger); color:var(--danger);}
 
-  /* Pomodoro */
-  .pomo-box{background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:28px 20px; text-align:center; margin-bottom:18px;}
-  .pomo-mode{font-size:12px; font-weight:700; letter-spacing:1px; text-transform:uppercase; color:var(--text-muted); margin-bottom:14px;}
-  .pomo-mode.work{color:var(--accent);}
-  .pomo-mode.break{color:var(--freelance);}
-  .pomo-timer{font-family:'JetBrains Mono', monospace; font-size:58px; font-weight:600; letter-spacing:1px; direction:ltr; margin-bottom:18px;}
-  .pomo-controls{display:flex; gap:10px; justify-content:center; margin-bottom:20px;}
-  .pomo-controls button{
-    background:var(--surface-3); border:1px solid var(--line); color:var(--text); font-size:13.5px; font-weight:700;
-    padding:10px 20px; border-radius:9px; cursor:pointer;
-  }
-  .pomo-controls button.primary{background:var(--accent); color:#12161C; border-color:var(--accent);}
-  .pomo-controls button:hover{opacity:.9;}
-  .pomo-settings{display:flex; gap:16px; justify-content:center; font-size:12px; color:var(--text-muted); flex-wrap:wrap;}
-  .pomo-settings label{display:flex; flex-direction:column; align-items:center; gap:5px;}
-  .pomo-settings input{
-    width:60px; text-align:center; background:var(--surface-2); border:1px solid var(--line); color:var(--text);
-    font-size:13px; padding:6px; border-radius:7px; outline:none; font-family:'JetBrains Mono',monospace;
-  }
-  .pomo-cycles{font-size:12px; color:var(--text-muted); margin-top:14px;}
-  .pomo-alarm-note{font-size:11px; color:var(--text-muted); margin-top:12px; line-height:1.7; opacity:.75;}
-  .pomo-focus{margin-top:16px;}
-  .pomo-focus input{
-    width:100%; background:var(--surface-2); border:1px solid var(--line); color:var(--text); font-size:13px;
-    padding:9px 12px; border-radius:8px; outline:none; text-align:center;
-  }
-
   .loading{text-align:center; color:var(--text-muted); font-size:13px; padding:60px 0;}
 
   /* Floating add-task button */
@@ -831,8 +804,7 @@ global.jalaali = {
   .streak-badge.at-risk .streak-count{color:var(--text-muted);}
   .streak-label{font-size:11.5px; color:var(--text-muted);}
 
-  /* pomodoro <-> task link */
-  .pomo-linked-task{font-size:12.5px; color:var(--freelance); text-align:center; margin-top:6px;}
+  /* shared "pick a task from a list" pattern — used by the move-to-day calendar picker */
   .actual-time-row{font-size:11.5px; color:var(--freelance); margin-top:4px;}
   .pomo-task-pick-list{max-height:260px; overflow-y:auto; margin-top:10px; display:flex; flex-direction:column; gap:6px;}
   .pomo-task-pick-row{
@@ -859,9 +831,9 @@ global.jalaali = {
      - a layered box-shadow (outer lift + inset top highlight + inset bottom depth)
      - a thin bright rim across the top edge (::before) = specular highlight */
   nav, .add-task-btn, .progress-box, .tag-manager, .filter-panel, .task-card, .today-item,
-  .modal-box, .pomo-box, .task-calendar, .cal-day-task, .streak-badge, .cal-nav, .cal-back,
+  .modal-box, .task-calendar, .cal-day-task, .streak-badge, .cal-nav, .cal-back,
   .date-picker-btn, .reset-filters-btn, .new-tag-row button, .modal-add-subtask button,
-  .modal-actions button, .pomo-task-pick-row, .pomo-cycles, .archive-search-input{
+  .modal-actions button, .pomo-task-pick-row, .archive-search-input{
     background:var(--glass-fill);
     backdrop-filter:var(--glass-blur);
     -webkit-backdrop-filter:var(--glass-blur);
@@ -870,7 +842,7 @@ global.jalaali = {
     position:relative;
   }
   nav::before, .add-task-btn::before, .progress-box::before, .tag-manager::before, .filter-panel::before,
-  .task-card::before, .today-item::before, .modal-box::before, .pomo-box::before, .task-calendar::before,
+  .task-card::before, .today-item::before, .modal-box::before, .task-calendar::before,
   .cal-day-task::before, .streak-badge::before, .cal-nav::before, .cal-back::before, .date-picker-btn::before,
   .reset-filters-btn::before, .new-tag-row button::before, .modal-add-subtask button::before,
   .modal-actions button::before, .pomo-task-pick-row::before, .archive-search-input::before{
@@ -1049,13 +1021,6 @@ let state = {
     const j = window.jalaali.toJalaali(new Date());
     return { jy: j.jy, jm: j.jm, panel: 'grid', selectedDayKey: null };
   })(),
-  pomo: {
-    workMin: 25, breakMin: 5,
-    mode: 'work', remaining: 25*60, running: false, cyclesDone: 0, focusLabel: '',
-    timerId: null, endsAt: null,
-    linkedTaskId: null, taskDecided: false, creditedMin: 0,
-  },
-  pomoTaskPicker: null, // { search:'' } when the "which task?" modal is open
   moveTaskPicker: null, // { search:'', dateStr } when picking an existing task to move into a calendar day
   recurringTemplates: [], // [{ id, title, priority, durationMin, weekdays:[0-6], active, tagIds }]
   recurringManagerOpen: false,
@@ -1113,10 +1078,6 @@ async function loadAll(){
     const { data: aiReports, error: aiReportsErr } = await sb.from('ai_reports').select('*').order('period_end', { ascending:false });
     if(aiReportsErr) throw aiReportsErr;
     state.aiReports = aiReports.map(r => ({ id:r.id, periodStart:r.period_start, periodEnd:r.period_end, text:r.report_text, createdAt:r.created_at }));
-
-    const { data: pomo, error: pomoErr } = await sb.from('pomo_settings').select('*').eq('id', 1).maybeSingle();
-    if(pomoErr) throw pomoErr;
-    if(pomo){ state.pomo.workMin = pomo.work_min; state.pomo.breakMin = pomo.break_min; state.pomo.remaining = pomo.work_min*60; }
   } catch(e){
     console.error('load failed', e);
     loadError = true;
@@ -1593,6 +1554,14 @@ function completionSetCustomMinutes(value){
   state.taskCompletionModal.minutes = (v && v > 0) ? v : null;
 }
 function completionSetDifficulty(level){ state.taskCompletionModal.difficulty = level; render(); }
+async function addActualMinToTask(taskId, deltaMin){
+  const t = state.tasks.find(t => t.id === taskId);
+  if(!t || deltaMin <= 0) return;
+  t.actualMin = (t.actualMin || 0) + deltaMin;
+  render();
+  const { error } = await sb.from('tasks').update({ actual_min: t.actualMin }).eq('id', taskId);
+  if(error) console.error('addActualMinToTask failed', error);
+}
 async function confirmTaskCompletion(){
   const m = state.taskCompletionModal;
   const t = state.tasks.find(t => t.id === m.taskId);
@@ -2567,7 +2536,7 @@ function renderTaskEditorModal(){
               oninput="normalizeNumericInput(this)" onchange="editorSetDurationCustom(this.value)" />
             <span id="duration-suggestion-slot">${renderDurationSuggestionChip()}</span>
           </div>
-          ${(ed.mode === 'edit' && ed.actualMinReadonly) ? `<div class="actual-time-row" style="margin-top:8px;">⏱ زمان واقعیِ ثبت‌شده با پومودورو تا الان: ${formatDuration(ed.actualMinReadonly)}</div>` : ''}
+          ${(ed.mode === 'edit' && ed.actualMinReadonly) ? `<div class="actual-time-row" style="margin-top:8px;">⏱ زمانِ واقعیِ ثبت‌شده تا الان: ${formatDuration(ed.actualMinReadonly)}</div>` : ''}
         </div>
 
         <div class="modal-section">
@@ -2852,300 +2821,6 @@ function renderToday(){
   `;
 }
 
-/* ---------- rendering: pomodoro ---------- */
-function formatTime(sec){
-  const m = Math.floor(sec/60), s = sec % 60;
-  return toFaDigits(String(m).padStart(2,'0')) + ':' + toFaDigits(String(s).padStart(2,'0'));
-}
-function renderPomodoro(){
-  const p = state.pomo;
-  const linkedTask = p.linkedTaskId ? state.tasks.find(t => t.id === p.linkedTaskId) : null;
-  return `
-    <div class="pomo-box">
-      <div class="pomo-mode ${p.mode}">${p.mode === 'work' ? 'زمان تمرکز' : 'زمان استراحت'}</div>
-      <div class="pomo-timer">${formatTime(p.remaining)}</div>
-      ${linkedTask ? `<div class="pomo-linked-task">🔗 در حال کار روی: <b>${escapeHtml(linkedTask.title)}</b></div>` : ''}
-      <div class="pomo-controls">
-        <button class="primary" onclick="pomoToggle()">${p.running ? 'توقف' : 'شروع'}</button>
-        <button onclick="pomoReset()">ریست</button>
-        <button onclick="pomoSkip()">رد کردن</button>
-      </div>
-      <div class="pomo-settings">
-        <label>تمرکز (دقیقه)<input type="number" min="1" max="90" value="${p.workMin}" onchange="setPomoSetting('workMin', this.value)" /></label>
-        <label>استراحت (دقیقه)<input type="number" min="1" max="60" value="${p.breakMin}" onchange="setPomoSetting('breakMin', this.value)" /></label>
-      </div>
-      <div class="pomo-cycles">دورهای تکمیل‌شده امروز: <b class="mono">${toFaDigits(p.cyclesDone)}</b></div>
-      <div class="pomo-focus">
-        <input type="text" placeholder="الان روی چی کار می‌کنی؟ (اختیاری)" value="${escapeHtml(p.focusLabel)}" onchange="p_setFocusLabel(this.value)" />
-      </div>
-      <div class="pomo-alarm-note">برای شنیدن هشدار، صفحه‌ی گوشی باید روشن و این تب باز بمونه؛ با صفحه‌ی خاموش هشدار نمی‌رسه.</div>
-    </div>
-    ${state.pomoTaskPicker ? renderPomoTaskPicker() : ''}
-  `;
-}
-function renderPomoTaskPicker(){
-  const search = state.pomoTaskPicker.search.trim();
-  const todayStr = dateKey(new Date());
-  /* same rule as the Today page: today's tasks plus any still-open overdue ones */
-  let list = state.tasks.filter(t => !t.done && (t.date === todayStr || (t.date && t.date < todayStr)));
-  if(search) list = list.filter(t => t.title.includes(search));
-  return `
-    <div class="modal-overlay" onclick="if(event.target===this) pomoCancelTaskPick()">
-      <div class="modal-box">
-        <h3>روی کدوم تسک کار می‌کنی؟</h3>
-        <input type="text" class="modal-title-input" placeholder="جست‌وجو در تسک‌های امروز و عقب‌افتاده…"
-          value="${escapeHtml(state.pomoTaskPicker.search)}" oninput="pomoSetTaskPickerSearch(this.value)" />
-        <div class="pomo-task-pick-list">
-          ${list.length === 0
-            ? `<div class="empty-state" style="padding:14px 0;">تسک بازی با این جست‌وجو پیدا نشد</div>`
-            : list.map(t => `
-              <button class="pomo-task-pick-row" onclick="pomoPickTask('${t.id}')">
-                <span>${escapeHtml(t.title)}${t.date !== todayStr ? ` <span class="summary-text">(عقب‌افتاده)</span>` : ''}</span>
-                ${t.durationMin ? `<span class="summary-text">${toFaDigits(t.durationMin)} د</span>` : ''}
-              </button>
-            `).join('')
-          }
-        </div>
-        <div class="modal-actions">
-          <button class="cancel" onclick="pomoCancelTaskPick()">انصراف</button>
-          <button class="confirm" onclick="pomoSkipTaskPick()">بدون تسک خاص، فقط تایمر</button>
-        </div>
-      </div>
-    </div>
-  `;
-}
-
-let pomoAudioCtx = null;
-function playAlarm(endedMode){
-  try{
-    if(!pomoAudioCtx) pomoAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    const ctx = pomoAudioCtx;
-    if(ctx.state === 'suspended') ctx.resume();
-    /* urgent alternating two-tone pattern (like a real alarm clock), louder
-       and much longer than a few soft beeps — repeats for ~6 seconds */
-    const pattern = [988, 740, 988, 740, 988, 740, 988, 740, 988, 740, 988, 740];
-    pattern.forEach((freq, i) => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = 'square';
-      osc.frequency.value = freq;
-      const start = ctx.currentTime + i*0.5;
-      gain.gain.setValueAtTime(0.0001, start);
-      gain.gain.exponentialRampToValueAtTime(0.55, start + 0.03);
-      gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.38);
-      osc.connect(gain); gain.connect(ctx.destination);
-      osc.start(start);
-      osc.stop(start + 0.4);
-    });
-  }catch(e){ console.error('alarm failed', e); }
-  if(navigator.vibrate) navigator.vibrate([350,150,350,150,350,150,350,150,350]);
-  notifyPomodoroDone(endedMode);
-}
-async function notifyPomodoroDone(endedMode){
-  try{
-    if(!('Notification' in window) || Notification.permission !== 'granted') return;
-    const title = endedMode === 'work' ? '⏰ وقت کار تموم شد' : '⏰ وقت استراحت تموم شد';
-    const body = endedMode === 'work' ? 'وقت یه استراحت کوتاهه' : 'وقت شروع دوباره‌ست';
-    if('serviceWorker' in navigator){
-      const reg = await navigator.serviceWorker.ready;
-      reg.showNotification(title, { body, icon:'./icon-192.png', badge:'./icon-192.png', vibrate:[350,150,350,150,350] });
-    } else {
-      new Notification(title, { body, icon:'./icon-192.png' });
-    }
-  }catch(e){ console.error('notify failed', e); }
-}
-
-async function addActualMinToTask(taskId, deltaMin){
-  const t = state.tasks.find(t => t.id === taskId);
-  if(!t || deltaMin <= 0) return;
-  t.actualMin = (t.actualMin || 0) + deltaMin;
-  render();
-  const { error } = await sb.from('tasks').update({ actual_min: t.actualMin }).eq('id', taskId);
-  if(error) console.error('addActualMinToTask failed', error);
-}
-/* Credits whatever work-time has elapsed in the current phase to the linked task,
-   without double-counting time already credited (tracked via creditedMin). Safe to
-   call on every stop/skip/natural-completion. */
-function pomoFlushCredit(){
-  const p = state.pomo;
-  if(p.mode !== 'work' || !p.linkedTaskId) return;
-  const elapsedSec = p.workMin*60 - p.remaining;
-  const elapsedMin = Math.floor(elapsedSec/60);
-  const deltaMin = elapsedMin - p.creditedMin;
-  if(deltaMin > 0){
-    addActualMinToTask(p.linkedTaskId, deltaMin);
-    logPomodoroSession(p.linkedTaskId, deltaMin);
-    p.creditedMin = elapsedMin;
-  }
-}
-async function logPomodoroSession(taskId, minutes){
-  const startedAt = new Date(Date.now() - minutes*60000).toISOString();
-  const { error } = await sb.from('pomodoro_sessions').insert({ task_id:taskId, started_at:startedAt, minutes });
-  if(error) console.error('logPomodoroSession failed', error);
-}
-
-/* ---------- pomodoro: survive page reload / sleep / background-tab throttling ----------
-   The countdown is derived from an absolute end-timestamp (endsAt), never from a
-   decrementing counter. Browsers throttle setInterval heavily in background/minimized
-   tabs (sometimes to ~once a minute), so a "remaining--" per tick badly lags reality.
-   Deriving from wall-clock time on every tick/resync means the displayed number is
-   always correct regardless of how many ticks actually fired. */
-const POMO_STORAGE_KEY = 'medar_pomo_state_v1';
-function savePomoStateLocal(){
-  try{
-    const p = state.pomo;
-    localStorage.setItem(POMO_STORAGE_KEY, JSON.stringify({
-      mode:p.mode, remaining:p.remaining, running:p.running, workMin:p.workMin, breakMin:p.breakMin,
-      linkedTaskId:p.linkedTaskId, taskDecided:p.taskDecided, creditedMin:p.creditedMin,
-      cyclesDone:p.cyclesDone, focusLabel:p.focusLabel, endsAt:p.endsAt,
-    }));
-  } catch(e){ /* localStorage unavailable (private mode etc) — non-fatal */ }
-}
-function restorePomoStateLocal(){
-  try{
-    const raw = localStorage.getItem(POMO_STORAGE_KEY);
-    if(!raw) return;
-    const saved = JSON.parse(raw);
-    const p = state.pomo;
-    p.mode = saved.mode; p.workMin = saved.workMin; p.breakMin = saved.breakMin;
-    p.linkedTaskId = saved.linkedTaskId; p.taskDecided = saved.taskDecided; p.creditedMin = saved.creditedMin;
-    p.cyclesDone = saved.cyclesDone; p.focusLabel = saved.focusLabel || '';
-    p.endsAt = saved.endsAt || null;
-    if(saved.running && p.endsAt){
-      p.remaining = Math.max(0, Math.round((p.endsAt - Date.now()) / 1000));
-      p.running = true;
-      p.timerId = setInterval(pomoTick, 1000);
-    } else {
-      p.remaining = saved.remaining;
-      p.running = false;
-    }
-  } catch(e){ console.error('restorePomoStateLocal failed', e); }
-}
-/* re-sync the countdown whenever the tab becomes visible again — since remaining is
-   always derived from endsAt (an absolute timestamp), this is a trivial, always-correct
-   recomputation regardless of how throttled the interval was while backgrounded */
-document.addEventListener('visibilitychange', () => {
-  if(document.visibilityState !== 'visible' || !state.pomo.running || !state.pomo.endsAt) return;
-  const secLeft = Math.max(0, Math.round((state.pomo.endsAt - Date.now()) / 1000));
-  if(secLeft !== state.pomo.remaining){
-    state.pomo.remaining = secLeft;
-    render();
-  }
-});
-
-function pomoTick(){
-  const p = state.pomo;
-  const secLeft = p.endsAt ? Math.max(0, Math.round((p.endsAt - Date.now()) / 1000)) : p.remaining - 1;
-  if(secLeft > 0){
-    p.remaining = secLeft;
-    const el = document.querySelector('.pomo-timer');
-    if(el) el.textContent = formatTime(p.remaining);
-    savePomoStateLocal();
-  } else {
-    p.remaining = 0;
-    playAlarm(p.mode);
-    if(p.mode === 'work'){
-      pomoFlushCredit();
-      p.creditedMin = 0;
-      p.cyclesDone++;
-      p.mode = 'break';
-      p.remaining = p.breakMin * 60;
-    } else {
-      p.mode = 'work';
-      p.remaining = p.workMin * 60;
-    }
-    p.endsAt = Date.now() + p.remaining * 1000;
-    savePomoStateLocal();
-    render();
-  }
-}
-function pomoActuallyStart(){
-  const p = state.pomo;
-  if('Notification' in window && Notification.permission === 'default'){
-    Notification.requestPermission();
-  }
-  p.running = true;
-  p.endsAt = Date.now() + p.remaining * 1000;
-  p.timerId = setInterval(pomoTick, 1000);
-  savePomoStateLocal();
-  render();
-}
-function pomoToggle(){
-  const p = state.pomo;
-  if(p.running){
-    if(p.endsAt) p.remaining = Math.max(0, Math.round((p.endsAt - Date.now()) / 1000));
-    pomoFlushCredit();
-    p.running = false;
-    p.endsAt = null;
-    clearInterval(p.timerId);
-    savePomoStateLocal();
-    render();
-    return;
-  }
-  if(!p.taskDecided){
-    state.pomoTaskPicker = { search:'' };
-    render();
-    return;
-  }
-  pomoActuallyStart();
-}
-function pomoPickTask(taskId){
-  state.pomo.linkedTaskId = taskId;
-  state.pomo.taskDecided = true;
-  state.pomoTaskPicker = null;
-  pomoActuallyStart();
-}
-function pomoSkipTaskPick(){
-  state.pomo.linkedTaskId = null;
-  state.pomo.taskDecided = true;
-  state.pomoTaskPicker = null;
-  pomoActuallyStart();
-}
-function pomoCancelTaskPick(){
-  state.pomoTaskPicker = null;
-  render();
-}
-function pomoSetTaskPickerSearch(v){ state.pomoTaskPicker.search = v; render(); }
-function pomoReset(){
-  const p = state.pomo;
-  clearInterval(p.timerId);
-  p.running = false;
-  p.mode = 'work';
-  p.remaining = p.workMin * 60;
-  p.endsAt = null;
-  p.creditedMin = 0;
-  p.linkedTaskId = null;
-  p.taskDecided = false;
-  savePomoStateLocal();
-  render();
-}
-function pomoSkip(){
-  const p = state.pomo;
-  if(p.endsAt) p.remaining = Math.max(0, Math.round((p.endsAt - Date.now()) / 1000));
-  if(p.mode === 'work'){
-    pomoFlushCredit();
-    p.creditedMin = 0;
-    p.mode = 'break'; p.remaining = p.breakMin*60;
-  } else {
-    p.mode = 'work'; p.remaining = p.workMin*60;
-  }
-  if(p.running) p.endsAt = Date.now() + p.remaining * 1000;
-  savePomoStateLocal();
-  render();
-}
-async function setPomoSetting(key, value){
-  const v = Math.max(1, parseInt(value) || 1);
-  state.pomo[key] = v;
-  if(!state.pomo.running){
-    state.pomo.remaining = (state.pomo.mode === 'work' ? state.pomo.workMin : state.pomo.breakMin) * 60;
-  }
-  savePomoStateLocal();
-  render();
-  const { error } = await sb.from('pomo_settings').update({ work_min:state.pomo.workMin, break_min:state.pomo.breakMin }).eq('id', 1);
-  if(error) console.error('setPomoSetting failed', error);
-}
-function p_setFocusLabel(v){ state.pomo.focusLabel = v; savePomoStateLocal(); }
-
 
 /* ---------- floating add-task button ---------- */
 function renderFab(){
@@ -3226,7 +2901,6 @@ function render(){
       <button class="${state.view==='today' ? 'active' : ''}" onclick="setView('today')">امروز</button>
       <button class="${state.view==='tasks' ? 'active' : ''}" onclick="setView('tasks')">تسک‌ها</button>
       <button class="${state.view==='calendar' ? 'active' : ''}" onclick="setView('calendar')">تقویم</button>
-      <button class="${state.view==='pomodoro' ? 'active' : ''}" onclick="setView('pomodoro')">پومودورو</button>
       <button class="${state.view==='archive' ? 'active' : ''}" onclick="setView('archive')">آرشیو</button>
       <button class="${state.view==='ai-reports' ? 'active' : ''}" onclick="setView('ai-reports')">گزارش هوشمند</button>
     </nav>
@@ -3237,7 +2911,6 @@ function render(){
       ${state.view === 'today' ? renderToday() : ''}
       ${state.view === 'tasks' ? renderTasksView() : ''}
       ${state.view === 'calendar' ? renderCalendarPage() : ''}
-      ${state.view === 'pomodoro' ? renderPomodoro() : ''}
       ${state.view === 'archive' ? renderArchivePage() : ''}
       ${state.view === 'ai-reports' ? renderAIReportsPage() : ''}
     </main>
@@ -3291,7 +2964,7 @@ function renderUndoToast(){
   `;
 }
 
-loadAll().then(() => { restorePomoStateLocal(); render(); });
+loadAll();
 
 /* ---------- PWA: register the app-shell service worker ---------- */
 if('serviceWorker' in navigator){
