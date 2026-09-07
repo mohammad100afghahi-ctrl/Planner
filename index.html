@@ -439,6 +439,34 @@ global.jalaali = {
   nav button:hover:not(.active){color:var(--text);}
 
   h2.section-title{font-size:13px; font-weight:700; color:var(--text-muted); margin:22px 0 10px; text-transform:uppercase; letter-spacing:.4px;}
+  .print-btn{
+    background:var(--surface-2); border:1px solid var(--line); color:var(--text-muted); font-size:11.5px; font-weight:700;
+    padding:7px 12px; border-radius:8px; cursor:pointer;
+  }
+  .print-btn:hover{border-color:var(--accent); color:var(--accent);}
+
+  /* the print sheet is invisible on screen; only shown (and everything else hidden) when printing */
+  .print-sheet{display:none;}
+  @media print{
+    body{background:#fff !important;}
+    body::before{display:none !important;}
+    #app > *:not(main){display:none !important;}
+    main > *:not(.print-sheet){display:none !important;}
+    .print-sheet{
+      display:block !important; color:#000; background:#fff; font-family:'Vazirmatn', sans-serif; padding:0;
+    }
+    .print-sheet h1{font-size:20px; margin-bottom:4px;}
+    .print-sheet .print-date{font-size:13px; color:#333; margin-bottom:20px;}
+    .print-task{display:flex; align-items:flex-start; gap:10px; padding:10px 0; border-bottom:1px solid #ccc; break-inside:avoid;}
+    .print-checkbox{width:16px; height:16px; border:2px solid #000; flex-shrink:0; margin-top:3px;}
+    .print-checkbox.small{width:12px; height:12px; border-width:1.5px;}
+    .print-checkbox.checked{background:#000;}
+    .print-task-title{font-size:15px; font-weight:700; color:#000;}
+    .print-task-title.done{text-decoration:line-through; color:#666;}
+    .print-task-meta{font-size:12px; color:#444; margin-top:4px;}
+    .print-subtasks{margin-top:6px;}
+    .print-subtask{display:flex; align-items:center; gap:6px; font-size:12.5px; color:#222; margin-top:4px;}
+  }
   h2.section-title:first-child{margin-top:0;}
 
   .add-task-btn{
@@ -2793,6 +2821,42 @@ function renderTodayItem(t, todayStr){
   `;
 }
 
+function sortForPrint(tasks){
+  const order = { high:0, medium:1, low:2 };
+  return [...tasks].sort((a,b) => {
+    if(a.done !== b.done) return a.done ? 1 : -1;
+    const pa = a.priority ? order[a.priority] : 3;
+    const pb = b.priority ? order[b.priority] : 3;
+    return pa - pb;
+  });
+}
+function renderPrintSheet(tasks, wd){
+  const sorted = sortForPrint(tasks);
+  return `
+    <div class="print-sheet">
+      <h1>کارهای امروز</h1>
+      <div class="print-date">${wd} — ${fmtHeaderDate(state.today).jalali}</div>
+      ${sorted.length === 0 ? `<p>کاری برای امروز ثبت نشده.</p>` : sorted.map(t => `
+        <div class="print-task">
+          <span class="print-checkbox ${t.done ? 'checked' : ''}"></span>
+          <div>
+            <div class="print-task-title ${t.done ? 'done' : ''}">${escapeHtml(t.title)}</div>
+            <div class="print-task-meta">
+              ${t.priority ? `اولویت: ${PRIORITY_LABEL[t.priority]}` : ''}
+              ${t.durationMin ? ` · مدت: ${toFaDigits(t.durationMin)} دقیقه` : ''}
+              ${t.tagIds.length ? ` · تگ: ${t.tagIds.map(tid => { const tag = state.tags.find(x=>x.id===tid); return tag ? tag.name : ''; }).filter(Boolean).join('، ')}` : ''}
+            </div>
+            ${t.subtasks.length ? `
+              <div class="print-subtasks">
+                ${t.subtasks.map(s => `<div class="print-subtask"><span class="print-checkbox small ${s.done?'checked':''}"></span> ${escapeHtml(s.title)}</div>`).join('')}
+              </div>
+            ` : ''}
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
 function renderToday(){
   const { wd } = fmtHeaderDate(state.today);
   const todayStr = dateKey(state.today);
@@ -2815,9 +2879,13 @@ function renderToday(){
       ${renderTimeBadge(todayTasksRaw)}
     </div>
     ${renderWeeklyGoals()}
-    <h2 class="section-title">برنامه امروز</h2>
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
+      <h2 class="section-title" style="margin:0;">برنامه امروز</h2>
+      <button type="button" class="print-btn" onclick="window.print()">چاپِ کارهای امروز</button>
+    </div>
     ${renderFilterPanel('todayFilters', { dateFilter:false })}
     ${scheduled.length === 0 ? `<div class="empty-state">کاری با این فیلترها برای امروز نیست</div>` : scheduled.map(t => renderTodayItem(t, todayStr)).join('')}
+    ${renderPrintSheet(todayTasksRaw, wd)}
   `;
 }
 
