@@ -429,14 +429,105 @@ global.jalaali = {
   .date-block .jalali{font-size:13px; color:var(--text); font-weight:700;}
   .date-block .gregorian{font-size:11px; color:var(--text-muted); margin-top:2px;}
 
-  nav{display:flex; gap:5px; margin-bottom:22px; background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:4px; overflow-x:auto;}
-  nav button{
+  /* ---- navigation: bottom bar on phones, top bar on wider screens ---- */
+  nav.main-nav{display:flex; gap:5px; margin-bottom:22px; background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:4px;}
+  nav.main-nav button{
     flex:1; white-space:nowrap; background:transparent; border:none; color:var(--text-muted);
     font-size:13.5px; font-weight:600; padding:9px 10px;
     border-radius:7px; cursor:pointer; transition:background .15s, color .15s;
+    display:flex; align-items:center; justify-content:center; gap:6px;
   }
-  nav button.active{background:var(--surface-3); color:var(--text);}
-  nav button:hover:not(.active){color:var(--text);}
+  nav.main-nav button.active{background:var(--surface-3); color:var(--text);}
+  nav.main-nav button:hover:not(.active){color:var(--text);}
+  nav.main-nav .nav-icon{font-size:13px;}
+
+  @media (max-width: 640px){
+    nav.main-nav{
+      position:fixed; bottom:0; left:0; right:0; z-index:45; margin:0; border-radius:16px 16px 0 0;
+      padding:6px 6px calc(6px + env(safe-area-inset-bottom, 0px)); gap:2px;
+      background:var(--glass-fill-3); backdrop-filter:var(--glass-blur); -webkit-backdrop-filter:var(--glass-blur);
+      border:1px solid var(--glass-border); border-bottom:none; box-shadow:0 -6px 24px -10px rgba(0,0,0,.6);
+    }
+    nav.main-nav button{flex-direction:column; gap:3px; font-size:10.5px; padding:7px 2px;}
+    nav.main-nav .nav-icon{font-size:16px;}
+    /* leave room so the bottom bar never covers the last item */
+    body{padding-bottom:78px;}
+    .fab{bottom:92px;}
+    .undo-toast{bottom:160px;}
+  }
+
+  /* "more" bottom sheet — unlimited room for future sections */
+  .more-overlay{
+    position:fixed; inset:0; z-index:60; background:rgba(8,10,20,0.5);
+    backdrop-filter:blur(3px); -webkit-backdrop-filter:blur(3px);
+    display:flex; align-items:flex-end; justify-content:center;
+  }
+  .more-sheet{
+    width:100%; max-width:520px; border-radius:18px 18px 0 0; padding:10px 14px calc(20px + env(safe-area-inset-bottom, 0px));
+    background:var(--glass-fill-3); backdrop-filter:var(--glass-blur); -webkit-backdrop-filter:var(--glass-blur);
+    border:1px solid var(--glass-border); border-bottom:none; box-shadow:var(--glass-shadow);
+  }
+  .more-handle{width:38px; height:4px; border-radius:2px; background:var(--text-muted); opacity:.4; margin:2px auto 14px;}
+  .more-item{
+    display:flex; align-items:center; gap:12px; width:100%; background:transparent; border:none;
+    color:var(--text); font-family:inherit; font-size:14px; font-weight:600; padding:13px 10px;
+    border-radius:10px; cursor:pointer; text-align:right;
+  }
+  .more-item:hover{background:var(--surface-2);}
+  .more-item.active{background:var(--surface-3); color:var(--accent);}
+  .more-icon{font-size:17px; width:24px; text-align:center;}
+  @media (min-width: 641px){
+    .more-overlay{align-items:center;}
+    .more-sheet{border-radius:18px; border-bottom:1px solid var(--glass-border); max-width:380px;}
+  }
+
+  /* archive sub-tabs */
+  .archive-tabs{display:flex; gap:6px; margin-bottom:14px;}
+  .archive-tabs button{
+    flex:1; background:var(--surface-2); border:1px solid var(--line); color:var(--text-muted);
+    font-family:inherit; font-size:13px; font-weight:700; padding:9px; border-radius:9px; cursor:pointer;
+  }
+  .archive-tabs button.active{background:var(--surface-3); color:var(--text); border-color:var(--accent);}
+
+  /* purchases */
+  .add-purchase-box{background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:14px; margin-bottom:16px;}
+  .add-purchase-box > input{
+    width:100%; background:var(--surface-2); border:1px solid var(--line); color:var(--text); font-size:14px;
+    padding:10px 12px; border-radius:9px; outline:none; font-family:inherit; margin-bottom:10px;
+  }
+  .add-purchase-box > input:focus{border-color:var(--accent);}
+  .add-purchase-row{display:flex; flex-wrap:wrap; gap:6px; align-items:center;}
+  .add-purchase-row .num-text{width:110px;}
+  .add-purchase-row button{
+    margin-right:auto; background:var(--accent); color:#12161C; border:none; font-family:inherit;
+    font-size:13px; font-weight:700; padding:8px 16px; border-radius:8px; cursor:pointer;
+  }
+  .purchases-total{
+    font-size:12.5px; font-weight:700; color:var(--accent); margin-bottom:12px; padding:8px 12px;
+    background:color-mix(in srgb, var(--accent) 12%, transparent);
+    border:1px solid color-mix(in srgb, var(--accent) 30%, transparent); border-radius:9px; text-align:center;
+  }
+
+  /* ideas */
+  .add-idea-box{background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:14px; margin-bottom:16px;}
+  .add-idea-box textarea{
+    width:100%; min-height:80px; background:var(--surface-2); border:1px solid var(--line); color:var(--text);
+    font-size:14px; padding:10px 12px; border-radius:9px; outline:none; font-family:inherit; resize:vertical; line-height:1.8;
+  }
+  .add-idea-box textarea:focus{border-color:var(--accent);}
+  .add-idea-tags{display:flex; flex-wrap:wrap; gap:6px; margin-top:10px;}
+  .add-idea-btn{
+    margin-top:10px; background:var(--accent); color:#12161C; border:none; font-family:inherit;
+    font-size:13px; font-weight:700; padding:9px 18px; border-radius:8px; cursor:pointer;
+  }
+  .idea-card{background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:14px; margin-bottom:10px;}
+  .idea-body{font-size:14px; line-height:1.9; color:var(--text); white-space:pre-wrap;}
+  .idea-footer{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:10px;}
+  .idea-footer .item-del{
+    background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:14px; padding:2px 6px; flex-shrink:0;
+  }
+  .idea-footer .item-del:hover{color:var(--danger);}
+  .idea-tags{display:flex; flex-wrap:wrap; gap:5px;}
 
   h2.section-title{font-size:13px; font-weight:700; color:var(--text-muted); margin:22px 0 10px; text-transform:uppercase; letter-spacing:.4px;}
   .print-btn{
@@ -1058,6 +1149,11 @@ let state = {
   aiReports: [], // [{ id, periodStart, periodEnd, text, createdAt }]
   aiReportGenerating: false,
   aiReportError: null,
+  purchases: [], // [{ id, title, priority, price, bought, boughtAt }]
+  purchaseSort: 'default', // 'default' | 'cheapest' | 'priciest'
+  ideas: [], // [{ id, body, tagIds, createdAt }]
+  archiveSection: 'tasks', // 'tasks' | 'purchases'
+  moreMenuOpen: false,
 };
 
 let loadError = false;
@@ -1106,6 +1202,14 @@ async function loadAll(){
     const { data: aiReports, error: aiReportsErr } = await sb.from('ai_reports').select('*').order('period_end', { ascending:false });
     if(aiReportsErr) throw aiReportsErr;
     state.aiReports = aiReports.map(r => ({ id:r.id, periodStart:r.period_start, periodEnd:r.period_end, text:r.report_text, createdAt:r.created_at }));
+
+    const { data: purchases, error: purchasesErr } = await sb.from('purchases').select('*').order('created_at', { ascending:false });
+    if(purchasesErr) throw purchasesErr;
+    state.purchases = purchases.map(p => ({ id:p.id, title:p.title, priority:p.priority, price:p.price, bought:!!p.bought, boughtAt:p.bought_at }));
+
+    const { data: ideas, error: ideasErr } = await sb.from('ideas').select('*, idea_tags(tag_id)').order('created_at', { ascending:false });
+    if(ideasErr) throw ideasErr;
+    state.ideas = ideas.map(i => ({ id:i.id, body:i.body, tagIds:(i.idea_tags||[]).map(it => it.tag_id), createdAt:i.created_at }));
   } catch(e){
     console.error('load failed', e);
     loadError = true;
@@ -1114,6 +1218,8 @@ async function loadAll(){
     if(!state.recurringTemplates) state.recurringTemplates = [];
     if(!state.tagGoals) state.tagGoals = [];
     if(!state.aiReports) state.aiReports = [];
+    if(!state.purchases) state.purchases = [];
+    if(!state.ideas) state.ideas = [];
   }
   generateRecurringInstances();
   if(!realtimeStarted){ realtimeStarted = true; startRealtimeSync(); }
@@ -1327,6 +1433,126 @@ async function deleteTag(tagId){
 }
 function toggleTagManager(){ state.tagManagerOpen = !state.tagManagerOpen; render(); }
 function toggleRecurringManager(){ state.recurringManagerOpen = !state.recurringManagerOpen; render(); }
+
+/* ---------- purchases ---------- */
+async function addPurchase(){
+  const titleEl = document.getElementById('new-purchase-title');
+  const priceEl = document.getElementById('new-purchase-price');
+  const title = titleEl.value.trim();
+  if(!title) return;
+  const priceRaw = toEnDigits(priceEl.value).replace(/[^0-9]/g, '');
+  const price = priceRaw ? parseInt(priceRaw) : null;
+  const p = { id: uid(), title, priority: state.newPurchasePriority || null, price, bought:false, boughtAt:null };
+  state.purchases.unshift(p);
+  state.newPurchasePriority = null;
+  state.newPurchaseTitle = '';
+  state.newPurchasePrice = '';
+  titleEl.value = ''; priceEl.value = '';
+  render();
+  const { error } = await sb.from('purchases').insert({ id:p.id, title:p.title, priority:p.priority, price:p.price, bought:false });
+  if(error) console.error('addPurchase failed', error);
+}
+function setNewPurchasePriority(level){
+  /* preserve whatever is already typed in the form before re-rendering, otherwise
+     picking a priority would silently wipe the title/price the user just entered */
+  const titleEl = document.getElementById('new-purchase-title');
+  const priceEl = document.getElementById('new-purchase-price');
+  state.newPurchaseTitle = titleEl ? titleEl.value : '';
+  state.newPurchasePrice = priceEl ? priceEl.value : '';
+  state.newPurchasePriority = state.newPurchasePriority === level ? null : level;
+  render();
+}
+async function togglePurchaseBought(id){
+  const p = state.purchases.find(x => x.id === id);
+  if(!p) return;
+  p.bought = !p.bought;
+  p.boughtAt = p.bought ? new Date().toISOString() : null;
+  render();
+  const { error } = await sb.from('purchases').update({ bought:p.bought, bought_at:p.boughtAt }).eq('id', id);
+  if(error) console.error('togglePurchaseBought failed', error);
+}
+async function deletePurchase(id){
+  const idx = state.purchases.findIndex(x => x.id === id);
+  if(idx === -1) return;
+  const [removed] = state.purchases.splice(idx, 1);
+  showUndoToast(`«${removed.title}» حذف شد`, () => {
+    clearTimeout(pendingPurchaseDeleteTimers[id]);
+    delete pendingPurchaseDeleteTimers[id];
+    state.purchases.splice(idx, 0, removed);
+    render();
+  });
+  render();
+  pendingPurchaseDeleteTimers[id] = setTimeout(async () => {
+    delete pendingPurchaseDeleteTimers[id];
+    const { error } = await sb.from('purchases').delete().eq('id', id);
+    if(error) console.error('deletePurchase failed', error);
+  }, 5000);
+}
+const pendingPurchaseDeleteTimers = {};
+function setPurchaseSort(mode){
+  state.purchaseSort = state.purchaseSort === mode ? 'default' : mode;
+  render();
+}
+function sortPurchases(list){
+  const arr = [...list];
+  if(state.purchaseSort === 'default') return arr;
+  return arr.sort((a,b) => {
+    /* items without a price always sink to the bottom in either direction —
+       "unknown price" is neither cheap nor expensive, so ranking it as either would mislead */
+    if(a.price == null && b.price == null) return 0;
+    if(a.price == null) return 1;
+    if(b.price == null) return -1;
+    return state.purchaseSort === 'cheapest' ? a.price - b.price : b.price - a.price;
+  });
+}
+
+/* ---------- ideas ---------- */
+async function addIdea(){
+  const el = document.getElementById('new-idea-body');
+  const body = el.value.trim();
+  if(!body) return;
+  const tagIds = [...(state.newIdeaTagIds || [])];
+  const idea = { id: uid(), body, tagIds, createdAt: new Date().toISOString() };
+  state.ideas.unshift(idea);
+  state.newIdeaTagIds = [];
+  state.newIdeaBody = '';
+  el.value = '';
+  render();
+  const { error } = await sb.from('ideas').insert({ id:idea.id, body:idea.body });
+  if(error){ console.error('addIdea failed', error); return; }
+  if(tagIds.length){
+    const { error: tagErr } = await sb.from('idea_tags').insert(tagIds.map(tagId => ({ idea_id:idea.id, tag_id:tagId })));
+    if(tagErr) console.error('link idea tags failed', tagErr);
+  }
+}
+function toggleNewIdeaTag(tagId){
+  /* same preservation rule as purchases: re-rendering must not discard the text
+     the user has already typed into the textarea */
+  const el = document.getElementById('new-idea-body');
+  state.newIdeaBody = el ? el.value : '';
+  if(!state.newIdeaTagIds) state.newIdeaTagIds = [];
+  const i = state.newIdeaTagIds.indexOf(tagId);
+  if(i === -1) state.newIdeaTagIds.push(tagId); else state.newIdeaTagIds.splice(i, 1);
+  render();
+}
+const pendingIdeaDeleteTimers = {};
+async function deleteIdea(id){
+  const idx = state.ideas.findIndex(x => x.id === id);
+  if(idx === -1) return;
+  const [removed] = state.ideas.splice(idx, 1);
+  showUndoToast('ایده حذف شد', () => {
+    clearTimeout(pendingIdeaDeleteTimers[id]);
+    delete pendingIdeaDeleteTimers[id];
+    state.ideas.splice(idx, 0, removed);
+    render();
+  });
+  render();
+  pendingIdeaDeleteTimers[id] = setTimeout(async () => {
+    delete pendingIdeaDeleteTimers[id];
+    const { error } = await sb.from('ideas').delete().eq('id', id);
+    if(error) console.error('deleteIdea failed', error);
+  }, 5000);
+}
 
 function getCurrentWeekRange(){
   const today = new Date();
@@ -2702,7 +2928,31 @@ function renderAIReportsPage(){
     `).join('')}
   `;
 }
+function setArchiveSection(section){ state.archiveSection = section; render(); }
 function renderArchivePage(){
+  return `
+    <h2 class="section-title">آرشیو</h2>
+    <div class="archive-tabs">
+      <button class="${state.archiveSection==='tasks'?'active':''}" onclick="setArchiveSection('tasks')">تسک‌ها</button>
+      <button class="${state.archiveSection==='purchases'?'active':''}" onclick="setArchiveSection('purchases')">خریدها</button>
+    </div>
+    ${state.archiveSection === 'tasks' ? renderArchiveTasks() : renderArchivePurchases()}
+  `;
+}
+function renderArchivePurchases(){
+  const bought = sortPurchases(state.purchases.filter(p => p.bought));
+  return `
+    <div class="filter-panel">
+      <div class="filter-group">
+        <span class="filter-group-label">مرتب‌سازی:</span>
+        <span class="filter-chip ${state.purchaseSort==='cheapest'?'active':''}" onclick="setPurchaseSort('cheapest')">ارزان‌ترین اول</span>
+        <span class="filter-chip ${state.purchaseSort==='priciest'?'active':''}" onclick="setPurchaseSort('priciest')">گران‌ترین اول</span>
+      </div>
+    </div>
+    ${bought.length === 0 ? `<div class="empty-state">هنوز خریدی انجام نشده</div>` : bought.map(p => renderPurchaseRow(p)).join('')}
+  `;
+}
+function renderArchiveTasks(){
   const f = state.archiveFilters;
   const search = f.search.trim();
   let list = state.tasks.filter(isArchived);
@@ -2713,7 +2963,6 @@ function renderArchivePage(){
   list = [...list].sort((a,b) => (b.completedAt||'').localeCompare(a.completedAt||''));
   const active = !!(search || f.tagIds.length || f.dateFrom || f.dateTo);
   return `
-    <h2 class="section-title">آرشیو</h2>
     <div class="filter-panel">
       <div class="filter-group">
         <input type="text" class="archive-search-input" placeholder="جست‌وجو در عنوان تسک‌ها…" value="${escapeHtml(f.search)}" oninput="setArchiveSearch(this.value)" />
@@ -2732,6 +2981,83 @@ function renderArchivePage(){
     </div>
     <div style="font-size:11.5px;color:var(--text-muted);margin-bottom:12px;">تسک‌های تکمیل‌شده‌ای که بیش از ${toFaDigits(ARCHIVE_THRESHOLD_DAYS)} روز از تکمیلشون گذشته، این‌جا نگه‌داری می‌شن.</div>
     ${list.length === 0 ? `<div class="empty-state">چیزی توی آرشیو با این فیلترها پیدا نشد</div>` : list.map(renderTaskCard).join('')}
+  `;
+}
+
+/* ---------- rendering: purchases ---------- */
+function fmtPrice(n){
+  if(n == null) return '';
+  return toFaDigits(String(n).replace(/\B(?=(\d{3})+(?!\d))/g, '،'));
+}
+function renderPurchaseRow(p){
+  return `
+    <div class="today-item ${p.bought ? 'done' : ''}">
+      <div class="today-item-row">
+        ${p.priority ? `<span class="priority-dot ${p.priority}" title="اولویت ${PRIORITY_LABEL[p.priority]}"></span>` : ''}
+        <button class="task-check ${p.bought ? 'checked' : ''}" onclick="togglePurchaseBought('${p.id}')">${p.bought ? '✓' : ''}</button>
+        <div class="ti-main">
+          <div class="ti-title-row">
+            <span class="ti-title ${p.bought ? 'done-text' : ''}">${escapeHtml(p.title)}</span>
+          </div>
+          ${p.price != null ? `<div class="ti-meta-row"><span class="dur">${fmtPrice(p.price)}</span></div>` : ''}
+        </div>
+        <div class="ti-actions">
+          <button class="item-del" onclick="deletePurchase('${p.id}')">✕</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+function renderPurchasesPage(){
+  const pending = sortPurchases(state.purchases.filter(p => !p.bought));
+  const total = pending.reduce((s,p) => s + (p.price || 0), 0);
+  return `
+    <h2 class="section-title">خریدها</h2>
+    <div class="add-purchase-box">
+      <input type="text" id="new-purchase-title" placeholder="چی باید بخری؟" value="${escapeHtml(state.newPurchaseTitle || '')}" onkeydown="if(event.key==='Enter'){event.preventDefault(); addPurchase();}" />
+      <div class="add-purchase-row">
+        <input type="text" id="new-purchase-price" inputmode="numeric" class="num-text" placeholder="قیمت (اختیاری)" value="${escapeHtml(state.newPurchasePrice || '')}" oninput="normalizeNumericInput(this)" />
+        <span class="priority-chip high ${state.newPurchasePriority==='high'?'active':''}" onclick="setNewPurchasePriority('high')">بالا</span>
+        <span class="priority-chip medium ${state.newPurchasePriority==='medium'?'active':''}" onclick="setNewPurchasePriority('medium')">متوسط</span>
+        <span class="priority-chip low ${state.newPurchasePriority==='low'?'active':''}" onclick="setNewPurchasePriority('low')">پایین</span>
+        <button onclick="addPurchase()">افزودن</button>
+      </div>
+    </div>
+    <div class="filter-panel">
+      <div class="filter-group">
+        <span class="filter-group-label">مرتب‌سازی:</span>
+        <span class="filter-chip ${state.purchaseSort==='cheapest'?'active':''}" onclick="setPurchaseSort('cheapest')">ارزان‌ترین اول</span>
+        <span class="filter-chip ${state.purchaseSort==='priciest'?'active':''}" onclick="setPurchaseSort('priciest')">گران‌ترین اول</span>
+      </div>
+    </div>
+    ${total > 0 ? `<div class="purchases-total">جمع قیمت‌های ثبت‌شده: ${fmtPrice(total)}</div>` : ''}
+    ${pending.length === 0 ? `<div class="empty-state">فعلاً خریدی در انتظار نیست</div>` : pending.map(p => renderPurchaseRow(p)).join('')}
+  `;
+}
+
+/* ---------- rendering: ideas ---------- */
+function renderIdeasPage(){
+  const selected = state.newIdeaTagIds || [];
+  return `
+    <h2 class="section-title">افکار و ایده‌ها</h2>
+    <div class="add-idea-box">
+      <textarea id="new-idea-body" placeholder="چی توی ذهنته؟ (خام و بدون ساختار بنویس…)">${escapeHtml(state.newIdeaBody || '')}</textarea>
+      <div class="add-idea-tags">
+        ${state.tags.map(t => `<span class="pick-chip ${selected.includes(t.id)?'on':''}" style="--chip-color:${t.color}" onclick="toggleNewIdeaTag('${t.id}')">${escapeHtml(t.name)}</span>`).join('')}
+      </div>
+      <button class="add-idea-btn" onclick="addIdea()">ثبت ایده</button>
+    </div>
+    ${state.ideas.length === 0 ? `<div class="empty-state">هنوز ایده‌ای ثبت نکردی</div>` : state.ideas.map(i => `
+      <div class="idea-card">
+        <div class="idea-body">${escapeHtml(i.body)}</div>
+        <div class="idea-footer">
+          <div class="idea-tags">
+            ${i.tagIds.map(tid => { const tag = state.tags.find(x=>x.id===tid); return tag ? `<span class="mini-tag" style="--chip-color:${tag.color}">${escapeHtml(tag.name)}</span>` : ''; }).join('')}
+          </div>
+          <button class="item-del" onclick="deleteIdea('${i.id}')">✕</button>
+        </div>
+      </div>
+    `).join('')}
   `;
 }
 
@@ -2965,13 +3291,7 @@ function render(){
       </div>
     </header>
 
-    <nav>
-      <button class="${state.view==='today' ? 'active' : ''}" onclick="setView('today')">امروز</button>
-      <button class="${state.view==='tasks' ? 'active' : ''}" onclick="setView('tasks')">تسک‌ها</button>
-      <button class="${state.view==='calendar' ? 'active' : ''}" onclick="setView('calendar')">تقویم</button>
-      <button class="${state.view==='archive' ? 'active' : ''}" onclick="setView('archive')">آرشیو</button>
-      <button class="${state.view==='ai-reports' ? 'active' : ''}" onclick="setView('ai-reports')">گزارش هوشمند</button>
-    </nav>
+    ${renderNav()}
 
     ${loadError ? `<div class="empty-state" style="background:var(--surface);border:1px solid var(--danger);border-radius:10px;color:var(--danger);margin-bottom:16px;">اتصال به دیتابیس برقرار نشد — اینترنتت رو چک کن و صفحه رو رفرش کن.</div>` : ''}
 
@@ -2979,6 +3299,8 @@ function render(){
       ${state.view === 'today' ? renderToday() : ''}
       ${state.view === 'tasks' ? renderTasksView() : ''}
       ${state.view === 'calendar' ? renderCalendarPage() : ''}
+      ${state.view === 'ideas' ? renderIdeasPage() : ''}
+      ${state.view === 'purchases' ? renderPurchasesPage() : ''}
       ${state.view === 'archive' ? renderArchivePage() : ''}
       ${state.view === 'ai-reports' ? renderAIReportsPage() : ''}
     </main>
@@ -2986,6 +3308,60 @@ function render(){
     ${renderTaskEditorModal()}
     ${state.taskCompletionModal ? renderTaskCompletionModal() : ''}
     ${state.undoToast ? renderUndoToast() : ''}
+    ${state.moreMenuOpen ? renderMoreMenu() : ''}
+  `;
+}
+
+/* ---------- navigation ----------
+   Primary destinations stay always-visible; everything else lives behind the
+   "more" sheet, so adding future sections never crowds the bar. On phones the
+   bar sits at the bottom (thumb reach); on wider screens it returns to the top. */
+const PRIMARY_NAV = [
+  { id:'today',    label:'امروز',  icon:'☀' },
+  { id:'tasks',    label:'تسک‌ها', icon:'✔' },
+  { id:'calendar', label:'تقویم',  icon:'▦' },
+  { id:'ideas',    label:'ایده‌ها', icon:'✎' },
+];
+const MORE_NAV = [
+  { id:'purchases',  label:'خریدها',        icon:'🛒' },
+  { id:'archive',    label:'آرشیو',          icon:'📦' },
+  { id:'ai-reports', label:'گزارش هوشمند',  icon:'✨' },
+];
+function toggleMoreMenu(){ state.moreMenuOpen = !state.moreMenuOpen; render(); }
+function navigateTo(view){
+  state.moreMenuOpen = false;
+  setView(view);
+}
+function renderNav(){
+  const inMore = MORE_NAV.some(m => m.id === state.view);
+  return `
+    <nav class="main-nav">
+      ${PRIMARY_NAV.map(n => `
+        <button class="${state.view===n.id ? 'active' : ''}" onclick="navigateTo('${n.id}')">
+          <span class="nav-icon">${n.icon}</span>
+          <span class="nav-label">${n.label}</span>
+        </button>
+      `).join('')}
+      <button class="${inMore ? 'active' : ''}" onclick="toggleMoreMenu()">
+        <span class="nav-icon">⋯</span>
+        <span class="nav-label">بیشتر</span>
+      </button>
+    </nav>
+  `;
+}
+function renderMoreMenu(){
+  return `
+    <div class="more-overlay" onclick="if(event.target===this) toggleMoreMenu()">
+      <div class="more-sheet">
+        <div class="more-handle"></div>
+        ${MORE_NAV.map(n => `
+          <button class="more-item ${state.view===n.id ? 'active' : ''}" onclick="navigateTo('${n.id}')">
+            <span class="more-icon">${n.icon}</span>
+            <span>${n.label}</span>
+          </button>
+        `).join('')}
+      </div>
+    </div>
   `;
 }
 function renderTaskCompletionModal(){
