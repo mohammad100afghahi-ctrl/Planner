@@ -2,7 +2,7 @@
 <html lang="fa" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>مدار</title>
 <link rel="manifest" href="./manifest.json">
 <meta name="theme-color" content="#0A0E18">
@@ -450,10 +450,10 @@ global.jalaali = {
     }
     nav.main-nav button{flex-direction:column; gap:3px; font-size:10.5px; padding:7px 2px;}
     nav.main-nav .nav-icon{display:inline-flex;}
-    /* leave room so the bottom bar never covers the last item */
+    /* leave room so the bottom bar never covers the last item
+       (the fab/undo-toast offsets live at the end of this stylesheet so they
+        aren't overridden by the later base rules) */
     body{padding-bottom:calc(78px + env(safe-area-inset-bottom, 0px));}
-    .fab{bottom:calc(92px + env(safe-area-inset-bottom, 0px));}
-    .undo-toast{bottom:calc(160px + env(safe-area-inset-bottom, 0px));}
   }
 
   /* "more" bottom sheet — unlimited room for future sections */
@@ -1051,6 +1051,16 @@ global.jalaali = {
     content:'';
     position:absolute; top:6px; left:16px; right:16px; height:1px;
     background:linear-gradient(90deg, transparent, rgba(255,255,255,0.8), transparent);
+  }
+
+  /* ---- phone bottom-bar offsets ----
+     These MUST stay at the end of the stylesheet: media queries add no
+     specificity, so if they appear earlier the later base rules
+     (.fab{bottom:24px}, .undo-toast{bottom:24px}) win and the button
+     ends up hidden behind the tab bar. */
+  @media (max-width: 640px){
+    .fab{bottom:calc(96px + env(safe-area-inset-bottom, 0px));}
+    .undo-toast{bottom:calc(164px + env(safe-area-inset-bottom, 0px));}
   }
 </style>
 </head>
