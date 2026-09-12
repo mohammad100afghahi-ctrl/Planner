@@ -451,9 +451,9 @@ global.jalaali = {
     nav.main-nav button{flex-direction:column; gap:3px; font-size:10.5px; padding:7px 2px;}
     nav.main-nav .nav-icon{display:inline-flex;}
     /* leave room so the bottom bar never covers the last item */
-    body{padding-bottom:78px;}
-    .fab{bottom:92px;}
-    .undo-toast{bottom:160px;}
+    body{padding-bottom:calc(78px + env(safe-area-inset-bottom, 0px));}
+    .fab{bottom:calc(92px + env(safe-area-inset-bottom, 0px));}
+    .undo-toast{bottom:calc(160px + env(safe-area-inset-bottom, 0px));}
   }
 
   /* "more" bottom sheet — unlimited room for future sections */
