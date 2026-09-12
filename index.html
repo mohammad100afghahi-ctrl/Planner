@@ -1059,8 +1059,25 @@ global.jalaali = {
      (.fab{bottom:24px}, .undo-toast{bottom:24px}) win and the button
      ends up hidden behind the tab bar. */
   @media (max-width: 640px){
-    .fab{bottom:calc(96px + env(safe-area-inset-bottom, 0px));}
-    .undo-toast{bottom:calc(164px + env(safe-area-inset-bottom, 0px));}
+    /* On phones the add button lives inside the bottom bar, so it can never
+       float over task text the way a floating button does. */
+    .fab{display:none;}
+    .undo-toast{bottom:calc(96px + env(safe-area-inset-bottom, 0px));}
+    nav.main-nav .nav-add{
+      color:var(--accent);
+    }
+    nav.main-nav .nav-add .nav-icon{
+      font-size:19px; font-weight:800; line-height:1;
+      width:26px; height:26px; border-radius:50%;
+      align-items:center; justify-content:center;
+      background:linear-gradient(155deg, color-mix(in srgb, var(--accent) 60%, white 30%), var(--accent) 65%);
+      color:#12161C;
+      box-shadow:0 3px 9px -3px rgba(232,163,61,.6), inset 0 1px 1px rgba(255,255,255,.55);
+    }
+  }
+  /* Desktop / wide screens keep the floating button and hide the nav one. */
+  @media (min-width: 641px){
+    nav.main-nav .nav-add{display:none;}
   }
 </style>
 </head>
@@ -3858,8 +3875,7 @@ const PRIMARY_NAV = [
   { id:'tasks',    label:'تسک‌ها', icon:'check' },
   { id:'calendar', label:'تقویم',  icon:'calendar' },
   { id:'ideas',    label:'ایده‌ها', icon:'bulb' },
-];
-const MORE_NAV = [
+];const MORE_NAV = [
   { id:'purchases',  label:'خریدها',        icon:'cart' },
   { id:'archive',    label:'آرشیو',          icon:'archive' },
   { id:'ai-reports', label:'گزارش هوشمند',  icon:'sparkle' },
@@ -3882,6 +3898,10 @@ function renderNav(){
       <button class="${inMore ? 'active' : ''}" onclick="toggleMoreMenu()">
         <span class="nav-icon">${icon('dots',17)}</span>
         <span class="nav-label">بیشتر</span>
+      </button>
+      <button class="nav-add" onclick="openTaskEditorNew()" title="افزودن تسک" aria-label="افزودن تسک">
+        <span class="nav-icon">+</span>
+        <span class="nav-label">افزودن</span>
       </button>
     </nav>
   `;
