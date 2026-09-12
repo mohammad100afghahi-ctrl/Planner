@@ -2850,7 +2850,8 @@ function renderCalendarPageDayPanel(){
   const key = c.selectedDayKey;
   const dayTasks = state.tasks.filter(t => t.date === key);
   const previews = getRecurringPreviewsForDate(key);
-  const totalMin = dayTasks.reduce((s,t) => s + (t.durationMin||0), 0);
+  const totalMin = dayTasks.reduce((s,t) => s + (t.durationMin||0), 0)
+                  + previews.reduce((s,tpl) => s + (tpl.durationMin||0), 0);
   const dObj = new Date(key);
   const jObj = window.jalaali.toJalaali(dObj);
   const weekdayName = WEEKDAYS_FA[dObj.getDay()];
@@ -2882,6 +2883,7 @@ function renderCalendarPageDayPanel(){
           <div class="cal-day-task-title">${escapeHtml(tpl.title)}</div>
           <div class="task-meta-row">
             <span class="summary-text">کارِ تکرارشونده — وقتی این روز برسه، خودش به‌صورتِ تسکِ واقعی ساخته می‌شه</span>
+            ${tpl.durationMin ? `<span class="summary-text">· ${toFaDigits(tpl.durationMin)} دقیقه</span>` : ''}
           </div>
           ${tpl.tagIds.length ? `
             <div class="task-meta-row">
