@@ -439,7 +439,7 @@ global.jalaali = {
   }
   nav.main-nav button.active{background:var(--surface-3); color:var(--text);}
   nav.main-nav button:hover:not(.active){color:var(--text);}
-  nav.main-nav .nav-icon{font-size:13px;}
+  nav.main-nav .nav-icon{display:inline-flex; align-items:center;}
 
   @media (max-width: 640px){
     nav.main-nav{
@@ -449,7 +449,7 @@ global.jalaali = {
       border:1px solid var(--glass-border); border-bottom:none; box-shadow:0 -6px 24px -10px rgba(0,0,0,.6);
     }
     nav.main-nav button{flex-direction:column; gap:3px; font-size:10.5px; padding:7px 2px;}
-    nav.main-nav .nav-icon{font-size:16px;}
+    nav.main-nav .nav-icon{display:inline-flex;}
     /* leave room so the bottom bar never covers the last item */
     body{padding-bottom:78px;}
     .fab{bottom:92px;}
@@ -475,7 +475,8 @@ global.jalaali = {
   }
   .more-item:hover{background:var(--surface-2);}
   .more-item.active{background:var(--surface-3); color:var(--accent);}
-  .more-icon{font-size:17px; width:24px; text-align:center;}
+  .more-icon{width:24px; display:inline-flex; align-items:center; justify-content:center; color:var(--text-muted);}
+  .more-item.active .more-icon{color:var(--accent);}
   @media (min-width: 641px){
     .more-overlay{align-items:center;}
     .more-sheet{border-radius:18px; border-bottom:1px solid var(--glass-border); max-width:380px;}
@@ -527,8 +528,35 @@ global.jalaali = {
     background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:14px; padding:2px 6px; flex-shrink:0;
   }
   .idea-footer .item-del:hover{color:var(--danger);}
+  .idea-actions{display:flex; align-items:center; gap:2px; flex-shrink:0;}
+  .idea-actions .item-edit{
+    background:none; border:none; color:var(--text-muted); cursor:pointer; padding:2px 6px; display:inline-flex;
+  }
+  .idea-actions .item-edit:hover{color:var(--accent);}
+  .idea-image-strip{display:flex; flex-wrap:wrap; gap:8px; margin-top:10px;}
+  .idea-thumb{position:relative; width:84px; height:84px; border-radius:10px; overflow:hidden; border:1px solid var(--line);}
+  .idea-thumb img{width:100%; height:100%; object-fit:cover; display:block;}
+  .idea-thumb-x, .idea-thumb-dl{
+    position:absolute; top:4px; left:4px; width:22px; height:22px; border-radius:6px;
+    background:rgba(8,10,20,.72); border:1px solid var(--glass-border); color:#fff;
+    font-size:11px; cursor:pointer; display:flex; align-items:center; justify-content:center; padding:0;
+  }
+  .idea-thumb-x:hover{background:var(--danger);}
+  .idea-thumb-dl:hover{background:var(--accent); color:#12161C;}
+  .add-idea-actions{display:flex; align-items:center; gap:8px; margin-top:10px;}
+  .idea-img-btn{
+    display:inline-flex; align-items:center; gap:6px; background:var(--surface-2); border:1px solid var(--line);
+    color:var(--text-muted); font-size:12.5px; font-weight:700; padding:9px 14px; border-radius:8px; cursor:pointer;
+  }
+  .idea-img-btn:hover{border-color:var(--accent); color:var(--accent);}
+  .idea-editor-textarea{
+    width:100%; min-height:110px; background:var(--surface-2); border:1px solid var(--line); color:var(--text);
+    font-size:14px; padding:10px 12px; border-radius:9px; outline:none; font-family:inherit; resize:vertical; line-height:1.9;
+  }
+  .idea-editor-textarea:focus{border-color:var(--accent);}
   .idea-tags{display:flex; flex-wrap:wrap; gap:5px;}
 
+  .icn{display:inline-block; vertical-align:-0.18em; flex-shrink:0;}
   h2.section-title{font-size:13px; font-weight:700; color:var(--text-muted); margin:22px 0 10px; text-transform:uppercase; letter-spacing:.4px;}
   .print-btn{
     background:var(--surface-2); border:1px solid var(--line); color:var(--text-muted); font-size:11.5px; font-weight:700;
@@ -905,6 +933,10 @@ global.jalaali = {
   .cal-back{background:var(--surface-3); border:1px solid var(--line); color:var(--text); font-size:11.5px; font-weight:600; padding:6px 12px; border-radius:7px; cursor:pointer; white-space:nowrap;}
   .cal-back:hover{border-color:var(--accent); color:var(--accent);}
   .cal-day-title{font-size:13px; font-weight:700; color:var(--text);}
+  .cal-day-nav{display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:14px;}
+  .cal-day-titlebox{flex:1; text-align:center;}
+  .cal-day-weekday{font-size:11px; color:var(--text-muted); font-weight:600;}
+  .cal-day-greg{font-size:10.5px; color:var(--text-muted); margin-top:2px; opacity:.85;}
   .cal-day-task{background:var(--surface); border:1px solid var(--line); border-radius:9px; padding:10px 12px; margin-bottom:8px;}
   .cal-day-task.preview{background:transparent; border:1px dashed var(--line); opacity:.8;}
   .cal-day-task:last-child{margin-bottom:0;}
@@ -917,8 +949,8 @@ global.jalaali = {
     display:flex; align-items:center; gap:8px; background:var(--surface); border:1px solid var(--line);
     border-radius:12px; padding:10px 14px; margin-bottom:16px; width:fit-content;
   }
-  .streak-flame{font-size:20px; filter:grayscale(0); transition:filter .2s;}
-  .streak-badge.at-risk .streak-flame{filter:grayscale(1); opacity:.55;}
+  .streak-flame{display:inline-flex; align-items:center; color:var(--accent); transition:color .2s, opacity .2s;}
+  .streak-badge.at-risk .streak-flame{color:var(--text-muted); opacity:.6;}
   .streak-count{font-size:17px; font-weight:800; color:var(--text);}
   .streak-badge.at-risk .streak-count{color:var(--text-muted);}
   .streak-label{font-size:11.5px; color:var(--text-muted);}
@@ -1046,7 +1078,35 @@ const MONTHS_GREG_FA = ['ژانویه','فوریه','مارس','آوریل','م�
 const MONTHS_JALALI = ['فروردین','اردیبهشت','خرداد','تیر','مرداد','شهریور','مهر','آبان','آذر','دی','بهمن','اسفند'];
 const PRIORITY_RANK = { high:0, medium:1, low:2 };
 const PRIORITY_LABEL = { high:'بالا', medium:'متوسط', low:'پایین' };
-const DIFFICULTY_EMOJI = { easy:'😌', medium:'😐', hard:'😫' };
+const DIFFICULTY_LABEL = { easy:'راحت', medium:'معمولی', hard:'سخت' };
+/* Inline SVG icon set — replaces emoji stickers so the UI keeps one consistent
+   visual language (stroke weight, size, currentColor) instead of platform-drawn
+   emoji that clash with the site's theme. */
+function icon(name, size){
+  const s = size || 16;
+  const open = `<svg class="icn" width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">`;
+  const paths = {
+    sun:      `<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>`,
+    check:    `<path d="M20 6L9 17l-5-5"/>`,
+    calendar: `<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>`,
+    bulb:     `<path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z"/>`,
+    dots:     `<circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/>`,
+    cart:     `<circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/><path d="M2 3h3l2.6 12.4a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.6L21 7H6"/>`,
+    archive:  `<rect x="3" y="4" width="18" height="5" rx="1"/><path d="M5 9v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9M10 13h4"/>`,
+    sparkle:  `<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3z"/>`,
+    clock:    `<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>`,
+    flame:    `<path d="M12 22c4 0 6.5-2.7 6.5-6 0-4.5-4.5-6-4.5-10-3 1.5-4.5 4-4.5 6.5 0 1-.6 1.6-1.2 1.6-.9 0-1.3-1-1.3-2.3C5.8 13.4 5.5 14.7 5.5 16c0 3.3 2.5 6 6.5 6z"/>`,
+    copy:     `<rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/>`,
+    repeat:   `<path d="M17 2l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14M7 22l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/>`,
+    arrowIn:  `<path d="M15 10l5 5-5 5"/><path d="M20 15H9a5 5 0 0 1-5-5V4"/>`,
+    target:   `<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.4"/>`,
+    printer:  `<path d="M6 9V3h12v6M6 18H4a1 1 0 0 1-1-1v-5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v5a1 1 0 0 1-1 1h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/>`,
+    image:    `<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.6"/><path d="M21 15l-5-5L5 21"/>`,
+    download: `<path d="M12 3v12M7 11l5 5 5-5M4 21h16"/>`,
+    pencil:   `<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/>`,
+  };
+  return open + (paths[name] || '') + '</svg>';
+}
 
 function toFaDigits(str){
   const map = {'0':'۰','1':'۱','2':'۲','3':'۳','4':'۴','5':'۵','6':'۶','7':'۷','8':'۸','9':'۹'};
@@ -1154,6 +1214,8 @@ let state = {
   ideas: [], // [{ id, body, tagIds, createdAt }]
   archiveSection: 'tasks', // 'tasks' | 'purchases'
   moreMenuOpen: false,
+  ideaEditor: null, // { ideaId, body, tagIds, images } while editing an idea
+  recurringEditor: null, // { templateId, title, priority, durationMin, weekdays, tagIds }
 };
 
 let loadError = false;
@@ -1207,9 +1269,18 @@ async function loadAll(){
     if(purchasesErr) throw purchasesErr;
     state.purchases = purchases.map(p => ({ id:p.id, title:p.title, priority:p.priority, price:p.price, bought:!!p.bought, boughtAt:p.bought_at }));
 
-    const { data: ideas, error: ideasErr } = await sb.from('ideas').select('*, idea_tags(tag_id)').order('created_at', { ascending:false });
+    const { data: ideas, error: ideasErr } = await sb
+      .from('ideas')
+      .select('*, idea_tags(tag_id), idea_images(id, data_url, position)')
+      .order('created_at', { ascending:false })
+      .order('position', { foreignTable:'idea_images', ascending:true });
     if(ideasErr) throw ideasErr;
-    state.ideas = ideas.map(i => ({ id:i.id, body:i.body, tagIds:(i.idea_tags||[]).map(it => it.tag_id), createdAt:i.created_at }));
+    state.ideas = ideas.map(i => ({
+      id:i.id, body:i.body,
+      tagIds:(i.idea_tags||[]).map(it => it.tag_id),
+      images:(i.idea_images||[]).map(im => ({ id:im.id, dataUrl:im.data_url })),
+      createdAt:i.created_at,
+    }));
   } catch(e){
     console.error('load failed', e);
     loadError = true;
@@ -1394,6 +1465,75 @@ function startRealtimeSync(){
     },
   });
 
+  registerRealtimeSync(channel, 'purchases', {
+    onInsert(row){
+      if(state.purchases.some(p => p.id === row.id)) return;
+      state.purchases.unshift({ id:row.id, title:row.title, priority:row.priority, price:row.price, bought:!!row.bought, boughtAt:row.bought_at });
+      render();
+    },
+    onUpdate(row){
+      const p = state.purchases.find(p => p.id === row.id);
+      if(!p) return;
+      p.title = row.title; p.priority = row.priority; p.price = row.price;
+      p.bought = !!row.bought; p.boughtAt = row.bought_at;
+      render();
+    },
+    onDelete(old){
+      state.purchases = state.purchases.filter(p => p.id !== old.id);
+      render();
+    },
+  });
+
+  registerRealtimeSync(channel, 'ideas', {
+    onInsert(row){
+      if(state.ideas.some(i => i.id === row.id)) return;
+      state.ideas.unshift({ id:row.id, body:row.body, tagIds:[], images:[], createdAt:row.created_at });
+      render();
+    },
+    onUpdate(row){
+      const i = state.ideas.find(i => i.id === row.id);
+      if(!i) return;
+      i.body = row.body;
+      render();
+    },
+    onDelete(old){
+      state.ideas = state.ideas.filter(i => i.id !== old.id);
+      render();
+    },
+  });
+
+  registerRealtimeSync(channel, 'idea_tags', {
+    onInsert(row){
+      const i = state.ideas.find(i => i.id === row.idea_id);
+      if(!i || i.tagIds.includes(row.tag_id)) return;
+      i.tagIds.push(row.tag_id);
+      render();
+    },
+    onDelete(old){
+      const i = state.ideas.find(i => i.id === old.idea_id);
+      if(!i) return;
+      i.tagIds = i.tagIds.filter(id => id !== old.tag_id);
+      render();
+    },
+  });
+
+  registerRealtimeSync(channel, 'idea_images', {
+    onInsert(row){
+      const i = state.ideas.find(i => i.id === row.idea_id);
+      if(!i) return;
+      if(!i.images) i.images = [];
+      if(i.images.some(im => im.id === row.id)) return;
+      i.images.push({ id:row.id, dataUrl:row.data_url });
+      render();
+    },
+    onDelete(old){
+      // default replica identity only guarantees the primary key on DELETE,
+      // so sweep every idea's image list by id rather than trusting old.idea_id
+      state.ideas.forEach(i => { if(i.images) i.images = i.images.filter(im => im.id !== old.id); });
+      render();
+    },
+  });
+
   let hasSubscribedBefore = false;
   channel.subscribe(status => {
     if(status === 'SUBSCRIBED'){
@@ -1507,15 +1647,60 @@ function sortPurchases(list){
 }
 
 /* ---------- ideas ---------- */
+const IDEA_IMAGE_MAX_DIM = 1400;   // downscale before storing — keeps rows small and loads fast
+const IDEA_IMAGE_QUALITY = 0.82;
+function readAndCompressImage(file){
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('read failed'));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('decode failed'));
+      img.onload = () => {
+        let { width, height } = img;
+        const scale = Math.min(1, IDEA_IMAGE_MAX_DIM / Math.max(width, height));
+        width = Math.round(width * scale);
+        height = Math.round(height * scale);
+        const canvas = document.createElement('canvas');
+        canvas.width = width; canvas.height = height;
+        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', IDEA_IMAGE_QUALITY));
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+async function handleNewIdeaImages(input){
+  const files = [...input.files];
+  input.value = '';
+  if(!files.length) return;
+  const bodyEl = document.getElementById('new-idea-body');
+  state.newIdeaBody = bodyEl ? bodyEl.value : '';
+  if(!state.newIdeaImages) state.newIdeaImages = [];
+  for(const f of files){
+    try{ state.newIdeaImages.push({ id: uid(), dataUrl: await readAndCompressImage(f) }); }
+    catch(e){ console.error('image processing failed', e); }
+  }
+  render();
+}
+function removeNewIdeaImage(imgId){
+  const bodyEl = document.getElementById('new-idea-body');
+  state.newIdeaBody = bodyEl ? bodyEl.value : '';
+  state.newIdeaImages = (state.newIdeaImages || []).filter(i => i.id !== imgId);
+  render();
+}
 async function addIdea(){
   const el = document.getElementById('new-idea-body');
   const body = el.value.trim();
-  if(!body) return;
+  const images = [...(state.newIdeaImages || [])];
+  if(!body && !images.length) return;
   const tagIds = [...(state.newIdeaTagIds || [])];
-  const idea = { id: uid(), body, tagIds, createdAt: new Date().toISOString() };
+  const idea = { id: uid(), body, tagIds, images, createdAt: new Date().toISOString() };
   state.ideas.unshift(idea);
   state.newIdeaTagIds = [];
   state.newIdeaBody = '';
+  state.newIdeaImages = [];
   el.value = '';
   render();
   const { error } = await sb.from('ideas').insert({ id:idea.id, body:idea.body });
@@ -1524,6 +1709,105 @@ async function addIdea(){
     const { error: tagErr } = await sb.from('idea_tags').insert(tagIds.map(tagId => ({ idea_id:idea.id, tag_id:tagId })));
     if(tagErr) console.error('link idea tags failed', tagErr);
   }
+  if(images.length){
+    const { error: imgErr } = await sb.from('idea_images').insert(images.map((im, i) => ({ id:im.id, idea_id:idea.id, data_url:im.dataUrl, position:i })));
+    if(imgErr) console.error('save idea images failed', imgErr);
+  }
+}
+
+/* ---------- idea editing ---------- */
+function openIdeaEditor(ideaId){
+  const i = state.ideas.find(x => x.id === ideaId);
+  if(!i) return;
+  state.ideaEditor = {
+    ideaId,
+    body: i.body,
+    tagIds: [...i.tagIds],
+    images: (i.images || []).map(im => ({ ...im })),
+  };
+  render();
+}
+function closeIdeaEditor(){ state.ideaEditor = null; render(); }
+function ideaEditorToggleTag(tagId){
+  const ed = state.ideaEditor;
+  const el = document.getElementById('idea-editor-body');
+  if(el) ed.body = el.value;
+  const i = ed.tagIds.indexOf(tagId);
+  if(i === -1) ed.tagIds.push(tagId); else ed.tagIds.splice(i, 1);
+  render();
+}
+async function ideaEditorAddImages(input){
+  const files = [...input.files];
+  input.value = '';
+  if(!files.length) return;
+  const ed = state.ideaEditor;
+  const el = document.getElementById('idea-editor-body');
+  if(el) ed.body = el.value;
+  for(const f of files){
+    try{ ed.images.push({ id: uid(), dataUrl: await readAndCompressImage(f) }); }
+    catch(e){ console.error('image processing failed', e); }
+  }
+  render();
+}
+function ideaEditorRemoveImage(imgId){
+  const ed = state.ideaEditor;
+  const el = document.getElementById('idea-editor-body');
+  if(el) ed.body = el.value;
+  ed.images = ed.images.filter(i => i.id !== imgId);
+  render();
+}
+async function confirmIdeaEditor(){
+  const ed = state.ideaEditor;
+  const el = document.getElementById('idea-editor-body');
+  if(el) ed.body = el.value;
+  const idea = state.ideas.find(x => x.id === ed.ideaId);
+  if(!idea){ state.ideaEditor = null; render(); return; }
+  const prevImages = idea.images || [];
+  idea.body = ed.body.trim();
+  idea.tagIds = [...ed.tagIds];
+  idea.images = ed.images.map(i => ({ ...i }));
+  state.ideaEditor = null;
+  render();
+
+  const { error } = await sb.from('ideas').update({ body: idea.body }).eq('id', idea.id);
+  if(error) console.error('update idea failed', error);
+
+  const { error: delTagErr } = await sb.from('idea_tags').delete().eq('idea_id', idea.id);
+  if(delTagErr) console.error('clear idea tags failed', delTagErr);
+  if(idea.tagIds.length){
+    const { error: tagErr } = await sb.from('idea_tags').insert(idea.tagIds.map(tagId => ({ idea_id:idea.id, tag_id:tagId })));
+    if(tagErr) console.error('relink idea tags failed', tagErr);
+  }
+
+  /* diff images instead of wiping and reinserting, so untouched ones keep their
+     ids (and we don't re-upload the same base64 payload on every edit) */
+  const currIds = new Set(idea.images.map(i => i.id));
+  const removed = prevImages.filter(i => !currIds.has(i.id)).map(i => i.id);
+  const prevIds = new Set(prevImages.map(i => i.id));
+  const added = idea.images.filter(i => !prevIds.has(i.id));
+  if(removed.length){
+    const { error: e } = await sb.from('idea_images').delete().in('id', removed);
+    if(e) console.error('delete idea images failed', e);
+  }
+  if(added.length){
+    const { error: e } = await sb.from('idea_images').insert(added.map(im => ({ id:im.id, idea_id:idea.id, data_url:im.dataUrl, position: idea.images.indexOf(im) })));
+    if(e) console.error('insert idea images failed', e);
+  }
+  await Promise.all(idea.images.filter(i => prevIds.has(i.id)).map(im =>
+    sb.from('idea_images').update({ position: idea.images.indexOf(im) }).eq('id', im.id)
+      .then(({ error }) => { if(error) console.error('reposition idea image failed', error); })
+  ));
+}
+function downloadIdeaImage(ideaId, imgId){
+  const idea = state.ideas.find(i => i.id === ideaId);
+  const img = idea && (idea.images || []).find(im => im.id === imgId);
+  if(!img) return;
+  const a = document.createElement('a');
+  a.href = img.dataUrl;
+  a.download = `idea-${ideaId.slice(0,8)}-${imgId.slice(0,8)}.jpg`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
 }
 function toggleNewIdeaTag(tagId){
   /* same preservation rule as purchases: re-rendering must not discard the text
@@ -2118,7 +2402,7 @@ function renderDurationSuggestionChip(){
     keyword: `پیشنهادی (مشابه، بر اساس ${toFaDigits(sug.count)} کار مرتبط)`,
     tag:     `تخمین کلی برچسب (بر اساس ${toFaDigits(sug.count)} کار، شاید دقیق نباشه)`,
   };
-  return `<span class="quick-chip suggestion-chip" onclick="editorQuickDuration(${sug.minutes})" title="${labels[sug.tier]}">🔵 ${labels[sug.tier]}: ${formatDuration(sug.minutes)}</span>`;
+  return `<span class="quick-chip suggestion-chip" onclick="editorQuickDuration(${sug.minutes})" title="${labels[sug.tier]}">${icon('target',12)} ${labels[sug.tier]}: ${formatDuration(sug.minutes)}</span>`;
 }
 function updateDurationSuggestionLive(){
   const el = document.getElementById('duration-suggestion-slot');
@@ -2522,25 +2806,48 @@ function renderCalendarPage(){
     </div>
   `;
 }
+function calendarPageShiftDay(delta){
+  const d = new Date(state.calendarPage.selectedDayKey);
+  d.setDate(d.getDate() + delta);
+  const key = dateKey(d);
+  state.calendarPage.selectedDayKey = key;
+  /* keep the underlying month grid in sync, so going "back to calendar" lands
+     on the month you actually navigated into rather than the one you started from */
+  const j = window.jalaali.toJalaali(d);
+  state.calendarPage.jy = j.jy;
+  state.calendarPage.jm = j.jm;
+  render();
+}
 function renderCalendarPageDayPanel(){
   const c = state.calendarPage;
   const key = c.selectedDayKey;
   const dayTasks = state.tasks.filter(t => t.date === key);
   const previews = getRecurringPreviewsForDate(key);
   const totalMin = dayTasks.reduce((s,t) => s + (t.durationMin||0), 0);
-  const jObj = window.jalaali.toJalaali(new Date(key));
+  const dObj = new Date(key);
+  const jObj = window.jalaali.toJalaali(dObj);
+  const weekdayName = WEEKDAYS_FA[dObj.getDay()];
   const jalaliLabel = `${toFaDigits(jObj.jd)} ${MONTHS_JALALI[jObj.jm-1]} ${toFaDigits(jObj.jy)}`;
+  const gregLabel = `${dObj.getDate()} ${MONTHS_GREG_FA[dObj.getMonth()]} ${dObj.getFullYear()}`;
   return `
     <h2 class="section-title">تقویم</h2>
     <div class="task-calendar">
       <div class="cal-day-header">
-        <button type="button" class="cal-back" onclick="calendarPageBackToGrid()">→ بازگشت به تقویم</button>
-        <span class="cal-day-title">${jalaliLabel}</span>
+        <button type="button" class="cal-back" onclick="calendarPageBackToGrid()">${icon('arrowIn',12)} بازگشت به تقویم</button>
       </div>
-      ${totalMin > 0 ? `<div class="cal-day-total">⏱ جمع مدت کارهای این روز: ${formatDuration(totalMin)}</div>` : ''}
+      <div class="cal-day-nav">
+        <button type="button" class="cal-nav" onclick="calendarPageShiftDay(-1)">روز قبل</button>
+        <div class="cal-day-titlebox">
+          <div class="cal-day-weekday">${weekdayName}</div>
+          <div class="cal-day-title">${jalaliLabel}</div>
+          <div class="cal-day-greg">${gregLabel}</div>
+        </div>
+        <button type="button" class="cal-nav" onclick="calendarPageShiftDay(1)">روز بعد</button>
+      </div>
+      ${totalMin > 0 ? `<div class="cal-day-total">${icon('clock',13)} جمع مدت کارهای این روز: ${formatDuration(totalMin)}</div>` : ''}
       <div class="cal-day-actions">
         <button type="button" class="add-task-for-day-btn" onclick="openTaskEditorNewForDate('${key}')">+ اضافه کردن کار جدید</button>
-        <button type="button" class="add-task-for-day-btn secondary" onclick="openMoveTaskPicker('${key}')">↪ انتخاب از تسک‌های موجود</button>
+        <button type="button" class="add-task-for-day-btn secondary" onclick="openMoveTaskPicker('${key}')">${icon('arrowIn',13)} انتخاب از تسک‌های موجود</button>
       </div>
       ${(dayTasks.length === 0 && previews.length === 0) ? `<div class="empty-state" style="padding:16px 0;">کاری برای این روز ثبت نشده</div>` : ''}
       ${previews.map(tpl => `
@@ -2554,6 +2861,10 @@ function renderCalendarPageDayPanel(){
               ${tpl.tagIds.map(tid => { const tag = state.tags.find(x => x.id===tid); return tag ? `<span class="mini-tag" style="--chip-color:${tag.color}">${escapeHtml(tag.name)}</span>` : ''; }).join('')}
             </div>
           ` : ''}
+          <div class="task-actions-row" style="margin-top:10px;">
+            <button class="edit-link" onclick="openRecurringEditor('${tpl.id}')">${icon('pencil',12)} ویرایش</button>
+            <button class="copy-link" onclick="deleteRecurringFuture('${tpl.id}')">${icon('repeat',12)} توقف تکرار</button>
+          </div>
         </div>
       `).join('')}
       ${dayTasks.map(t => `
@@ -2715,6 +3026,157 @@ async function deleteRecurringTemplate(templateId){
   const { error } = await sb.from('recurring_templates').delete().eq('id', templateId);
   if(error) console.error('deleteRecurringTemplate failed', error);
 }
+/* Stops a series from generating any FUTURE occurrences. Past instances and
+   today's (already-generated) one are real tasks and stay untouched — deleting
+   history would erase work you actually did. */
+async function deleteRecurringFuture(templateId){
+  const tpl = state.recurringTemplates.find(t => t.id === templateId);
+  if(!tpl) return;
+  const todayStr = dateKey(new Date());
+  const futureInstances = state.tasks.filter(t => t.recurringTemplateId === templateId && t.date && t.date > todayStr);
+  const futureIds = futureInstances.map(t => t.id);
+  state.recurringTemplates = state.recurringTemplates.filter(t => t.id !== templateId);
+  state.tasks = state.tasks.filter(t => !futureIds.includes(t.id));
+  state.tasks.forEach(t => { if(t.recurringTemplateId === templateId) t.recurringTemplateId = null; });
+  showUndoToast(`تکرارِ «${tpl.title}» متوقف شد`, () => {
+    state.recurringTemplates.push(tpl);
+    futureInstances.forEach(t => state.tasks.push(t));
+    render();
+  });
+  render();
+  if(futureIds.length){
+    const { error: delErr } = await sb.from('tasks').delete().in('id', futureIds);
+    if(delErr) console.error('delete future recurring instances failed', delErr);
+  }
+  const { error } = await sb.from('recurring_templates').delete().eq('id', templateId);
+  if(error) console.error('deleteRecurringFuture failed', error);
+}
+
+/* ---------- recurring template editing (from a future-day preview) ---------- */
+function openRecurringEditor(templateId){
+  const tpl = state.recurringTemplates.find(t => t.id === templateId);
+  if(!tpl) return;
+  state.recurringEditor = {
+    templateId,
+    title: tpl.title,
+    priority: tpl.priority,
+    durationMin: tpl.durationMin,
+    weekdays: [...tpl.weekdays],
+    tagIds: [...tpl.tagIds],
+  };
+  render();
+}
+function closeRecurringEditor(){ state.recurringEditor = null; render(); }
+function recurringEditorCapture(opts){
+  const ed = state.recurringEditor;
+  const titleEl = document.getElementById('recurring-editor-title');
+  if(titleEl) ed.title = titleEl.value;
+  if(opts && opts.skipDuration) return;
+  const durEl = document.getElementById('recurring-editor-duration');
+  if(durEl){
+    const raw = toEnDigits(durEl.value).trim();
+    /* an empty custom field means "no custom value typed", not "clear the duration" —
+       it's blank by design whenever a quick-chip preset is the active choice */
+    if(raw !== ''){
+      const v = parseInt(raw);
+      ed.durationMin = (v && v > 0) ? v : null;
+    }
+  }
+}
+function recurringEditorSetPriority(level){
+  recurringEditorCapture();
+  const ed = state.recurringEditor;
+  ed.priority = ed.priority === level ? null : level;
+  render();
+}
+function recurringEditorToggleTag(tagId){
+  recurringEditorCapture();
+  const ed = state.recurringEditor;
+  const i = ed.tagIds.indexOf(tagId);
+  if(i === -1) ed.tagIds.push(tagId); else ed.tagIds.splice(i, 1);
+  render();
+}
+function recurringEditorToggleWeekday(dayIdx){
+  recurringEditorCapture();
+  const ed = state.recurringEditor;
+  const i = ed.weekdays.indexOf(dayIdx);
+  if(i === -1) ed.weekdays.push(dayIdx); else ed.weekdays.splice(i, 1);
+  render();
+}
+async function confirmRecurringEditor(){
+  recurringEditorCapture();
+  const ed = state.recurringEditor;
+  const title = ed.title.trim();
+  if(!title || ed.weekdays.length === 0) return;
+  const tpl = state.recurringTemplates.find(t => t.id === ed.templateId);
+  if(!tpl){ state.recurringEditor = null; render(); return; }
+  tpl.title = title; tpl.priority = ed.priority; tpl.durationMin = ed.durationMin;
+  tpl.weekdays = [...ed.weekdays]; tpl.tagIds = [...ed.tagIds];
+  state.recurringEditor = null;
+  render();
+
+  const { error } = await sb.from('recurring_templates')
+    .update({ title: tpl.title, priority: tpl.priority, duration_min: tpl.durationMin, weekdays: tpl.weekdays })
+    .eq('id', tpl.id);
+  if(error) console.error('update recurring template failed', error);
+
+  const { error: delErr } = await sb.from('recurring_template_tags').delete().eq('template_id', tpl.id);
+  if(delErr) console.error('clear recurring tags failed', delErr);
+  if(tpl.tagIds.length){
+    const { error: tagErr } = await sb.from('recurring_template_tags').insert(tpl.tagIds.map(tagId => ({ template_id:tpl.id, tag_id:tagId })));
+    if(tagErr) console.error('relink recurring tags failed', tagErr);
+  }
+}
+function renderRecurringEditorModal(){
+  const ed = state.recurringEditor;
+  const quickVals = [15,30,45,60];
+  const customVal = (ed.durationMin && !quickVals.includes(ed.durationMin)) ? ed.durationMin : '';
+  return `
+    <div class="modal-overlay" onclick="if(event.target===this) closeRecurringEditor()">
+      <div class="modal-box">
+        <h3>ویرایش کارِ تکرارشونده</h3>
+        <div style="font-size:11.5px;color:var(--text-muted);margin-bottom:12px;line-height:1.7;">
+          تغییرات روی همه‌ی تکرارهای آینده اعمال می‌شه؛ کارهای گذشته و امروز دست‌نخورده می‌مونن.
+        </div>
+        <input type="text" id="recurring-editor-title" class="modal-title-input" placeholder="اسم کار…" value="${escapeHtml(ed.title)}" />
+        <div class="modal-section">
+          <span class="modal-section-label">تگ‌ها</span>
+          ${state.tags.map(t => `<span class="pick-chip ${ed.tagIds.includes(t.id)?'on':''}" style="--chip-color:${t.color}" onclick="recurringEditorToggleTag('${t.id}')">${escapeHtml(t.name)}</span>`).join('')}
+        </div>
+        <div class="modal-section">
+          <span class="modal-section-label">اولویت</span>
+          <span class="priority-chip high ${ed.priority==='high'?'active':''}" onclick="recurringEditorSetPriority('high')">بالا</span>
+          <span class="priority-chip medium ${ed.priority==='medium'?'active':''}" onclick="recurringEditorSetPriority('medium')">متوسط</span>
+          <span class="priority-chip low ${ed.priority==='low'?'active':''}" onclick="recurringEditorSetPriority('low')">پایین</span>
+        </div>
+        <div class="modal-section">
+          <span class="modal-section-label">روزهای تکرار</span>
+          <div class="quick-group">
+            ${WEEKDAY_DISPLAY_ORDER.map(dayIdx => `
+              <span class="quick-chip ${ed.weekdays.includes(dayIdx)?'active':''}" onclick="recurringEditorToggleWeekday(${dayIdx})">${WEEKDAYS_FA[dayIdx].slice(0,2)}</span>
+            `).join('')}
+          </div>
+        </div>
+        <div class="modal-section">
+          <span class="modal-section-label">مدت (دقیقه)</span>
+          <div class="quick-group">
+            ${quickVals.map(v => `<span class="quick-chip ${ed.durationMin===v?'active':''}" onclick="recurringEditorSetDuration(${v})">${toFaDigits(v)}</span>`).join('')}
+            <input type="text" id="recurring-editor-duration" inputmode="numeric" class="num-text" placeholder="سفارشی" value="${customVal}" oninput="normalizeNumericInput(this)" />
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button class="confirm" onclick="confirmRecurringEditor()">ذخیره</button>
+          <button class="cancel" onclick="closeRecurringEditor()">انصراف</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+function recurringEditorSetDuration(min){
+  recurringEditorCapture({ skipDuration:true });
+  state.recurringEditor.durationMin = min;
+  render();
+}
 
 /* ---------- rendering: task editor modal ---------- */
 function renderTaskEditorModal(){
@@ -2744,7 +3206,7 @@ function renderTaskEditorModal(){
 
         ${(ed.mode === 'edit' && ed.isRecurringInstance) ? `
           <div class="recurring-instance-note">
-            🔁 این کار بخشی از یه سری تکرارشونده‌ست.
+            ${icon('repeat',14)} این کار بخشی از یه سری تکرارشونده‌ست.
             <label class="apply-future-check">
               <input type="checkbox" ${ed.applyToFutureRecurring ? 'checked' : ''} onchange="editorToggleApplyToFuture()" />
               این تغییرات برای تکرارهای بعدی هم اعمال بشه
@@ -2775,7 +3237,7 @@ function renderTaskEditorModal(){
             <span class="quick-chip ${d.date===todayStr?'active':''}" onclick="editorQuickDate('today')">امروز</span>
             <span class="quick-chip ${d.date===tomorrowStr?'active':''}" onclick="editorQuickDate('tomorrow')">فردا</span>
             <span class="quick-chip ${!d.date?'active':''}" onclick="editorClearDate()">بدون تاریخ</span>
-            <button type="button" class="date-picker-btn" onclick="toggleTaskCalendar()">📅 ${d.date ? formatDateShort(d.date) : 'انتخاب از تقویم'}</button>
+            <button type="button" class="date-picker-btn" onclick="toggleTaskCalendar()">${icon('calendar',13)} ${d.date ? formatDateShort(d.date) : 'انتخاب از تقویم'}</button>
           </div>
           ${ed.calendarOpen ? renderTaskCalendar() : ''}
         </div>
@@ -2790,7 +3252,7 @@ function renderTaskEditorModal(){
               oninput="normalizeNumericInput(this)" onchange="editorSetDurationCustom(this.value)" />
             <span id="duration-suggestion-slot">${renderDurationSuggestionChip()}</span>
           </div>
-          ${(ed.mode === 'edit' && ed.actualMinReadonly) ? `<div class="actual-time-row" style="margin-top:8px;">⏱ زمانِ واقعیِ ثبت‌شده تا الان: ${formatDuration(ed.actualMinReadonly)}</div>` : ''}
+          ${(ed.mode === 'edit' && ed.actualMinReadonly) ? `<div class="actual-time-row" style="margin-top:8px;">${icon('clock',12)} زمانِ واقعیِ ثبت‌شده تا الان: ${formatDuration(ed.actualMinReadonly)}</div>` : ''}
         </div>
 
         <div class="modal-section">
@@ -2846,7 +3308,7 @@ function renderTaskCard(task){
               ${task.tagIds.map(tid => { const tag = state.tags.find(t => t.id===tid); return tag ? `<span class="mini-tag" style="--chip-color:${tag.color}">${escapeHtml(tag.name)}</span>` : ''; }).join('')}
             </div>
           ` : ''}
-          ${task.actualMin ? `<div class="actual-time-row">⏱ زمان واقعی: ${formatDuration(task.actualMin)}${task.difficulty ? ` · ${DIFFICULTY_EMOJI[task.difficulty]}` : ''}</div>` : ''}
+          ${task.actualMin ? `<div class="actual-time-row">${icon('clock',12)} زمان واقعی: ${formatDuration(task.actualMin)}${task.difficulty ? ` · ${DIFFICULTY_LABEL[task.difficulty]}` : ''}</div>` : ''}
 
           <div class="subtasks">
             ${task.subtasks.map(s => `
@@ -2864,7 +3326,7 @@ function renderTaskCard(task){
 
           <div class="task-actions-row">
             <button class="edit-link" onclick="openTaskEditorEdit('${task.id}')">✎ ویرایش</button>
-            <button class="copy-link" onclick="copyTaskToEditor('${task.id}')">⧉ کپی</button>
+            <button class="copy-link" onclick="copyTaskToEditor('${task.id}')">${icon('copy',12)} کپی</button>
           </div>
         </div>
         <button class="task-del" onclick="deleteTask('${task.id}')">✕</button>
@@ -2913,7 +3375,7 @@ function renderAIReportsPage(){
   return `
     <h2 class="section-title">گزارش هوشمند</h2>
     <button type="button" class="add-task-for-day-btn" onclick="generateAIReportNow()" ${state.aiReportGenerating ? 'disabled' : ''}>
-      ${state.aiReportGenerating ? 'در حال تولید…' : '✨ تولید گزارش الان'}
+      ${state.aiReportGenerating ? 'در حال تولید…' : `${icon('sparkle',14)} تولید گزارش الان`}
     </button>
     ${state.aiReportError ? `<div class="empty-state" style="background:var(--surface);border:1px solid var(--danger);border-radius:10px;color:var(--danger);margin-top:12px;padding:12px;">${escapeHtml(state.aiReportError)}</div>` : ''}
     ${state.aiReports.length === 0 ? `
@@ -3038,26 +3500,90 @@ function renderPurchasesPage(){
 /* ---------- rendering: ideas ---------- */
 function renderIdeasPage(){
   const selected = state.newIdeaTagIds || [];
+  const newImages = state.newIdeaImages || [];
   return `
     <h2 class="section-title">افکار و ایده‌ها</h2>
     <div class="add-idea-box">
       <textarea id="new-idea-body" placeholder="چی توی ذهنته؟ (خام و بدون ساختار بنویس…)">${escapeHtml(state.newIdeaBody || '')}</textarea>
+      ${newImages.length ? `
+        <div class="idea-image-strip">
+          ${newImages.map(im => `
+            <div class="idea-thumb">
+              <img src="${im.dataUrl}" alt="" />
+              <button class="idea-thumb-x" onclick="removeNewIdeaImage('${im.id}')" title="حذف عکس">✕</button>
+            </div>
+          `).join('')}
+        </div>
+      ` : ''}
       <div class="add-idea-tags">
         ${state.tags.map(t => `<span class="pick-chip ${selected.includes(t.id)?'on':''}" style="--chip-color:${t.color}" onclick="toggleNewIdeaTag('${t.id}')">${escapeHtml(t.name)}</span>`).join('')}
       </div>
-      <button class="add-idea-btn" onclick="addIdea()">ثبت ایده</button>
+      <div class="add-idea-actions">
+        <label class="idea-img-btn">
+          ${icon('image',14)} افزودن عکس
+          <input type="file" accept="image/*" multiple onchange="handleNewIdeaImages(this)" hidden />
+        </label>
+        <button class="add-idea-btn" onclick="addIdea()">ثبت ایده</button>
+      </div>
     </div>
     ${state.ideas.length === 0 ? `<div class="empty-state">هنوز ایده‌ای ثبت نکردی</div>` : state.ideas.map(i => `
       <div class="idea-card">
-        <div class="idea-body">${escapeHtml(i.body)}</div>
+        ${i.body ? `<div class="idea-body">${escapeHtml(i.body)}</div>` : ''}
+        ${(i.images && i.images.length) ? `
+          <div class="idea-image-strip">
+            ${i.images.map(im => `
+              <div class="idea-thumb">
+                <img src="${im.dataUrl}" alt="" />
+                <button class="idea-thumb-dl" onclick="downloadIdeaImage('${i.id}','${im.id}')" title="دانلود عکس">${icon('download',13)}</button>
+              </div>
+            `).join('')}
+          </div>
+        ` : ''}
         <div class="idea-footer">
           <div class="idea-tags">
             ${i.tagIds.map(tid => { const tag = state.tags.find(x=>x.id===tid); return tag ? `<span class="mini-tag" style="--chip-color:${tag.color}">${escapeHtml(tag.name)}</span>` : ''; }).join('')}
           </div>
-          <button class="item-del" onclick="deleteIdea('${i.id}')">✕</button>
+          <div class="idea-actions">
+            <button class="item-edit" onclick="openIdeaEditor('${i.id}')" title="ویرایش">${icon('pencil',13)}</button>
+            <button class="item-del" onclick="deleteIdea('${i.id}')">✕</button>
+          </div>
         </div>
       </div>
     `).join('')}
+    ${state.ideaEditor ? renderIdeaEditorModal() : ''}
+  `;
+}
+function renderIdeaEditorModal(){
+  const ed = state.ideaEditor;
+  return `
+    <div class="modal-overlay" onclick="if(event.target===this) closeIdeaEditor()">
+      <div class="modal-box">
+        <h3>ویرایش ایده</h3>
+        <textarea id="idea-editor-body" class="idea-editor-textarea" placeholder="متن ایده…">${escapeHtml(ed.body)}</textarea>
+        ${ed.images.length ? `
+          <div class="idea-image-strip">
+            ${ed.images.map(im => `
+              <div class="idea-thumb">
+                <img src="${im.dataUrl}" alt="" />
+                <button class="idea-thumb-x" onclick="ideaEditorRemoveImage('${im.id}')" title="حذف عکس">✕</button>
+              </div>
+            `).join('')}
+          </div>
+        ` : ''}
+        <div class="modal-section">
+          <span class="modal-section-label">تگ‌ها</span>
+          ${state.tags.map(t => `<span class="pick-chip ${ed.tagIds.includes(t.id)?'on':''}" style="--chip-color:${t.color}" onclick="ideaEditorToggleTag('${t.id}')">${escapeHtml(t.name)}</span>`).join('')}
+        </div>
+        <label class="idea-img-btn">
+          ${icon('image',14)} افزودن عکس
+          <input type="file" accept="image/*" multiple onchange="ideaEditorAddImages(this)" hidden />
+        </label>
+        <div class="modal-actions">
+          <button class="confirm" onclick="confirmIdeaEditor()">ذخیره</button>
+          <button class="cancel" onclick="closeIdeaEditor()">انصراف</button>
+        </div>
+      </div>
+    </div>
   `;
 }
 
@@ -3099,7 +3625,7 @@ function renderTimeBadge(todayTasks){
   if(total === 0) return '';
   return `
     <div class="streak-badge">
-      <span class="streak-flame">⏱</span>
+      <span class="streak-flame">${icon('clock',18)}</span>
       <span class="streak-count">${formatDuration(total)}</span>
       <span class="streak-label">برنامه‌ریزی‌شده امروز</span>
     </div>
@@ -3129,7 +3655,7 @@ function renderTodayItem(t, todayStr){
         </div>
         <div class="ti-actions">
           <button class="item-edit" onclick="openTaskEditorEdit('${t.id}'); if(event) event.stopPropagation();" title="ویرایش">✎</button>
-          <button class="item-copy" onclick="copyTaskToEditor('${t.id}'); if(event) event.stopPropagation();" title="کپی">⧉</button>
+          <button class="item-copy" onclick="copyTaskToEditor('${t.id}'); if(event) event.stopPropagation();" title="کپی">${icon('copy',13)}</button>
           <button class="item-del" onclick="deleteTask('${t.id}', event)">✕</button>
         </div>
       </div>
@@ -3249,7 +3775,7 @@ function renderStreakBadge(){
   const { streak, atRisk } = computeStreak();
   return `
     <div class="streak-badge ${atRisk ? 'at-risk' : ''}" title="${atRisk ? 'امروز هنوز تسکی تکمیل نکردی — استریکت در خطره' : 'امروز حفظ شد'}">
-      <span class="streak-flame">🔥</span>
+      <span class="streak-flame">${icon('flame',18)}</span>
       <span class="streak-count mono">${toFaDigits(streak)}</span>
       <span class="streak-label">روز پیاپی</span>
     </div>
@@ -3309,6 +3835,7 @@ function render(){
     ${state.taskCompletionModal ? renderTaskCompletionModal() : ''}
     ${state.undoToast ? renderUndoToast() : ''}
     ${state.moreMenuOpen ? renderMoreMenu() : ''}
+    ${state.recurringEditor ? renderRecurringEditorModal() : ''}
   `;
 }
 
@@ -3317,15 +3844,15 @@ function render(){
    "more" sheet, so adding future sections never crowds the bar. On phones the
    bar sits at the bottom (thumb reach); on wider screens it returns to the top. */
 const PRIMARY_NAV = [
-  { id:'today',    label:'امروز',  icon:'☀' },
-  { id:'tasks',    label:'تسک‌ها', icon:'✔' },
-  { id:'calendar', label:'تقویم',  icon:'▦' },
-  { id:'ideas',    label:'ایده‌ها', icon:'✎' },
+  { id:'today',    label:'امروز',  icon:'sun' },
+  { id:'tasks',    label:'تسک‌ها', icon:'check' },
+  { id:'calendar', label:'تقویم',  icon:'calendar' },
+  { id:'ideas',    label:'ایده‌ها', icon:'bulb' },
 ];
 const MORE_NAV = [
-  { id:'purchases',  label:'خریدها',        icon:'🛒' },
-  { id:'archive',    label:'آرشیو',          icon:'📦' },
-  { id:'ai-reports', label:'گزارش هوشمند',  icon:'✨' },
+  { id:'purchases',  label:'خریدها',        icon:'cart' },
+  { id:'archive',    label:'آرشیو',          icon:'archive' },
+  { id:'ai-reports', label:'گزارش هوشمند',  icon:'sparkle' },
 ];
 function toggleMoreMenu(){ state.moreMenuOpen = !state.moreMenuOpen; render(); }
 function navigateTo(view){
@@ -3338,12 +3865,12 @@ function renderNav(){
     <nav class="main-nav">
       ${PRIMARY_NAV.map(n => `
         <button class="${state.view===n.id ? 'active' : ''}" onclick="navigateTo('${n.id}')">
-          <span class="nav-icon">${n.icon}</span>
+          <span class="nav-icon">${icon(n.icon, 17)}</span>
           <span class="nav-label">${n.label}</span>
         </button>
       `).join('')}
       <button class="${inMore ? 'active' : ''}" onclick="toggleMoreMenu()">
-        <span class="nav-icon">⋯</span>
+        <span class="nav-icon">${icon('dots',17)}</span>
         <span class="nav-label">بیشتر</span>
       </button>
     </nav>
@@ -3356,7 +3883,7 @@ function renderMoreMenu(){
         <div class="more-handle"></div>
         ${MORE_NAV.map(n => `
           <button class="more-item ${state.view===n.id ? 'active' : ''}" onclick="navigateTo('${n.id}')">
-            <span class="more-icon">${n.icon}</span>
+            <span class="more-icon">${icon(n.icon, 17)}</span>
             <span>${n.label}</span>
           </button>
         `).join('')}
@@ -3385,9 +3912,9 @@ function renderTaskCompletionModal(){
         <div class="modal-section">
           <span class="modal-section-label">سختیش چقدر بود؟ (اختیاری)</span>
           <div class="quick-group">
-            <span class="quick-chip ${m.difficulty==='easy'?'active':''}" onclick="completionSetDifficulty('easy')">😌 راحت</span>
-            <span class="quick-chip ${m.difficulty==='medium'?'active':''}" onclick="completionSetDifficulty('medium')">😐 معمولی</span>
-            <span class="quick-chip ${m.difficulty==='hard'?'active':''}" onclick="completionSetDifficulty('hard')">😫 سخت</span>
+            <span class="quick-chip ${m.difficulty==='easy'?'active':''}" onclick="completionSetDifficulty('easy')">${icon('check',13)} راحت</span>
+            <span class="quick-chip ${m.difficulty==='medium'?'active':''}" onclick="completionSetDifficulty('medium')">${icon('clock',13)} معمولی</span>
+            <span class="quick-chip ${m.difficulty==='hard'?'active':''}" onclick="completionSetDifficulty('hard')">${icon('flame',13)} سخت</span>
           </div>
         </div>
         <div class="modal-actions">
