@@ -14,7 +14,7 @@
 <meta name="apple-mobile-web-app-title" content="مدار">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800&family=Markazi+Text:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 /* Vendored from jalaali-js v2.0.1 (https://github.com/jalaali/jalaali-js)
@@ -364,36 +364,35 @@ global.jalaali = {
 </script>
 <style>
   :root{
-    --bg:#0A0E18;
-    --surface: rgba(40, 51, 78, 0.40);
-    --surface-2: rgba(46, 58, 88, 0.48);
-    --surface-3: rgba(56, 70, 104, 0.56);
-    --line: rgba(255,255,255,0.14);
-    --text:#EDEFF6;
-    --text-muted:#9BA4B8;
-    --accent:#E8A33D;
+    /* ---- palette: an ink-and-hairline logbook, not a glowing panel ----
+       One signal colour (amber) marks anything that is "now": today, the
+       streak, the add button. One alert colour marks overdue. Everything
+       else is neutral ink so the numbers can carry the page. */
+    --bg:#0A0D14;
+    --surface:#141A25;
+    --surface-2:#1C2431;
+    --surface-3:#28323F;
+    --line: rgba(148,166,196,0.15);
+    --line-strong: rgba(148,166,196,0.30);
+    --text:#E7EAF1;
+    --text-muted:#8592A6;
+    --accent:#F2B134;
     --accent2:#7C8CFF;
-    --danger:#E8697A;
-    --python:#5EC8D8;
-    --english:#C97BD0;
-    --freelance:#7FD99A;
-    --fitness:#E8697A;
-    --gray-tag:#9BA4B8;
-    --glass-blur: blur(22px) saturate(180%);
-    --glass-fill: linear-gradient(155deg, rgba(255,255,255,0.10), var(--surface) 45%);
-    --glass-fill-2: linear-gradient(155deg, rgba(255,255,255,0.09), var(--surface-2) 45%);
-    --glass-fill-3: linear-gradient(155deg, rgba(255,255,255,0.11), var(--surface-3) 45%);
-    --glass-shadow:
-      0 1px 1px rgba(0,0,0,0.28),
-      0 10px 26px -10px rgba(0,0,0,0.55),
-      inset 0 1px 0.5px rgba(255,255,255,0.30),
-      inset 0 -9px 15px -12px rgba(0,0,0,0.5);
-    --glass-shadow-sm:
-      0 1px 1px rgba(0,0,0,0.25),
-      0 4px 12px -6px rgba(0,0,0,0.5),
-      inset 0 1px 0.5px rgba(255,255,255,0.25),
-      inset 0 -4px 8px -8px rgba(0,0,0,0.45);
-    --chip-shine: radial-gradient(130% 220% at 22% -60%, rgba(255,255,255,0.4), transparent 55%);
+    --danger:#DF5C6E;
+    --python:#56BECE;
+    --english:#BE76C4;
+    --freelance:#71CC8D;
+    --fitness:#DF5C6E;
+    --gray-tag:#8592A6;
+    --display:'Markazi Text', 'Vazirmatn', serif;
+    /* flat surfaces: a hairline and a whisper of lift, nothing more */
+    --glass-blur: none;
+    --glass-fill: var(--surface);
+    --glass-fill-2: var(--surface-2);
+    --glass-fill-3: var(--surface-3);
+    --glass-shadow: 0 1px 2px rgba(0,0,0,0.30);
+    --glass-shadow-sm: 0 1px 2px rgba(0,0,0,0.24);
+    --chip-shine: none;
     color-scheme: dark;
   }
   *{box-sizing:border-box; margin:0; padding:0;}
@@ -409,12 +408,7 @@ global.jalaali = {
   body::before{
     content:'';
     position:fixed; inset:0; z-index:0; pointer-events:none;
-    background:
-      radial-gradient(380px 380px at 95% -6%, rgba(232,163,61,0.42), transparent 68%),
-      radial-gradient(340px 340px at -8% 28%, rgba(124,140,255,0.34), transparent 68%),
-      radial-gradient(280px 280px at 88% 60%, rgba(127,217,154,0.20), transparent 68%),
-      radial-gradient(260px 260px at 15% 88%, rgba(201,123,208,0.18), transparent 68%);
-    filter:blur(55px);
+    background:linear-gradient(180deg, rgba(148,166,196,0.05), transparent 220px);
   }
   .app{position:relative; z-index:1;}
   .mono{font-family:'JetBrains Mono', monospace; direction:ltr; display:inline-block;}
@@ -423,11 +417,11 @@ global.jalaali = {
   .app{max-width:800px; margin:0 auto; padding:26px 16px 90px;}
 
   header{display:flex; align-items:flex-end; justify-content:space-between; margin-bottom:20px; padding-bottom:16px; border-bottom:1px solid var(--line);}
-  .brand h1{font-size:21px; font-weight:800; letter-spacing:-0.5px;}
-  .brand .sub{font-size:11.5px; color:var(--text-muted); font-weight:500;}
+  .brand h1{font-family:var(--display); font-size:34px; font-weight:700; line-height:1; letter-spacing:0;}
+  .brand .sub{font-size:11.5px; color:var(--text-muted); font-weight:500; margin-top:3px;}
   .date-block{text-align:left;}
-  .date-block .jalali{font-size:13px; color:var(--text); font-weight:700;}
-  .date-block .gregorian{font-size:11px; color:var(--text-muted); margin-top:2px;}
+  .date-block .jalali{font-family:var(--display); font-size:20px; line-height:1.1; color:var(--text); font-weight:600;}
+  .date-block .gregorian{font-size:11px; color:var(--text-muted); margin-top:3px;}
 
   /* ---- navigation: bottom bar on phones, top bar on wider screens ---- */
   nav.main-nav{display:flex; gap:5px; margin-bottom:22px; background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:4px;}
@@ -438,6 +432,13 @@ global.jalaali = {
     display:flex; align-items:center; justify-content:center; gap:6px;
   }
   nav.main-nav button.active{background:var(--surface-3); color:var(--text);}
+  /* the active tab gets a rule on its leading edge — a marker that says
+     "you are here", rather than just a slightly lighter box */
+  nav.main-nav button.active::after{
+    content:''; position:absolute; top:0; left:22%; right:22%; height:2px;
+    background:var(--accent); border-radius:0 0 2px 2px;
+  }
+  nav.main-nav button{position:relative;}
   nav.main-nav button:hover:not(.active){color:var(--text);}
   nav.main-nav .nav-icon{display:inline-flex; align-items:center;}
 
@@ -445,8 +446,8 @@ global.jalaali = {
     nav.main-nav{
       position:fixed; bottom:0; left:0; right:0; z-index:45; margin:0; border-radius:16px 16px 0 0;
       padding:6px 6px calc(6px + env(safe-area-inset-bottom, 0px)); gap:2px;
-      background:var(--glass-fill-3); backdrop-filter:var(--glass-blur); -webkit-backdrop-filter:var(--glass-blur);
-      border:1px solid var(--glass-border); border-bottom:none; box-shadow:0 -6px 24px -10px rgba(0,0,0,.6);
+      background:var(--surface);
+      border:1px solid var(--line); border-bottom:none; box-shadow:0 -4px 16px -8px rgba(0,0,0,.7);
     }
     nav.main-nav button{flex-direction:column; gap:3px; font-size:10.5px; padding:7px 2px;}
     nav.main-nav .nav-icon{display:inline-flex;}
@@ -465,7 +466,7 @@ global.jalaali = {
   .more-sheet{
     width:100%; max-width:520px; border-radius:18px 18px 0 0; padding:10px 14px calc(20px + env(safe-area-inset-bottom, 0px));
     background:var(--glass-fill-3); backdrop-filter:var(--glass-blur); -webkit-backdrop-filter:var(--glass-blur);
-    border:1px solid var(--glass-border); border-bottom:none; box-shadow:var(--glass-shadow);
+    border:1px solid var(--line); border-bottom:none; box-shadow:var(--glass-shadow);
   }
   .more-handle{width:38px; height:4px; border-radius:2px; background:var(--text-muted); opacity:.4; margin:2px auto 14px;}
   .more-item{
@@ -479,7 +480,7 @@ global.jalaali = {
   .more-item.active .more-icon{color:var(--accent);}
   @media (min-width: 641px){
     .more-overlay{align-items:center;}
-    .more-sheet{border-radius:18px; border-bottom:1px solid var(--glass-border); max-width:380px;}
+    .more-sheet{border-radius:18px; border-bottom:1px solid var(--line); max-width:380px;}
   }
 
   /* archive sub-tabs */
@@ -538,7 +539,7 @@ global.jalaali = {
   .idea-thumb img{width:100%; height:100%; object-fit:cover; display:block;}
   .idea-thumb-x, .idea-thumb-dl{
     position:absolute; top:4px; left:4px; width:22px; height:22px; border-radius:6px;
-    background:rgba(8,10,20,.72); border:1px solid var(--glass-border); color:#fff;
+    background:rgba(8,10,20,.72); border:1px solid var(--line); color:#fff;
     font-size:11px; cursor:pointer; display:flex; align-items:center; justify-content:center; padding:0;
   }
   .idea-thumb-x:hover{background:var(--danger);}
@@ -557,7 +558,7 @@ global.jalaali = {
   .idea-tags{display:flex; flex-wrap:wrap; gap:5px;}
 
   .icn{display:inline-block; vertical-align:-0.18em; flex-shrink:0;}
-  h2.section-title{font-size:13px; font-weight:700; color:var(--text-muted); margin:22px 0 10px; text-transform:uppercase; letter-spacing:.4px;}
+  h2.section-title{font-family:var(--display); font-size:23px; font-weight:600; color:var(--text); margin:26px 0 12px; line-height:1.2;}
   .print-btn{
     background:var(--surface-2); border:1px solid var(--line); color:var(--text-muted); font-size:11.5px; font-weight:700;
     padding:7px 12px; border-radius:8px; cursor:pointer;
@@ -595,14 +596,14 @@ global.jalaali = {
   .add-task-btn:hover{border-color:var(--accent); color:var(--accent);}
 
   .add-task-for-day-btn{
-    width:100%; background:var(--chip-shine), color-mix(in srgb, var(--accent) 14%, var(--surface));
+    width:100%; background:color-mix(in srgb, var(--accent) 14%, var(--surface));
     border:1px dashed color-mix(in srgb, var(--accent) 50%, var(--line)); color:var(--accent);
     font-size:13px; font-weight:700; padding:11px; border-radius:10px; cursor:pointer; text-align:center;
   }
   .add-task-for-day-btn:hover{opacity:.9;}
   .add-task-for-day-btn:disabled{opacity:.5; cursor:default;}
   .add-task-for-day-btn.secondary{
-    background:var(--chip-shine), var(--surface-2); border-color:var(--line); color:var(--text-muted);
+    background:var(--surface-2); border-color:var(--line); color:var(--text-muted);
   }
   .cal-day-actions{display:flex; flex-direction:column; gap:8px; margin-bottom:14px;}
   .cal-day-total{
@@ -615,11 +616,19 @@ global.jalaali = {
   .progress-box{background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:16px 18px; margin-bottom:16px;}
   .progress-header{display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;}
   .progress-header h2{margin:0;}
-  .progress-row{display:flex; align-items:center; gap:10px; margin-bottom:9px;}
-  .progress-label{font-size:12px; width:64px; flex-shrink:0; color:var(--text-muted); font-weight:600;}
-  .progress-bar-track{flex:1; height:9px; background:var(--surface-2); border-radius:5px; overflow:hidden;}
-  .progress-bar-fill{height:100%; border-radius:5px; transition:width .3s;}
-  .progress-count{font-size:11.5px; color:var(--text-muted); width:20px; text-align:left; flex-shrink:0;}
+  .goal-block{margin-bottom:14px;}
+  .goal-block:last-child{margin-bottom:0;}
+  /* label and figure share a line above a full-width bar, so neither the
+     tag name nor the hours get squeezed into a 64px column */
+  .progress-row{display:flex; align-items:baseline; justify-content:space-between; gap:10px; margin-bottom:6px;}
+  .progress-label{font-size:13px; color:var(--text); font-weight:600;}
+  .progress-count{
+    font-family:var(--display); font-size:17px; line-height:1; color:var(--text-muted);
+    font-variant-numeric:tabular-nums; white-space:nowrap;
+  }
+  .progress-count.reached{color:var(--freelance);}
+  .progress-bar-track{height:4px; background:var(--surface-2); border-radius:2px; overflow:hidden;}
+  .progress-bar-fill{height:100%; border-radius:2px; transition:width .3s;}
 
   /* Time-spent box */
 
@@ -631,7 +640,7 @@ global.jalaali = {
   .tag-manager-body{margin-top:12px;}
   .tag-list{display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px;}
   .tag-chip{
-    display:inline-flex; align-items:center; gap:6px; padding:5px 10px; border-radius:20px;
+    display:inline-flex; align-items:center; gap:6px; padding:5px 10px; border-radius:7px;
     font-size:12px; font-weight:600; border:1px solid transparent; cursor:pointer; user-select:none;
     background:color-mix(in srgb, var(--chip-color) 16%, var(--surface-2)); color:var(--chip-color);
   }
@@ -665,7 +674,7 @@ global.jalaali = {
     position:fixed; bottom:92px; left:50%; transform:translateX(-50%); z-index:60;
     display:flex; align-items:center; gap:12px; max-width:calc(100% - 32px);
     background:var(--glass-fill-3); backdrop-filter:var(--glass-blur); -webkit-backdrop-filter:var(--glass-blur);
-    border:1px solid var(--glass-border); box-shadow:var(--glass-shadow); border-radius:14px; padding:12px 16px;
+    border:1px solid var(--line); box-shadow:var(--glass-shadow); border-radius:14px; padding:12px 16px;
   }
   .undo-toast span{font-size:13px; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
   .undo-toast button{
@@ -699,10 +708,10 @@ global.jalaali = {
   .filter-group:last-of-type{margin-bottom:0;}
   .filter-group-label{font-size:11.5px; color:var(--text-muted); font-weight:700; margin-left:2px; flex-shrink:0;}
   .filter-chip{
-    padding:5px 12px; border-radius:20px; font-size:11.5px; font-weight:600; cursor:pointer;
-    background:var(--surface-2); border:1px solid var(--line); color:var(--text-muted);
+    padding:5px 12px; border-radius:7px; font-size:11.5px; font-weight:600; cursor:pointer;
+    background:transparent; border:1px solid var(--line); color:var(--text-muted);
   }
-  .filter-chip.active{background:var(--surface-3); color:var(--text); border-color:var(--text-muted);}
+  .filter-chip.active{background:var(--surface-3); color:var(--text); border-color:var(--line-strong);}
   .filter-group input[type=date]{
     background:var(--surface-2); border:1px solid var(--line); color:var(--text-muted); font-size:11.5px;
     padding:4px 8px; border-radius:8px; outline:none;
@@ -721,18 +730,18 @@ global.jalaali = {
   .task-check.checked{background:var(--accent); border-color:var(--accent);}
   .task-body{flex:1; min-width:0;}
   .task-title{
-    font-size:14.5px; font-weight:600; background:transparent; border:none; color:var(--text);
+    font-size:15.5px; font-weight:600; background:transparent; border:none; color:var(--text);
     width:100%; outline:none; padding:2px 0; text-overflow:ellipsis; overflow:hidden;
   }
   .task-title:focus{text-overflow:clip;}
-  .task-title.done-text{text-decoration:line-through; color:var(--text-muted);}
+  .task-title.done-text{text-decoration:line-through; color:var(--text-muted); font-weight:500;}
   .task-del{background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:15px; padding:2px 6px; flex-shrink:0;}
   .task-del:hover{color:var(--danger);}
 
   .task-meta-row{display:flex; flex-wrap:wrap; align-items:center; gap:7px; margin-top:8px;}
   .summary-text{font-size:11.5px; color:var(--text-muted); font-weight:600;}
   .mini-tag{
-    display:inline-flex; align-items:center; gap:4px; padding:3px 9px; border-radius:14px; font-size:11px; font-weight:700;
+    display:inline-flex; align-items:center; gap:4px; padding:2px 8px; border-radius:5px; font-size:11px; font-weight:600;
     border:1px solid transparent; color:var(--chip-color);
   }
   .priority-dot{width:8px; height:8px; border-radius:50%; flex-shrink:0; display:inline-block;}
@@ -768,29 +777,29 @@ global.jalaali = {
 
   .empty-state{text-align:center; color:var(--text-muted); font-size:13px; padding:36px 0;}
 
-  /* Today view scheduled items */
+  /* Today view scheduled items.
+     Overdue used to shout three times at once (glowing border + red pill +
+     priority dot). Now it says it once, on the leading edge of the row. */
   .today-item{background:var(--surface); border:1px solid var(--line); border-radius:10px; margin-bottom:8px; overflow:hidden;}
-  .today-item.done{opacity:.5;}
-  .today-item.overdue:not(.done){border-color:color-mix(in srgb, var(--danger) 45%, var(--line));}
+  .today-item.done{opacity:.45;}
+  .today-item.overdue:not(.done){border-inline-start:3px solid var(--danger);}
   .overdue-badge{
-    --chip-color: var(--danger);
-    display:inline-flex; align-items:center; padding:3px 9px; border-radius:14px; font-size:11px; font-weight:700;
-    border:1px solid transparent; color:var(--danger); white-space:nowrap;
+    display:inline-flex; align-items:center; padding:0; font-size:11.5px; font-weight:600;
+    color:var(--danger); white-space:nowrap; background:none; border:none;
   }
-  .today-item-row{display:flex; align-items:flex-start; gap:10px; padding:12px 14px; cursor:pointer;}
-  .today-item-row .priority-dot, .today-item-row .task-check{margin-top:2px;}
+  .today-item-row{display:flex; align-items:flex-start; gap:10px; padding:13px 14px; cursor:pointer;}
+  .today-item-row .priority-dot, .today-item-row .task-check{margin-top:3px;}
   .today-item .ti-main{flex:1; min-width:0;}
   .today-item .ti-title-row{display:flex; align-items:center; gap:6px;}
   .today-item .ti-title{
-    flex:1; font-size:13.5px; min-width:0; line-height:1.5;
+    flex:1; font-size:15px; font-weight:600; min-width:0; line-height:1.55; color:var(--text);
     display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
   }
-  .today-item .ti-title.done-text{text-decoration:line-through; color:var(--text-muted);}
-  .today-item .ti-meta-row{display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin-top:6px;}
+  .today-item .ti-title.done-text{text-decoration:line-through; color:var(--text-muted); font-weight:500;}
+  .today-item .ti-meta-row{display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-top:7px;}
   .today-item .dur{
-    --chip-color: var(--accent);
-    display:inline-flex; align-items:center; padding:3px 9px; border-radius:14px; font-size:11px; font-weight:700;
-    border:1px solid transparent; color:var(--accent);
+    display:inline-flex; align-items:center; padding:0; font-size:11.5px; font-weight:600;
+    font-variant-numeric:tabular-nums; color:var(--text-muted); background:none; border:none;
   }
   .today-item .expand-arrow{font-size:10px; color:var(--text-muted); transition:transform .15s; flex-shrink:0; margin-top:4px;}
   .today-item .expand-arrow.open{transform:rotate(180deg);}
@@ -947,11 +956,12 @@ global.jalaali = {
   /* streak badge */
   .streak-badge{
     display:flex; align-items:center; gap:8px; background:var(--surface); border:1px solid var(--line);
-    border-radius:12px; padding:10px 14px; margin-bottom:16px; width:fit-content;
+    border-radius:12px; padding:10px 14px; margin-bottom:16px; width:fit-content; max-width:100%;
   }
+  .streak-badge .streak-count.figure-sm{font-size:19px; white-space:nowrap;}
   .streak-flame{display:inline-flex; align-items:center; color:var(--accent); transition:color .2s, opacity .2s;}
   .streak-badge.at-risk .streak-flame{color:var(--text-muted); opacity:.6;}
-  .streak-count{font-size:17px; font-weight:800; color:var(--text);}
+  .streak-count{font-family:var(--display); font-size:26px; font-weight:700; line-height:1; color:var(--accent); font-variant-numeric:tabular-nums;}
   .streak-badge.at-risk .streak-count{color:var(--text-muted);}
   .streak-label{font-size:11.5px; color:var(--text-muted);}
 
@@ -975,82 +985,67 @@ global.jalaali = {
   .ai-report-period{font-size:11.5px; color:var(--text-muted); font-weight:700; margin-bottom:8px;}
   .ai-report-text{font-size:13.5px; line-height:1.9; color:var(--text); white-space:pre-wrap;}
 
-  /* ============ Liquid-glass surface system ============
-     Applied broadly across containers/cards/badges/buttons. Each gets:
-     - a backdrop blur (real glass refraction against the page's glow blobs)
-     - a diagonal gradient fill (light corner -> darker corner = curvature)
-     - a layered box-shadow (outer lift + inset top highlight + inset bottom depth)
-     - a thin bright rim across the top edge (::before) = specular highlight */
+  /* ============ surface system ============
+     Flat ink panels separated by hairlines. No blur, no gradients, no rim
+     highlights — depth is carried by the hairline and a 1px shadow, so the
+     only things that glow on this page are the ones that mean something. */
   nav, .add-task-btn, .progress-box, .tag-manager, .filter-panel, .task-card, .today-item,
   .modal-box, .task-calendar, .cal-day-task, .streak-badge, .cal-nav, .cal-back,
   .date-picker-btn, .reset-filters-btn, .new-tag-row button, .modal-add-subtask button,
   .modal-actions button, .pomo-task-pick-row, .archive-search-input{
-    background:var(--glass-fill);
-    backdrop-filter:var(--glass-blur);
-    -webkit-backdrop-filter:var(--glass-blur);
+    background:var(--surface);
     border:1px solid var(--line);
     box-shadow:var(--glass-shadow);
     position:relative;
   }
-  nav::before, .add-task-btn::before, .progress-box::before, .tag-manager::before, .filter-panel::before,
-  .task-card::before, .today-item::before, .modal-box::before, .task-calendar::before,
-  .cal-day-task::before, .streak-badge::before, .cal-nav::before, .cal-back::before, .date-picker-btn::before,
-  .reset-filters-btn::before, .new-tag-row button::before, .modal-add-subtask button::before,
-  .modal-actions button::before, .pomo-task-pick-row::before, .archive-search-input::before{
-    content:'';
-    position:absolute; top:0; left:12%; right:12%; height:1px;
-    background:linear-gradient(90deg, transparent, rgba(255,255,255,0.55), transparent);
-    pointer-events:none;
-  }
-  .modal-actions button.confirm{box-shadow:var(--glass-shadow-sm), 0 6px 16px -6px rgba(232,163,61,0.5);}
+  .modal-actions button.confirm{background:var(--accent); color:#16120A; border-color:transparent; font-weight:700;}
 
-  /* smaller controls: same glass fill, lighter shadow, no rim (too small to read one) */
+  /* smaller controls */
   .modal-title-input, .new-tag-row input[type=text], .modal-add-subtask input, .modal-subtask-row,
   .modal-section input[type=date], .modal-section input[type=number], .modal-section input.num-text,
   .filter-group input[type=date], .cal-cell:not(.empty){
-    background:var(--glass-fill-2);
-    backdrop-filter:var(--glass-blur);
-    -webkit-backdrop-filter:var(--glass-blur);
+    background:var(--surface-2);
     border:1px solid var(--line);
-    box-shadow:var(--glass-shadow-sm);
+    box-shadow:none;
   }
 
-  /* pill-shaped tags/chips: convex glass pebble look, tinted by --chip-color where present.
-     Shine is baked into the gradient itself (not a separate blurred element), so it can
-     never leak past the pill's own rounded border like an absolutely-positioned layer can. */
+  /* Pills carry their colour as a quiet tint and a readable text colour —
+     not as a glowing pebble. A tag should be legible, not loud. */
   .tag-chip, .mini-tag, .pick-chip, .filter-chip, .priority-chip, .quick-chip, .overdue-badge, .today-item .dur{
     position:relative;
   }
   .filter-chip, .priority-chip, .quick-chip{
-    background:var(--chip-shine), var(--surface-2);
+    background:transparent;
+    border:1px solid var(--line);
+    color:var(--text-muted);
+    box-shadow:none;
   }
-  .tag-chip, .mini-tag, .pick-chip.on, .overdue-badge, .today-item .dur{
-    background:var(--chip-shine), linear-gradient(160deg, color-mix(in srgb, var(--chip-color) 55%, transparent), color-mix(in srgb, var(--chip-color) 16%, transparent) 60%);
-    box-shadow:
-      0 3px 8px -3px color-mix(in srgb, var(--chip-color) 45%, transparent),
-      inset 0 1px 0.5px rgba(255,255,255,0.5),
-      inset 0 -3px 6px -4px rgba(0,0,0,0.4);
-    border-color:color-mix(in srgb, var(--chip-color) 45%, white 10%);
+  .tag-chip, .mini-tag, .pick-chip.on{
+    background:color-mix(in srgb, var(--chip-color) 15%, transparent);
+    color:color-mix(in srgb, var(--chip-color) 80%, white 20%);
+    border:1px solid color-mix(in srgb, var(--chip-color) 32%, transparent);
+    box-shadow:none;
+    font-weight:600;
   }
   .filter-chip.active, .priority-chip.high.active, .priority-chip.medium.active, .priority-chip.low.active,
   .quick-chip.active, .quick-chip.suggestion-chip{
-    box-shadow:
-      0 3px 8px -3px rgba(0,0,0,0.3),
-      inset 0 1px 0.5px rgba(255,255,255,0.4),
-      inset 0 -3px 6px -4px rgba(0,0,0,0.35);
+    background:var(--surface-3);
+    border-color:var(--line-strong);
+    color:var(--text);
+    box-shadow:none;
   }
 
+  /* the one deliberately bold element on the page */
   .fab{
-    background:linear-gradient(155deg, color-mix(in srgb, var(--accent) 60%, white 30%), var(--accent) 65%);
-    box-shadow:
-      0 10px 24px -6px rgba(232,163,61,0.55),
-      inset 0 1px 1px rgba(255,255,255,0.65),
-      inset 0 -6px 10px -8px rgba(0,0,0,0.4);
+    background:var(--accent);
+    color:#16120A;
+    box-shadow:0 6px 18px -8px rgba(242,177,52,0.7);
   }
-  .fab::before{
-    content:'';
-    position:absolute; top:6px; left:16px; right:16px; height:1px;
-    background:linear-gradient(90deg, transparent, rgba(255,255,255,0.8), transparent);
+
+  /* Numbers are the substance of this app, so they get the display face,
+     tabular figures, and room to breathe. */
+  .streak-count, .progress-box .goal-hours, .cal-day-total strong, .planned-total strong{
+    font-family:var(--display); font-variant-numeric:tabular-nums;
   }
 
   /* ---- phone bottom-bar offsets ----
@@ -1070,9 +1065,7 @@ global.jalaali = {
       font-size:19px; font-weight:800; line-height:1;
       width:26px; height:26px; border-radius:50%;
       align-items:center; justify-content:center;
-      background:linear-gradient(155deg, color-mix(in srgb, var(--accent) 60%, white 30%), var(--accent) 65%);
-      color:#12161C;
-      box-shadow:0 3px 9px -3px rgba(232,163,61,.6), inset 0 1px 1px rgba(255,255,255,.55);
+      background:var(--accent); color:#16120A;
     }
   }
   /* Desktop / wide screens keep the floating button and hide the nav one. */
@@ -3638,9 +3631,9 @@ function renderWeeklyGoals(){
         <div class="goal-block">
           <div class="progress-row">
             <span class="progress-label">${escapeHtml(r.tag.name)}</span>
-            <div class="progress-bar-track"><div class="progress-bar-fill" style="width:${Math.max(4, r.pct)}%; background:${r.reached ? 'var(--freelance)' : r.tag.color}"></div></div>
-            <span class="progress-count" style="width:auto; white-space:nowrap;">${r.reached ? '✓ ' : ''}${formatDuration(r.actual)} از ${formatDuration(r.target)}</span>
+            <span class="progress-count ${r.reached ? 'reached' : ''}">${r.reached ? '✓ ' : ''}${formatDuration(r.actual)} از ${formatDuration(r.target)}</span>
           </div>
+          <div class="progress-bar-track"><div class="progress-bar-fill" style="width:${Math.max(3, r.pct)}%; background:${r.reached ? 'var(--freelance)' : r.tag.color}"></div></div>
           ${r.reason ? `<div class="goal-reason" style="--chip-color:${r.tag.color}">${escapeHtml(r.reason)}</div>` : ''}
         </div>
       `).join('')}
@@ -3655,7 +3648,7 @@ function renderTimeBadge(todayTasks){
   return `
     <div class="streak-badge">
       <span class="streak-flame">${icon('clock',18)}</span>
-      <span class="streak-count">${formatDuration(total)}</span>
+      <span class="streak-count figure-sm">${formatDuration(total)}</span>
       <span class="streak-label">برنامه‌ریزی‌شده امروز</span>
     </div>
   `;
