@@ -702,6 +702,46 @@ global.jalaali = {
 
   /* Unified filter panel */
   .filter-panel{background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:14px 16px; margin-bottom:18px;}
+  /* collapsed by default so the task list starts higher up the page */
+  .filter-toggle{
+    display:flex; align-items:center; gap:7px; margin-bottom:12px; cursor:pointer;
+    background:transparent; border:1px solid var(--line); color:var(--text-muted);
+    border-radius:8px; padding:7px 12px; font-size:12px; font-weight:600; font-family:inherit;
+  }
+  .filter-toggle.has-active{color:var(--text); border-color:var(--line-strong);}
+  .filter-count{
+    background:var(--accent); color:#16120A; border-radius:9px; min-width:17px; height:17px;
+    display:inline-flex; align-items:center; justify-content:center; font-size:10.5px; font-weight:700; padding:0 5px;
+  }
+  .filter-caret{display:inline-flex; margin-inline-start:auto; transition:transform .2s;}
+  .filter-caret.open{transform:rotate(180deg);}
+
+  /* one AI-written line per day, above today's plan */
+  .encourage{
+    display:flex; align-items:flex-start; gap:9px; margin-bottom:16px; padding:12px 14px;
+    background:var(--surface); border:1px solid var(--line); border-radius:12px;
+    border-inline-start:3px solid var(--accent);
+  }
+  .encourage-text{font-size:13.5px; line-height:1.85; color:var(--text); flex:1;}
+  .encourage.loading .encourage-text{color:var(--text-muted);}
+
+  /* subscriptions */
+  .sub-row{
+    display:flex; align-items:center; gap:10px; padding:13px 14px; margin-bottom:8px;
+    background:var(--surface); border:1px solid var(--line); border-radius:10px;
+  }
+  .sub-row.inactive{opacity:.5;}
+  .sub-row.due{border-inline-start:3px solid var(--accent);}
+  .sub-row.overdue{border-inline-start:3px solid var(--danger);}
+  .sub-main{flex:1; min-width:0;}
+  .sub-name{font-size:15px; font-weight:600; color:var(--text);}
+  .sub-meta{font-size:11.5px; color:var(--text-muted); margin-top:5px; display:flex; flex-wrap:wrap; gap:8px; align-items:center;}
+  .sub-due{color:var(--text-muted);}
+  .sub-row.due .sub-due{color:var(--accent); font-weight:600;}
+  .sub-due.late{color:var(--danger); font-weight:600;}
+  .sub-actions{display:flex; gap:4px; flex-shrink:0;}
+  .sub-actions button{background:none; border:none; color:var(--text-muted); cursor:pointer; padding:5px; font-family:inherit;}
+  .sub-section-label{font-size:12px; color:var(--text-muted); font-weight:600; margin:18px 0 10px;}
   .filter-group{display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-bottom:10px;}
   .filter-group:last-of-type{margin-bottom:0;}
   .filter-group-label{font-size:11.5px; color:var(--text-muted); font-weight:700; margin-left:2px; flex-shrink:0;}
@@ -1113,6 +1153,12 @@ function icon(name, size){
     archive:  `<rect x="3" y="4" width="18" height="5" rx="1"/><path d="M5 9v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9M10 13h4"/>`,
     sparkle:  `<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3z"/>`,
     clock:    `<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>`,
+    filter:   `<path d="M3 5h18l-7 8v6l-4 2v-8z"/>`,
+    chevronDown: `<path d="M6 9l6 6 6-6"/>`,
+    card:     `<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18"/>`,
+    pause:    `<path d="M9 5v14M15 5v14"/>`,
+    play:     `<path d="M7 5l12 7-12 7z"/>`,
+    close:    `<path d="M6 6l12 12M18 6L6 18"/>`,
     flame:    `<path d="M12 22c4 0 6.5-2.7 6.5-6 0-4.5-4.5-6-4.5-10-3 1.5-4.5 4-4.5 6.5 0 1-.6 1.6-1.2 1.6-.9 0-1.3-1-1.3-2.3C5.8 13.4 5.5 14.7 5.5 16c0 3.3 2.5 6 6.5 6z"/>`,
     copy:     `<rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/>`,
     repeat:   `<path d="M17 2l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14M7 22l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/>`,
@@ -1234,6 +1280,11 @@ let state = {
   moreMenuOpen: false,
   ideaEditor: null, // { ideaId, body, tagIds, images } while editing an idea
   recurringEditor: null, // { templateId, title, priority, durationMin, weekdays, tagIds }
+  filterPanelOpen: {}, // per-page: is the filter/sort panel expanded?
+  subscriptions: [], // [{ id, name, cycle, nextRenewal, active, notifyDaysBefore, note }]
+  subscriptionEditor: null, // { subId, name, cycle, nextRenewal, notifyDaysBefore, note }
+  subscriptionShowInactive: false,
+  encouragement: null, // { date, text } — one AI line per day, cached locally
 };
 
 let loadError = false;
@@ -1299,6 +1350,18 @@ async function loadAll(){
       images:(i.idea_images||[]).map(im => ({ id:im.id, dataUrl:im.data_url })),
       createdAt:i.created_at,
     }));
+
+    const { data: subs, error: subsErr } = await sb
+      .from('subscriptions')
+      .select('*')
+      .order('next_renewal', { ascending:true, nullsFirst:false });
+    if(subsErr) throw subsErr;
+    state.subscriptions = subs.map(s => ({
+      id:s.id, name:s.name, cycle:s.cycle,
+      nextRenewal:s.next_renewal || '', active:!!s.active,
+      notifyDaysBefore: s.notify_days_before == null ? 3 : s.notify_days_before,
+      note: s.note || '',
+    }));
   } catch(e){
     console.error('load failed', e);
     loadError = true;
@@ -1309,6 +1372,7 @@ async function loadAll(){
     if(!state.aiReports) state.aiReports = [];
     if(!state.purchases) state.purchases = [];
     if(!state.ideas) state.ideas = [];
+    if(!state.subscriptions) state.subscriptions = [];
   }
   generateRecurringInstances();
   if(!realtimeStarted){ realtimeStarted = true; startRealtimeSync(); }
@@ -1959,7 +2023,22 @@ function applyFiltersAndSort(tasks, pageKey, opts){
     if(f.date === 'none') list = list.filter(t => !t.date);
     else list = list.filter(t => t.date === f.date);
   }
-  if(f.sortBy === 'duration-asc'){
+  if(f.sortBy === 'today-first'){
+    // today's own tasks on top, then overdue ones (oldest overdue last),
+    // so opening the app shows what you planned for today rather than a
+    // wall of things you already missed
+    const todayStr = dateKey(new Date());
+    list = [...list].sort((a,b) => {
+      if(a.done !== b.done) return a.done ? 1 : -1;
+      const aOver = !!(a.date && a.date < todayStr);
+      const bOver = !!(b.date && b.date < todayStr);
+      if(aOver !== bOver) return aOver ? 1 : -1;
+      if(aOver && bOver && a.date !== b.date) return b.date.localeCompare(a.date);
+      const ar = a.priority ? PRIORITY_RANK[a.priority] : 3;
+      const br = b.priority ? PRIORITY_RANK[b.priority] : 3;
+      return ar - br;
+    });
+  } else if(f.sortBy === 'duration-asc'){
     list = [...list].sort((a,b) => {
       if(a.done !== b.done) return a.done ? 1 : -1;
       const ad = (a.durationMin==null) ? Infinity : a.durationMin;
@@ -1997,7 +2076,16 @@ function renderFilterPanel(pageKey, opts){
   const f = state[pageKey];
   const hasDate = !!(opts && opts.dateFilter);
   const active = filtersActive(f, hasDate);
+  const open = !!state.filterPanelOpen[pageKey];
+  const count = filterActiveCount(f, hasDate);
   return `
+    <button type="button" class="filter-toggle ${active?'has-active':''}" onclick="toggleFilterPanel('${pageKey}')">
+      ${icon('filter',14)}
+      <span>فیلتر و مرتب‌سازی</span>
+      ${count ? `<span class="filter-count">${toFaDigits(count)}</span>` : ''}
+      <span class="filter-caret ${open?'open':''}">${icon('chevronDown',13)}</span>
+    </button>
+    ${open ? `
     <div class="filter-panel">
       <div class="filter-group">
         <span class="filter-group-label">تگ:</span>
@@ -2019,13 +2107,25 @@ function renderFilterPanel(pageKey, opts){
         </div>
       ` : ''}
       <div class="filter-group">
-        <span class="filter-group-label">مرتب‌سازی بر اساس مدت:</span>
+        <span class="filter-group-label">مرتب‌سازی:</span>
+        <span class="filter-chip ${f.sortBy==='today-first'?'active':''}" onclick="setFilterSort('${pageKey}','today-first')">امروز اول</span>
         <span class="filter-chip ${f.sortBy==='duration-asc'?'active':''}" onclick="setFilterSort('${pageKey}','duration-asc')">کوتاه‌ترین اول</span>
         <span class="filter-chip ${f.sortBy==='duration-desc'?'active':''}" onclick="setFilterSort('${pageKey}','duration-desc')">بلندترین اول</span>
       </div>
       ${active ? `<button class="reset-filters-btn" onclick="resetFilters('${pageKey}')">پاک‌کردن فیلترها</button>` : ''}
     </div>
+    ` : ''}
   `;
+}
+function filterActiveCount(f, hasDate){
+  let n = f.tagIds.length + f.priorities.length;
+  if(f.sortBy !== 'default') n++;
+  if(hasDate && f.date) n++;
+  return n;
+}
+function toggleFilterPanel(pageKey){
+  state.filterPanelOpen[pageKey] = !state.filterPanelOpen[pageKey];
+  render();
 }
 
 /* ---------- tasks: quick inline actions (no jump risk) ---------- */
@@ -3607,6 +3707,204 @@ function renderIdeaEditorModal(){
   `;
 }
 
+/* ---------- subscriptions ---------- */
+function daysUntil(dateStr){
+  if(!dateStr) return null;
+  const todayStr = dateKey(new Date());
+  const a = new Date(todayStr + 'T00:00:00');
+  const b = new Date(dateStr + 'T00:00:00');
+  return Math.round((b - a) / 86400000);
+}
+function advanceRenewal(dateStr, cycle){
+  const d = new Date(dateStr + 'T00:00:00');
+  if(cycle === 'yearly') d.setFullYear(d.getFullYear() + 1);
+  else d.setMonth(d.getMonth() + 1);
+  return dateKey(d);
+}
+function subDueLabel(sub){
+  const n = daysUntil(sub.nextRenewal);
+  if(n === null) return { text:'تاریخ تمدید ثبت نشده', cls:'' };
+  if(n < 0) return { text:`${toFaDigits(Math.abs(n))} روز از تمدید گذشته`, cls:'late' };
+  if(n === 0) return { text:'امروز تمدید می‌شه', cls:'late' };
+  if(n === 1) return { text:'فردا تمدید می‌شه', cls:'' };
+  return { text:`${toFaDigits(n)} روز تا تمدید`, cls:'' };
+}
+function subState(sub){
+  if(!sub.active) return 'inactive';
+  const n = daysUntil(sub.nextRenewal);
+  if(n === null) return '';
+  if(n < 0) return 'overdue';
+  if(n <= (sub.notifyDaysBefore || 0)) return 'due';
+  return '';
+}
+function renderSubscriptionsPage(){
+  const subs = state.subscriptions || [];
+  const active = subs.filter(s => s.active);
+  const inactive = subs.filter(s => !s.active);
+  const alerts = active.filter(s => ['due','overdue'].includes(subState(s)));
+  return `
+    <h2 class="section-title">اشتراک‌ها</h2>
+    ${alerts.length ? `
+      <div class="encourage" style="border-inline-start-color:var(--danger);">
+        <span style="color:var(--danger); flex-shrink:0; margin-top:2px;">${icon('clock',16)}</span>
+        <span class="encourage-text">${toFaDigits(alerts.length)} اشتراک نزدیک تمدید یا گذشته‌ست: ${alerts.map(s => escapeHtml(s.name)).join('، ')}</span>
+      </div>
+    ` : ''}
+    <button class="add-task-btn" onclick="openSubscriptionEditor(null)" style="margin-bottom:16px;">+ افزودن اشتراک</button>
+    ${active.length === 0 ? `<div class="empty-state">اشتراک فعالی ثبت نشده</div>` : active.map(renderSubRow).join('')}
+    ${inactive.length ? `
+      <div class="sub-section-label">
+        <button type="button" onclick="toggleInactiveSubs()" style="background:none;border:none;color:var(--text-muted);font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;padding:0;">
+          غیرفعال‌ها (${toFaDigits(inactive.length)}) ${state.subscriptionShowInactive ? '▲' : '▼'}
+        </button>
+      </div>
+      ${state.subscriptionShowInactive ? inactive.map(renderSubRow).join('') : ''}
+    ` : ''}
+  `;
+}
+function toggleInactiveSubs(){ state.subscriptionShowInactive = !state.subscriptionShowInactive; render(); }
+function renderSubRow(sub){
+  const due = subDueLabel(sub);
+  const st = subState(sub);
+  return `
+    <div class="sub-row ${st}">
+      <div class="sub-main">
+        <div class="sub-name">${escapeHtml(sub.name)}</div>
+        <div class="sub-meta">
+          <span>${sub.cycle === 'yearly' ? 'سالانه' : 'ماهانه'}</span>
+          ${sub.nextRenewal ? `<span>${formatDateShort(sub.nextRenewal)}</span>` : ''}
+          ${sub.active ? `<span class="sub-due ${due.cls}">${due.text}</span>` : `<span>غیرفعال</span>`}
+          ${sub.note ? `<span>${escapeHtml(sub.note)}</span>` : ''}
+        </div>
+      </div>
+      <div class="sub-actions">
+        ${sub.active && sub.nextRenewal ? `<button onclick="markSubRenewed('${sub.id}')" title="تمدید شد">${icon('check',15)}</button>` : ''}
+        <button onclick="toggleSubActive('${sub.id}')" title="${sub.active ? 'غیرفعال کردن' : 'فعال کردن'}">${icon(sub.active ? 'pause' : 'play', 15)}</button>
+        <button onclick="openSubscriptionEditor('${sub.id}')" title="ویرایش">${icon('pencil',15)}</button>
+        <button onclick="deleteSubscription('${sub.id}')" title="حذف">${icon('close',15)}</button>
+      </div>
+    </div>
+  `;
+}
+function openSubscriptionEditor(subId){
+  const s = subId ? state.subscriptions.find(x => x.id === subId) : null;
+  state.subscriptionEditor = s
+    ? { subId:s.id, name:s.name, cycle:s.cycle, nextRenewal:s.nextRenewal, notifyDaysBefore:s.notifyDaysBefore, note:s.note }
+    : { subId:null, name:'', cycle:'monthly', nextRenewal:'', notifyDaysBefore:3, note:'' };
+  render();
+}
+function closeSubscriptionEditor(){ state.subscriptionEditor = null; render(); }
+function subEditorSet(field, value){
+  if(!state.subscriptionEditor) return;
+  state.subscriptionEditor[field] = field === 'notifyDaysBefore' ? (parseInt(value,10) || 0) : value;
+  if(field === 'cycle') render();
+}
+function renderSubscriptionEditorModal(){
+  const ed = state.subscriptionEditor;
+  return `
+    <div class="modal-overlay" onclick="if(event.target===this)closeSubscriptionEditor()">
+      <div class="modal-box">
+        <input class="modal-title-input" placeholder="نام اشتراک" value="${escapeHtml(ed.name)}" oninput="subEditorSet('name',this.value)" />
+        <div class="modal-section">
+          <span class="modal-section-label">دوره</span>
+          <span class="pick-chip ${ed.cycle==='monthly'?'on':''}" style="--chip-color:var(--accent)" onclick="subEditorSet('cycle','monthly')">ماهانه</span>
+          <span class="pick-chip ${ed.cycle==='yearly'?'on':''}" style="--chip-color:var(--accent)" onclick="subEditorSet('cycle','yearly')">سالانه</span>
+        </div>
+        <div class="modal-section">
+          <span class="modal-section-label">تاریخ تمدید بعدی</span>
+          <input type="date" value="${ed.nextRenewal||''}" onchange="subEditorSet('nextRenewal',this.value)" />
+        </div>
+        <div class="modal-section">
+          <span class="modal-section-label">چند روز قبل هشدار بده</span>
+          <input type="number" min="0" max="30" value="${ed.notifyDaysBefore}" onchange="subEditorSet('notifyDaysBefore',this.value)" />
+        </div>
+        <div class="modal-section">
+          <span class="modal-section-label">یادداشت</span>
+          <input type="text" value="${escapeHtml(ed.note||'')}" oninput="subEditorSet('note',this.value)" />
+        </div>
+        <div class="modal-actions">
+          <button class="confirm" onclick="confirmSubscriptionEditor()">ذخیره</button>
+          <button class="cancel" onclick="closeSubscriptionEditor()">انصراف</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+async function confirmSubscriptionEditor(){
+  const ed = state.subscriptionEditor;
+  if(!ed || !ed.name.trim()) return;
+  const payload = {
+    name: ed.name.trim(),
+    cycle: ed.cycle,
+    next_renewal: ed.nextRenewal || null,
+    notify_days_before: ed.notifyDaysBefore,
+    note: ed.note || null,
+  };
+  if(ed.subId){
+    const sub = state.subscriptions.find(s => s.id === ed.subId);
+    Object.assign(sub, { name:payload.name, cycle:payload.cycle, nextRenewal:ed.nextRenewal, notifyDaysBefore:ed.notifyDaysBefore, note:ed.note });
+    state.subscriptionEditor = null; render();
+    await sb.from('subscriptions').update(payload).eq('id', ed.subId);
+  } else {
+    const id = crypto.randomUUID();
+    state.subscriptions.push({ id, ...payload, nextRenewal:ed.nextRenewal, active:true, notifyDaysBefore:ed.notifyDaysBefore, note:ed.note });
+    state.subscriptionEditor = null; render();
+    await sb.from('subscriptions').insert({ id, ...payload, active:true });
+  }
+}
+async function toggleSubActive(subId){
+  const sub = state.subscriptions.find(s => s.id === subId);
+  if(!sub) return;
+  sub.active = !sub.active;
+  render();
+  await sb.from('subscriptions').update({ active: sub.active }).eq('id', subId);
+}
+async function markSubRenewed(subId){
+  const sub = state.subscriptions.find(s => s.id === subId);
+  if(!sub || !sub.nextRenewal) return;
+  sub.nextRenewal = advanceRenewal(sub.nextRenewal, sub.cycle);
+  render();
+  await sb.from('subscriptions').update({ next_renewal: sub.nextRenewal }).eq('id', subId);
+}
+async function deleteSubscription(subId){
+  state.subscriptions = state.subscriptions.filter(s => s.id !== subId);
+  render();
+  await sb.from('subscriptions').delete().eq('id', subId);
+}
+
+/* ---------- rendering: daily encouragement ---------- */
+function renderEncouragement(){
+  const e = state.encouragement;
+  if(!e || !e.text) return '';
+  return `
+    <div class="encourage">
+      <span style="color:var(--accent); flex-shrink:0; margin-top:2px;">${icon('bulb',16)}</span>
+      <span class="encourage-text">${escapeHtml(e.text)}</span>
+    </div>
+  `;
+}
+// One call per day, cached in localStorage so opening the app repeatedly
+// doesn't hit the AI function over and over.
+async function loadEncouragement(){
+  const todayStr = dateKey(new Date());
+  try{
+    const cached = JSON.parse(localStorage.getItem('medar-encouragement') || 'null');
+    if(cached && cached.date === todayStr && cached.text){
+      state.encouragement = cached;
+      render();
+      return;
+    }
+  }catch(_e){ /* corrupt cache — just refetch */ }
+  try{
+    const { data, error } = await sb.functions.invoke('daily-encouragement');
+    if(error || !data || !data.text) return;
+    const fresh = { date: todayStr, text: data.text };
+    state.encouragement = fresh;
+    try{ localStorage.setItem('medar-encouragement', JSON.stringify(fresh)); }catch(_e){}
+    render();
+  }catch(_e){ /* offline or function down — the line is optional, skip silently */ }
+}
+
 /* ---------- rendering: progress ---------- */
 function renderWeeklyGoals(){
   const goals = state.tagGoals.filter(g => g.weeklyMinutes > 0);
@@ -3751,6 +4049,7 @@ function renderToday(){
       ${renderTimeBadge(todayTasksRaw)}
     </div>
     ${renderWeeklyGoals()}
+    ${renderEncouragement()}
     <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
       <h2 class="section-title" style="margin:0;">برنامه امروز</h2>
       <button type="button" class="print-btn" onclick="window.print()">چاپِ کارهای امروز</button>
@@ -3847,6 +4146,7 @@ function render(){
       ${state.view === 'calendar' ? renderCalendarPage() : ''}
       ${state.view === 'ideas' ? renderIdeasPage() : ''}
       ${state.view === 'purchases' ? renderPurchasesPage() : ''}
+      ${state.view === 'subscriptions' ? renderSubscriptionsPage() : ''}
       ${state.view === 'archive' ? renderArchivePage() : ''}
       ${state.view === 'ai-reports' ? renderAIReportsPage() : ''}
     </main>
@@ -3856,6 +4156,7 @@ function render(){
     ${state.undoToast ? renderUndoToast() : ''}
     ${state.moreMenuOpen ? renderMoreMenu() : ''}
     ${state.recurringEditor ? renderRecurringEditorModal() : ''}
+    ${state.subscriptionEditor ? renderSubscriptionEditorModal() : ''}
   `;
 }
 
@@ -3869,9 +4170,10 @@ const PRIMARY_NAV = [
   { id:'calendar', label:'تقویم',  icon:'calendar' },
   { id:'ideas',    label:'ایده‌ها', icon:'bulb' },
 ];const MORE_NAV = [
-  { id:'purchases',  label:'خریدها',        icon:'cart' },
-  { id:'archive',    label:'آرشیو',          icon:'archive' },
-  { id:'ai-reports', label:'گزارش هوشمند',  icon:'sparkle' },
+  { id:'purchases',     label:'خریدها',        icon:'cart' },
+  { id:'subscriptions', label:'اشتراک‌ها',      icon:'card' },
+  { id:'archive',       label:'آرشیو',          icon:'archive' },
+  { id:'ai-reports',    label:'گزارش هوشمند',  icon:'sparkle' },
 ];
 function toggleMoreMenu(){ state.moreMenuOpen = !state.moreMenuOpen; render(); }
 function navigateTo(view){
@@ -3959,6 +4261,7 @@ function renderUndoToast(){
 }
 
 loadAll();
+loadEncouragement();
 
 /* ---------- PWA: register the app-shell service worker ---------- */
 if('serviceWorker' in navigator){
