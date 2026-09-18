@@ -725,6 +725,52 @@ global.jalaali = {
   .encourage-text{font-size:13.5px; line-height:1.85; color:var(--text); flex:1;}
   .encourage.loading .encourage-text{color:var(--text-muted);}
 
+  /* reminders — the "don't let this slip" card at the top of امروز */
+  .reminder-card{
+    background:var(--surface); border:1px solid var(--line); border-radius:12px;
+    border-inline-start:3px solid var(--accent2); padding:12px 14px; margin-bottom:16px;
+  }
+  .reminder-card.urgent{border-inline-start-color:var(--danger);}
+  .reminder-card-head{
+    display:flex; align-items:center; gap:7px; font-size:12px; font-weight:700;
+    color:var(--text-muted); margin-bottom:10px;
+  }
+  .reminder-card-icon{display:flex; color:var(--accent2);}
+  .reminder-card.urgent .reminder-card-icon{color:var(--danger);}
+  .reminder-card-more{
+    margin-inline-start:auto; background:none; border:none; cursor:pointer;
+    font-family:inherit; font-size:11.5px; font-weight:600; color:var(--text-muted); padding:0;
+  }
+  .reminder-card-more:hover{color:var(--accent);}
+  .reminder-line{display:flex; align-items:flex-start; gap:9px; padding:7px 0;}
+  .reminder-line + .reminder-line{border-top:1px solid var(--line);}
+  .reminder-tick{
+    flex-shrink:0; width:20px; height:20px; margin-top:1px; border-radius:6px; cursor:pointer;
+    background:transparent; border:1.5px solid var(--line-strong); color:transparent;
+    font-size:12px; line-height:1; font-family:inherit;
+  }
+  .reminder-tick:hover{border-color:var(--accent); color:var(--accent);}
+  .reminder-line-main{flex:1; min-width:0;}
+  .reminder-line-title{font-size:13.5px; font-weight:600; color:var(--text); line-height:1.7;}
+  .reminder-line-meta{
+    font-size:11.5px; color:var(--text-muted); margin-top:3px;
+    display:flex; flex-wrap:wrap; gap:8px; align-items:center;
+  }
+  .reminder-due{font-weight:600;}
+  .reminder-line.soon .reminder-due{color:var(--accent2);}
+  .reminder-line.today .reminder-due{color:var(--accent);}
+  .reminder-line.late .reminder-due, .reminder-line.expired .reminder-due{color:var(--danger);}
+  .reminder-row.today{border-inline-start:3px solid var(--accent);}
+  .reminder-row.soon, .reminder-row.pinned{border-inline-start:3px solid var(--accent2);}
+  .reminder-row.late, .reminder-row.expired{border-inline-start:3px solid var(--danger);}
+  .reminder-row.done{opacity:.5;}
+  .reminder-kind-hint{font-size:11.5px; color:var(--text-muted); line-height:1.8; margin-top:8px;}
+  .modal-section input[type=text]{
+    width:100%; background:var(--surface-2); border:1px solid var(--line); color:var(--text);
+    font-family:inherit; font-size:13px; padding:9px 12px; border-radius:8px; outline:none;
+  }
+  .modal-section input[type=text]:focus{border-color:var(--accent);}
+
   /* subscriptions */
   .sub-row{
     display:flex; align-items:center; gap:10px; padding:13px 14px; margin-bottom:8px;
@@ -1168,6 +1214,8 @@ function icon(name, size){
     image:    `<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.6"/><path d="M21 15l-5-5L5 21"/>`,
     download: `<path d="M12 3v12M7 11l5 5 5-5M4 21h16"/>`,
     pencil:   `<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/>`,
+    bell:     `<path d="M18 9a6 6 0 1 0-12 0c0 5-2 6-2 6h16s-2-1-2-6"/><path d="M10.3 20a2 2 0 0 0 3.4 0"/>`,
+    gift:     `<rect x="3" y="9" width="18" height="12" rx="1.5"/><path d="M3 13h18M12 9v12"/><path d="M12 9S10.5 4 8 4a2.3 2.3 0 0 0 0 5zM12 9s1.5-5 4-5a2.3 2.3 0 0 1 0 5z"/>`,
   };
   return open + (paths[name] || '') + '</svg>';
 }
@@ -1285,10 +1333,17 @@ let state = {
   subscriptionEditor: null, // { subId, name, cycle, nextRenewal, notifyDaysBefore, note }
   subscriptionShowInactive: false,
   encouragement: null, // { date, text } — one AI line per day, cached locally
+  reminders: [], // [{ id, title, kind:'once'|'yearly'|'deadline'|'always', date, leadDays, note, done, createdAt }]
+  reminderEditor: null, // { reminderId, title, kind, date, leadDays, note, calendarOpen, calJY, calJM }
+  reminderShowDone: false,
 };
 
 let loadError = false;
 let realtimeStarted = false;
+/* false until the reminders table answers once — a realtime binding on a table
+   that doesn't exist yet would error the whole shared channel, taking every
+   other table's live sync down with it. */
+let remindersTableReady = false;
 
 async function loadAll(){
   loadError = false;
@@ -1374,6 +1429,25 @@ async function loadAll(){
     if(!state.ideas) state.ideas = [];
     if(!state.subscriptions) state.subscriptions = [];
   }
+  /* Reminders load on their own so a failure on any other table can't swallow
+     them — they're the first thing you see when the app opens. */
+  try{
+    const { data: reminders, error: remErr } = await sb
+      .from('reminders')
+      .select('*')
+      .order('date', { ascending:true, nullsFirst:false });
+    if(remErr) throw remErr;
+    state.reminders = reminders.map(r => ({
+      id:r.id, title:r.title, kind:r.kind,
+      date:r.date || '', leadDays: r.lead_days == null ? 0 : r.lead_days,
+      note: r.note || '', done: !!r.done, createdAt: r.created_at,
+    }));
+    remindersTableReady = true;
+  } catch(e){
+    console.error('load reminders failed', e);
+    if(!state.reminders) state.reminders = [];
+  }
+  rolloverYearlyReminders();
   generateRecurringInstances();
   if(!realtimeStarted){ realtimeStarted = true; startRealtimeSync(); }
   render();
@@ -1612,6 +1686,32 @@ function startRealtimeSync(){
       // default replica identity only guarantees the primary key on DELETE,
       // so sweep every idea's image list by id rather than trusting old.idea_id
       state.ideas.forEach(i => { if(i.images) i.images = i.images.filter(im => im.id !== old.id); });
+      render();
+    },
+  });
+
+  if(remindersTableReady) registerRealtimeSync(channel, 'reminders', {
+    onInsert(row){
+      if(state.reminders.some(r => r.id === row.id)) return;
+      state.reminders.push({
+        id:row.id, title:row.title, kind:row.kind, date:row.date || '',
+        leadDays: row.lead_days == null ? 0 : row.lead_days,
+        note: row.note || '', done: !!row.done, createdAt: row.created_at,
+      });
+      render();
+    },
+    onUpdate(row){
+      const r = state.reminders.find(x => x.id === row.id);
+      if(!r) return;
+      Object.assign(r, {
+        title:row.title, kind:row.kind, date:row.date || '',
+        leadDays: row.lead_days == null ? 0 : row.lead_days,
+        note: row.note || '', done: !!row.done,
+      });
+      render();
+    },
+    onDelete(old){
+      state.reminders = state.reminders.filter(r => r.id !== old.id);
       render();
     },
   });
@@ -2711,13 +2811,27 @@ async function updateRecurringTemplateFromInstance(templateId, instance){
     if(tagErr) console.error('relink recurring template tags failed', tagErr);
   }
 }
+/* A recurring instance that was never finished stays on "today" as an overdue
+   item ONLY until the task comes round again. The moment the next scheduled day
+   arrives, the stale instance is dropped and a fresh one takes its place — an
+   overdue chore never stacks up, and what you see is always the current turn. */
+async function dropStaleRecurringInstances(templateId, todayStr){
+  const stale = state.tasks.filter(t =>
+    t.recurringTemplateId === templateId && !t.done && t.date && t.date < todayStr
+  );
+  if(!stale.length) return;
+  const ids = stale.map(t => t.id);
+  state.tasks = state.tasks.filter(t => !ids.includes(t.id));
+  const { error } = await sb.from('tasks').delete().in('id', ids);
+  if(error) console.error('drop stale recurring instances failed', error);
+}
 async function maybeGenerateTodayForTemplate(tpl){
   if(!tpl.active) return;
   const todayStr = dateKey(new Date());
   const todayWeekday = new Date().getDay();
   if(!tpl.weekdays.includes(todayWeekday)) return;
   if(state.tasks.some(t => t.recurringTemplateId === tpl.id && t.date === todayStr)) return;
-  if(state.tasks.some(t => t.recurringTemplateId === tpl.id && !t.done)) return;
+  await dropStaleRecurringInstances(tpl.id, todayStr);
 
   const newTask = {
     id: uid(), title: tpl.title, done:false, completedAt:null,
@@ -3872,6 +3986,379 @@ async function deleteSubscription(subId){
   await sb.from('subscriptions').delete().eq('id', subId);
 }
 
+/* ---------- reminders ("یادت نره") ----------
+   Things that aren't tasks and have no place on a to-do list, but must not slip
+   your mind: a subscription you paid for and haven't used, a birthday, a date
+   you promised someone. Four shapes, one surface:
+     once     — a single day ("۲۰ دی تبریک بگم")
+     yearly   — the same Jalali day every year (birthdays, anniversaries)
+     deadline — use-it-before-it-expires; counts down from far out
+     always   — no date at all; sits at the top until you retire it
+   Each one starts showing `leadDays` before its date and keeps showing until
+   you tick it off, so nothing quietly passes while you weren't looking. */
+const REMINDER_KIND_LABEL = { once:'یک‌بار', yearly:'سالانه', deadline:'مهلت‌دار', always:'همیشگی' };
+const REMINDER_DEFAULT_LEAD = { once:3, yearly:7, deadline:14, always:0 };
+const REMINDER_STATUS_RANK = { late:0, expired:0, today:1, soon:2, pinned:3 };
+/* a yearly reminder you never ticked off rolls to next year once it's this far past */
+const REMINDER_YEARLY_GRACE_DAYS = 30;
+
+/* Same Jalali day, next Jalali year — not +365 days, so «۲۰ دی» stays ۲۰ دی. */
+function advanceJalaliYear(dateStr){
+  const j = window.jalaali.toJalaali(new Date(dateStr + 'T00:00:00'));
+  const jy = j.jy + 1;
+  const jd = Math.min(j.jd, window.jalaali.jalaaliMonthLength(jy, j.jm)); // ۳۰ اسفند in a common year
+  const g = window.jalaali.toGregorian(jy, j.jm, jd);
+  return dateKey(new Date(g.gy, g.gm - 1, g.gd));
+}
+function reminderStatus(r){
+  if(r.kind === 'always' || !r.date) return 'pinned';
+  const n = daysUntil(r.date);
+  if(n < 0) return r.kind === 'deadline' ? 'expired' : 'late';
+  if(n === 0) return 'today';
+  return 'soon';
+}
+function reminderVisible(r){
+  if(r.done) return false;
+  if(r.kind === 'always' || !r.date) return true;
+  return daysUntil(r.date) <= (r.leadDays || 0);
+}
+function activeReminders(){
+  return (state.reminders || []).filter(reminderVisible).sort((a,b) => {
+    const ra = REMINDER_STATUS_RANK[reminderStatus(a)], rb = REMINDER_STATUS_RANK[reminderStatus(b)];
+    if(ra !== rb) return ra - rb;
+    const da = a.date ? daysUntil(a.date) : 9999, db = b.date ? daysUntil(b.date) : 9999;
+    return da - db;
+  });
+}
+function reminderDueLabel(r){
+  if(r.kind === 'always' || !r.date) return 'همیشه یادت باشه';
+  const n = daysUntil(r.date);
+  if(r.kind === 'deadline'){
+    if(n < 0)  return `${toFaDigits(Math.abs(n))} روز از مهلتش گذشته`;
+    if(n === 0) return 'امروز آخرین مهلته';
+    if(n === 1) return 'فردا مهلتش تموم می‌شه';
+    return `${toFaDigits(n)} روز تا تموم شدن مهلت`;
+  }
+  if(n < 0)   return `${toFaDigits(Math.abs(n))} روز گذشته`;
+  if(n === 0) return 'همین امروزه';
+  if(n === 1) return 'فرداست';
+  return `${toFaDigits(n)} روز مونده`;
+}
+
+/* ---------- reminders: the card that greets you on «امروز» ---------- */
+function renderReminderAlert(){
+  const list = activeReminders();
+  if(!list.length) return '';
+  const urgent = list.some(r => ['late','expired','today'].includes(reminderStatus(r)));
+  return `
+    <div class="reminder-card ${urgent ? 'urgent' : ''}">
+      <div class="reminder-card-head">
+        <span class="reminder-card-icon">${icon('bell',15)}</span>
+        <span>یادت نره</span>
+        <button type="button" class="reminder-card-more" onclick="navigateTo('reminders')">همه</button>
+      </div>
+      ${list.map(r => `
+        <div class="reminder-line ${reminderStatus(r)}">
+          <button class="reminder-tick" onclick="completeReminder('${r.id}')" title="${r.kind === 'yearly' ? 'انجام شد — برای سال بعد ثبت می‌شه' : 'انجام شد'}">✓</button>
+          <div class="reminder-line-main">
+            <div class="reminder-line-title">${escapeHtml(r.title)}</div>
+            <div class="reminder-line-meta">
+              <span class="reminder-due">${reminderDueLabel(r)}</span>
+              ${r.date ? `<span>${formatDateShort(r.date)}</span>` : ''}
+              ${r.note ? `<span>${escapeHtml(r.note)}</span>` : ''}
+            </div>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+/* ---------- reminders: full page ---------- */
+function renderRemindersPage(){
+  const all = state.reminders || [];
+  const active = all.filter(r => !r.done);
+  const done = all.filter(r => r.done);
+  const showing = activeReminders();
+  const later = active.filter(r => !showing.some(s => s.id === r.id))
+    .sort((a,b) => (a.date ? daysUntil(a.date) : 9999) - (b.date ? daysUntil(b.date) : 9999));
+  return `
+    <h2 class="section-title">یادآوری‌ها</h2>
+    <button class="add-task-btn" onclick="openReminderEditor(null)" style="margin-bottom:16px;">+ افزودن یادآوری</button>
+    ${active.length === 0 ? `<div class="empty-state">هنوز یادآوری‌ای ثبت نکردی</div>` : ''}
+    ${showing.length ? `
+      <div class="sub-section-label">الان یادت می‌مونه (${toFaDigits(showing.length)})</div>
+      ${showing.map(renderReminderRow).join('')}
+    ` : ''}
+    ${later.length ? `
+      <div class="sub-section-label">بعداً یادت می‌ندازم (${toFaDigits(later.length)})</div>
+      ${later.map(renderReminderRow).join('')}
+    ` : ''}
+    ${done.length ? `
+      <div class="sub-section-label">
+        <button type="button" onclick="toggleReminderShowDone()" style="background:none;border:none;color:var(--text-muted);font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;padding:0;">
+          انجام‌شده‌ها (${toFaDigits(done.length)}) ${state.reminderShowDone ? '▲' : '▼'}
+        </button>
+      </div>
+      ${state.reminderShowDone ? done.map(renderReminderRow).join('') : ''}
+    ` : ''}
+  `;
+}
+function toggleReminderShowDone(){ state.reminderShowDone = !state.reminderShowDone; render(); }
+function renderReminderRow(r){
+  const st = r.done ? 'done' : reminderStatus(r);
+  const waiting = !r.done && !reminderVisible(r);
+  return `
+    <div class="sub-row reminder-row ${st}">
+      <div class="sub-main">
+        <div class="sub-name ${r.done ? 'done-text' : ''}">${escapeHtml(r.title)}</div>
+        <div class="sub-meta">
+          <span>${REMINDER_KIND_LABEL[r.kind] || ''}</span>
+          ${r.date ? `<span>${formatDateShort(r.date)}</span>` : ''}
+          ${r.done ? `<span>انجام شد</span>` : `<span class="sub-due ${['late','expired','today'].includes(st) ? 'late' : ''}">${reminderDueLabel(r)}</span>`}
+          ${(waiting && r.date) ? `<span>از ${toFaDigits(r.leadDays || 0)} روز قبل نشونت می‌دم</span>` : ''}
+          ${r.note ? `<span>${escapeHtml(r.note)}</span>` : ''}
+        </div>
+      </div>
+      <div class="sub-actions">
+        ${r.done
+          ? `<button onclick="reopenReminder('${r.id}')" title="برگردون">${icon('arrowIn',15)}</button>`
+          : `<button onclick="completeReminder('${r.id}')" title="${r.kind === 'yearly' ? 'انجام شد — برای سال بعد ثبت می‌شه' : 'انجام شد'}">${icon('check',15)}</button>`}
+        <button onclick="openReminderEditor('${r.id}')" title="ویرایش">${icon('pencil',15)}</button>
+        <button onclick="deleteReminder('${r.id}')" title="حذف">${icon('close',15)}</button>
+      </div>
+    </div>
+  `;
+}
+
+/* ---------- reminders: editor ---------- */
+function openReminderEditor(reminderId){
+  const r = reminderId ? state.reminders.find(x => x.id === reminderId) : null;
+  const base = r ? { reminderId:r.id, title:r.title, kind:r.kind, date:r.date, leadDays:r.leadDays, note:r.note }
+                 : { reminderId:null, title:'', kind:'once', date:'', leadDays:REMINDER_DEFAULT_LEAD.once, note:'' };
+  const j = window.jalaali.toJalaali(base.date ? new Date(base.date + 'T00:00:00') : new Date());
+  state.reminderEditor = Object.assign(base, { calendarOpen:false, calJY:j.jy, calJM:j.jm });
+  render();
+}
+function closeReminderEditor(){ state.reminderEditor = null; render(); }
+/* Title and note write straight to the draft from their oninput — re-rendering
+   mid-word would steal the caret. Only the lead-days field, which commits on
+   blur, needs the redraw. */
+function reminderEditorSetLead(value){
+  const ed = state.reminderEditor;
+  if(!ed) return;
+  ed.leadDays = Math.max(0, parseInt(toEnDigits(String(value)), 10) || 0);
+  render();
+}
+function reminderEditorSetKind(kind){
+  const ed = state.reminderEditor;
+  ed.kind = kind;
+  ed.leadDays = REMINDER_DEFAULT_LEAD[kind];
+  if(kind === 'always'){ ed.date = ''; ed.calendarOpen = false; }
+  render();
+}
+function toggleReminderCalendar(){
+  const ed = state.reminderEditor;
+  ed.calendarOpen = !ed.calendarOpen;
+  if(ed.calendarOpen){
+    const j = window.jalaali.toJalaali(ed.date ? new Date(ed.date + 'T00:00:00') : new Date());
+    ed.calJY = j.jy; ed.calJM = j.jm;
+  }
+  render();
+}
+function reminderCalPrevMonth(){
+  const ed = state.reminderEditor;
+  ed.calJM--; if(ed.calJM < 1){ ed.calJM = 12; ed.calJY--; }
+  render();
+}
+function reminderCalNextMonth(){
+  const ed = state.reminderEditor;
+  ed.calJM++; if(ed.calJM > 12){ ed.calJM = 1; ed.calJY++; }
+  render();
+}
+function reminderCalPick(jy, jm, jd){
+  const g = window.jalaali.toGregorian(jy, jm, jd);
+  const ed = state.reminderEditor;
+  ed.date = dateKey(new Date(g.gy, g.gm - 1, g.gd));
+  ed.calendarOpen = false;
+  render();
+}
+/* The same Jalali grid the task editor uses, minus the per-day task dots —
+   a reminder only ever needs to pick one day. */
+function renderReminderCalendar(){
+  const ed = state.reminderEditor;
+  const jy = ed.calJY, jm = ed.calJM;
+  const monthLen = window.jalaali.jalaaliMonthLength(jy, jm);
+  const firstG = window.jalaali.toGregorian(jy, jm, 1);
+  const firstDate = new Date(firstG.gy, firstG.gm - 1, firstG.gd);
+  const startOffset = (firstDate.getDay() + 1) % 7; // Persian week starts Saturday
+  const todayJ = window.jalaali.toJalaali(new Date());
+  const selJ = ed.date ? window.jalaali.toJalaali(new Date(ed.date + 'T00:00:00')) : null;
+  const cells = [];
+  for(let i = 0; i < startOffset; i++) cells.push(null);
+  for(let d = 1; d <= monthLen; d++) cells.push(d);
+  return `
+    <div class="task-calendar">
+      <div class="cal-header">
+        <button type="button" class="cal-nav" onclick="reminderCalPrevMonth()">ماه قبل</button>
+        <div class="cal-title">
+          <span class="cal-jalali">${MONTHS_JALALI[jm-1]} ${toFaDigits(jy)}</span>
+          <span class="cal-greg">${MONTHS_GREG_FA[firstG.gm-1]} ${firstG.gy}</span>
+        </div>
+        <button type="button" class="cal-nav" onclick="reminderCalNextMonth()">ماه بعد</button>
+      </div>
+      <div class="cal-weekdays">${['ش','ی','د','س','چ','پ','ج'].map(w => `<span>${w}</span>`).join('')}</div>
+      <div class="cal-grid">
+        ${cells.map(dnum => {
+          if(dnum === null) return `<div class="cal-cell empty"></div>`;
+          const isToday = (jy===todayJ.jy && jm===todayJ.jm && dnum===todayJ.jd);
+          const isSel = selJ && jy===selJ.jy && jm===selJ.jm && dnum===selJ.jd;
+          return `<div class="cal-cell ${isToday?'today':''} ${isSel?'selected':''}" onclick="reminderCalPick(${jy},${jm},${dnum})"><span class="cal-daynum">${toFaDigits(dnum)}</span></div>`;
+        }).join('')}
+      </div>
+    </div>
+  `;
+}
+function renderReminderEditorModal(){
+  const ed = state.reminderEditor;
+  const needsDate = ed.kind !== 'always';
+  const leadHint = {
+    once:'چند روز قبلش شروع کنم به یادآوری',
+    yearly:'چند روز قبلش شروع کنم به یادآوری',
+    deadline:'از چند روز قبلِ تموم شدن هی یادت بندازم',
+    always:'',
+  }[ed.kind];
+  return `
+    <div class="modal-overlay" onclick="if(event.target===this) closeReminderEditor()">
+      <div class="modal-box">
+        <h3>${ed.reminderId ? 'ویرایش یادآوری' : 'یادآوری جدید'}</h3>
+        <input type="text" class="modal-title-input" placeholder="چی نباید یادت بره؟"
+          value="${escapeHtml(ed.title)}" oninput="state.reminderEditor.title=this.value" />
+
+        <div class="modal-section">
+          <span class="modal-section-label">نوع</span>
+          ${['once','yearly','deadline','always'].map(k => `
+            <span class="pick-chip ${ed.kind===k?'on':''}" style="--chip-color:var(--accent)" onclick="reminderEditorSetKind('${k}')">${REMINDER_KIND_LABEL[k]}</span>
+          `).join('')}
+          <div class="reminder-kind-hint">${{
+            once:'یه روز مشخص، بعد از انجامش بسته می‌شه.',
+            yearly:'هر سال همون روزِ شمسی برمی‌گرده — تولد و سالگرد.',
+            deadline:'تا این تاریخ فرصت داری ازش استفاده کنی؛ از قبلش هی یادت می‌ندازم.',
+            always:'تاریخ نداره — تا خودت نبندیش بالای صفحهٔ امروز می‌مونه.',
+          }[ed.kind]}</div>
+        </div>
+
+        ${needsDate ? `
+          <div class="modal-section">
+            <span class="modal-section-label">${ed.kind === 'deadline' ? 'تا چه تاریخی' : 'تاریخ'}</span>
+            <div class="quick-group">
+              <button type="button" class="date-picker-btn" onclick="toggleReminderCalendar()">${icon('calendar',13)} ${ed.date ? formatDateShort(ed.date) : 'انتخاب از تقویم'}</button>
+            </div>
+            ${ed.calendarOpen ? renderReminderCalendar() : ''}
+          </div>
+
+          <div class="modal-section">
+            <span class="modal-section-label">${leadHint}</span>
+            <input type="text" inputmode="numeric" class="num-text" value="${toFaDigits(ed.leadDays)}"
+              oninput="normalizeNumericInput(this)" onchange="reminderEditorSetLead(this.value)" />
+          </div>
+        ` : ''}
+
+        <div class="modal-section">
+          <span class="modal-section-label">یادداشت</span>
+          <input type="text" value="${escapeHtml(ed.note || '')}" oninput="state.reminderEditor.note=this.value" />
+        </div>
+
+        <div class="modal-actions">
+          <button class="confirm" onclick="confirmReminderEditor()">ذخیره</button>
+          <button class="cancel" onclick="closeReminderEditor()">انصراف</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+async function confirmReminderEditor(){
+  const ed = state.reminderEditor;
+  if(!ed || !ed.title.trim()) return;
+  if(ed.kind !== 'always' && !ed.date) return; // a dated reminder without a date would never fire
+  const local = {
+    title: ed.title.trim(), kind: ed.kind,
+    date: ed.kind === 'always' ? '' : ed.date,
+    leadDays: ed.kind === 'always' ? 0 : (ed.leadDays || 0),
+    note: (ed.note || '').trim(),
+  };
+  const row = {
+    title: local.title, kind: local.kind, date: local.date || null,
+    lead_days: local.leadDays, note: local.note || null,
+  };
+  if(ed.reminderId){
+    const r = state.reminders.find(x => x.id === ed.reminderId);
+    if(r) Object.assign(r, local);
+    state.reminderEditor = null; render();
+    const { error } = await sb.from('reminders').update(row).eq('id', ed.reminderId);
+    if(error) console.error('update reminder failed', error);
+  } else {
+    const id = uid();
+    state.reminders.push(Object.assign({ id, done:false, createdAt:new Date().toISOString() }, local));
+    state.reminderEditor = null; render();
+    const { error } = await sb.from('reminders').insert(Object.assign({ id, done:false }, row));
+    if(error) console.error('create reminder failed', error);
+  }
+}
+/* Ticking a yearly reminder doesn't retire it — it books the next year. */
+async function completeReminder(id){
+  const r = state.reminders.find(x => x.id === id);
+  if(!r) return;
+  if(r.kind === 'yearly' && r.date){
+    const next = advanceJalaliYear(r.date);
+    r.date = next; render();
+    const { error } = await sb.from('reminders').update({ date: next }).eq('id', id);
+    if(error) console.error('roll yearly reminder failed', error);
+    return;
+  }
+  r.done = true; render();
+  const { error } = await sb.from('reminders').update({ done:true }).eq('id', id);
+  if(error) console.error('complete reminder failed', error);
+}
+async function reopenReminder(id){
+  const r = state.reminders.find(x => x.id === id);
+  if(!r) return;
+  r.done = false; render();
+  const { error } = await sb.from('reminders').update({ done:false }).eq('id', id);
+  if(error) console.error('reopen reminder failed', error);
+}
+const pendingReminderDeleteTimers = {};
+async function deleteReminder(id){
+  const idx = state.reminders.findIndex(r => r.id === id);
+  if(idx === -1) return;
+  const [removed] = state.reminders.splice(idx, 1);
+  showUndoToast(`یادآوری «${removed.title}» حذف شد`, () => {
+    clearTimeout(pendingReminderDeleteTimers[id]);
+    delete pendingReminderDeleteTimers[id];
+    state.reminders.splice(idx, 0, removed);
+    render();
+  });
+  render();
+  pendingReminderDeleteTimers[id] = setTimeout(async () => {
+    delete pendingReminderDeleteTimers[id];
+    const { error } = await sb.from('reminders').delete().eq('id', id);
+    if(error) console.error('delete reminder failed', error);
+  }, 5000);
+}
+/* A birthday you never ticked shouldn't sit there red forever — once it's a
+   month past, it quietly books itself for next year. */
+function rolloverYearlyReminders(){
+  (state.reminders || []).forEach(r => {
+    if(r.kind !== 'yearly' || r.done || !r.date) return;
+    let d = r.date, guard = 0;
+    while(daysUntil(d) < -REMINDER_YEARLY_GRACE_DAYS && guard++ < 200) d = advanceJalaliYear(d);
+    if(d === r.date) return;
+    r.date = d;
+    sb.from('reminders').update({ date:d }).eq('id', r.id)
+      .then(({ error }) => { if(error) console.error('rollover yearly reminder failed', error); });
+  });
+}
+
 /* ---------- rendering: daily encouragement ---------- */
 function renderEncouragement(){
   const e = state.encouragement;
@@ -4044,6 +4531,7 @@ function renderToday(){
 
   return `
     <div style="font-size:12px;color:var(--text-muted);margin-bottom:14px;">${wd}</div>
+    ${renderReminderAlert()}
     <div style="display:flex; flex-wrap:wrap; gap:10px; margin-bottom:16px;">
       ${renderStreakBadge()}
       ${renderTimeBadge(todayTasksRaw)}
@@ -4147,6 +4635,7 @@ function render(){
       ${state.view === 'ideas' ? renderIdeasPage() : ''}
       ${state.view === 'purchases' ? renderPurchasesPage() : ''}
       ${state.view === 'subscriptions' ? renderSubscriptionsPage() : ''}
+      ${state.view === 'reminders' ? renderRemindersPage() : ''}
       ${state.view === 'archive' ? renderArchivePage() : ''}
       ${state.view === 'ai-reports' ? renderAIReportsPage() : ''}
     </main>
@@ -4157,6 +4646,7 @@ function render(){
     ${state.moreMenuOpen ? renderMoreMenu() : ''}
     ${state.recurringEditor ? renderRecurringEditorModal() : ''}
     ${state.subscriptionEditor ? renderSubscriptionEditorModal() : ''}
+    ${state.reminderEditor ? renderReminderEditorModal() : ''}
   `;
 }
 
@@ -4170,6 +4660,7 @@ const PRIMARY_NAV = [
   { id:'calendar', label:'تقویم',  icon:'calendar' },
   { id:'ideas',    label:'ایده‌ها', icon:'bulb' },
 ];const MORE_NAV = [
+  { id:'reminders',     label:'یادآوری‌ها',     icon:'bell' },
   { id:'purchases',     label:'خریدها',        icon:'cart' },
   { id:'subscriptions', label:'اشتراک‌ها',      icon:'card' },
   { id:'archive',       label:'آرشیو',          icon:'archive' },
