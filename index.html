@@ -679,6 +679,10 @@ global.jalaali = {
     background:none; border:none; color:var(--accent); font-weight:700; font-size:13px; cursor:pointer; flex-shrink:0; padding:2px 4px;
   }
   .undo-toast .undo-close{color:var(--text-muted); font-weight:400; font-size:12px;}
+  /* Same toast, but for a write that did NOT reach the server. No "undo" — the
+     change was never persisted; the message only tells you it did not stick. */
+  .undo-toast.failed{border-color:var(--danger);}
+  .undo-toast.failed span{color:var(--danger); white-space:normal;}
   .recurring-tpl-row{
     display:flex; align-items:center; justify-content:space-between; gap:10px; padding:9px 12px;
     background:var(--surface-2); border:1px solid var(--line); border-radius:9px; margin-bottom:8px;
@@ -1317,6 +1321,7 @@ let state = {
   recurringManagerOpen: false,
   tagGoals: [], // [{ tagId, weeklyMinutes }] — standing weekly time targets per tag
   undoToast: null, // { message, undo } while a delete's undo window is open
+  saveError: null, // { message } while a failed-write warning is on screen
   taskCompletionModal: null, // { taskId, minutes, difficulty } shown right after checking a task done
   aiReports: [], // [{ id, periodStart, periodEnd, text, createdAt }]
   aiReportGenerating: false,
@@ -1690,6 +1695,34 @@ function startRealtimeSync(){
     },
   });
 
+  registerRealtimeSync(channel, 'subscriptions', {
+    onInsert(row){
+      if(state.subscriptions.some(s => s.id === row.id)) return;
+      state.subscriptions.push({
+        id:row.id, name:row.name, cycle:row.cycle,
+        nextRenewal:row.next_renewal || '', active:!!row.active,
+        notifyDaysBefore: row.notify_days_before == null ? 3 : row.notify_days_before,
+        note: row.note || '',
+      });
+      render();
+    },
+    onUpdate(row){
+      const sub = state.subscriptions.find(s => s.id === row.id);
+      if(!sub) return;
+      Object.assign(sub, {
+        name:row.name, cycle:row.cycle,
+        nextRenewal:row.next_renewal || '', active:!!row.active,
+        notifyDaysBefore: row.notify_days_before == null ? 3 : row.notify_days_before,
+        note: row.note || '',
+      });
+      render();
+    },
+    onDelete(old){
+      state.subscriptions = state.subscriptions.filter(s => s.id !== old.id);
+      render();
+    },
+  });
+
   if(remindersTableReady) registerRealtimeSync(channel, 'reminders', {
     onInsert(row){
       if(state.reminders.some(r => r.id === row.id)) return;
@@ -1741,7 +1774,7 @@ async function addTag(){
   state.tags.push(newTag);
   render();
   const { error } = await sb.from('tags').insert({ id:newTag.id, name:newTag.name, color:newTag.color });
-  if(error) console.error('addTag failed', error);
+  if(error) writeFailed('addTag', error);
 }
 async function deleteTag(tagId){
   state.tags = state.tags.filter(t => t.id !== tagId);
@@ -1751,7 +1784,7 @@ async function deleteTag(tagId){
   state.tagGoals = state.tagGoals.filter(g => g.tagId !== tagId);
   render();
   const { error } = await sb.from('tags').delete().eq('id', tagId);
-  if(error) console.error('deleteTag failed', error);
+  if(error) writeFailed('deleteTag', error);
 }
 function toggleTagManager(){ state.tagManagerOpen = !state.tagManagerOpen; render(); }
 function toggleRecurringManager(){ state.recurringManagerOpen = !state.recurringManagerOpen; render(); }
@@ -1772,7 +1805,7 @@ async function addPurchase(){
   titleEl.value = ''; priceEl.value = '';
   render();
   const { error } = await sb.from('purchases').insert({ id:p.id, title:p.title, priority:p.priority, price:p.price, bought:false });
-  if(error) console.error('addPurchase failed', error);
+  if(error) writeFailed('addPurchase', error);
 }
 function setNewPurchasePriority(level){
   /* preserve whatever is already typed in the form before re-rendering, otherwise
@@ -1791,7 +1824,7 @@ async function togglePurchaseBought(id){
   p.boughtAt = p.bought ? new Date().toISOString() : null;
   render();
   const { error } = await sb.from('purchases').update({ bought:p.bought, bought_at:p.boughtAt }).eq('id', id);
-  if(error) console.error('togglePurchaseBought failed', error);
+  if(error) writeFailed('togglePurchaseBought', error);
 }
 async function deletePurchase(id){
   const idx = state.purchases.findIndex(x => x.id === id);
@@ -1807,7 +1840,7 @@ async function deletePurchase(id){
   pendingPurchaseDeleteTimers[id] = setTimeout(async () => {
     delete pendingPurchaseDeleteTimers[id];
     const { error } = await sb.from('purchases').delete().eq('id', id);
-    if(error) console.error('deletePurchase failed', error);
+    if(error) writeFailed('deletePurchase', error);
   }, 5000);
 }
 const pendingPurchaseDeleteTimers = {};
@@ -1886,14 +1919,14 @@ async function addIdea(){
   el.value = '';
   render();
   const { error } = await sb.from('ideas').insert({ id:idea.id, body:idea.body });
-  if(error){ console.error('addIdea failed', error); return; }
+  if(error){ writeFailed('addIdea', error); return; }
   if(tagIds.length){
     const { error: tagErr } = await sb.from('idea_tags').insert(tagIds.map(tagId => ({ idea_id:idea.id, tag_id:tagId })));
-    if(tagErr) console.error('link idea tags failed', tagErr);
+    if(tagErr) writeFailed('link idea tags', tagErr);
   }
   if(images.length){
     const { error: imgErr } = await sb.from('idea_images').insert(images.map((im, i) => ({ id:im.id, idea_id:idea.id, data_url:im.dataUrl, position:i })));
-    if(imgErr) console.error('save idea images failed', imgErr);
+    if(imgErr) writeFailed('save idea images', imgErr);
   }
 }
 
@@ -1952,13 +1985,13 @@ async function confirmIdeaEditor(){
   render();
 
   const { error } = await sb.from('ideas').update({ body: idea.body }).eq('id', idea.id);
-  if(error) console.error('update idea failed', error);
+  if(error) writeFailed('update idea', error);
 
   const { error: delTagErr } = await sb.from('idea_tags').delete().eq('idea_id', idea.id);
-  if(delTagErr) console.error('clear idea tags failed', delTagErr);
+  if(delTagErr) writeFailed('clear idea tags', delTagErr);
   if(idea.tagIds.length){
     const { error: tagErr } = await sb.from('idea_tags').insert(idea.tagIds.map(tagId => ({ idea_id:idea.id, tag_id:tagId })));
-    if(tagErr) console.error('relink idea tags failed', tagErr);
+    if(tagErr) writeFailed('relink idea tags', tagErr);
   }
 
   /* diff images instead of wiping and reinserting, so untouched ones keep their
@@ -1969,15 +2002,15 @@ async function confirmIdeaEditor(){
   const added = idea.images.filter(i => !prevIds.has(i.id));
   if(removed.length){
     const { error: e } = await sb.from('idea_images').delete().in('id', removed);
-    if(e) console.error('delete idea images failed', e);
+    if(e) writeFailed('delete idea images', e);
   }
   if(added.length){
     const { error: e } = await sb.from('idea_images').insert(added.map(im => ({ id:im.id, idea_id:idea.id, data_url:im.dataUrl, position: idea.images.indexOf(im) })));
-    if(e) console.error('insert idea images failed', e);
+    if(e) writeFailed('insert idea images', e);
   }
   await Promise.all(idea.images.filter(i => prevIds.has(i.id)).map(im =>
     sb.from('idea_images').update({ position: idea.images.indexOf(im) }).eq('id', im.id)
-      .then(({ error }) => { if(error) console.error('reposition idea image failed', error); })
+      .then(({ error }) => { if(error) writeFailed('reposition idea image', error); })
   ));
 }
 function downloadIdeaImage(ideaId, imgId){
@@ -2016,7 +2049,7 @@ async function deleteIdea(id){
   pendingIdeaDeleteTimers[id] = setTimeout(async () => {
     delete pendingIdeaDeleteTimers[id];
     const { error } = await sb.from('ideas').delete().eq('id', id);
-    if(error) console.error('deleteIdea failed', error);
+    if(error) writeFailed('deleteIdea', error);
   }, 5000);
 }
 
@@ -2059,7 +2092,7 @@ async function setTagGoal(tagId, weeklyMinutes){
     render();
     if(existing){
       const { error } = await sb.from('tag_goals').delete().eq('tag_id', tagId);
-      if(error) console.error('removeTagGoal failed', error);
+      if(error) writeFailed('removeTagGoal', error);
     }
     return;
   }
@@ -2067,7 +2100,7 @@ async function setTagGoal(tagId, weeklyMinutes){
   else state.tagGoals.push({ tagId, weeklyMinutes, reason:'' });
   render();
   const { error } = await sb.from('tag_goals').upsert({ tag_id:tagId, weekly_minutes:weeklyMinutes, reason: (existing && existing.reason) || '' });
-  if(error) console.error('setTagGoal failed', error);
+  if(error) writeFailed('setTagGoal', error);
 }
 async function setTagGoalReason(tagId, reason){
   const g = state.tagGoals.find(g => g.tagId === tagId);
@@ -2075,7 +2108,7 @@ async function setTagGoalReason(tagId, reason){
   g.reason = reason.trim();
   render();
   const { error } = await sb.from('tag_goals').update({ reason: g.reason }).eq('tag_id', tagId);
-  if(error) console.error('setTagGoalReason failed', error);
+  if(error) writeFailed('setTagGoalReason', error);
 }
 
 /* ---------- filters (shared by today & tasks pages) ---------- */
@@ -2266,6 +2299,83 @@ function dismissUndoToast(){
   render();
 }
 
+/* ---------- write guard ----------
+   Every write here is optimistic: local state changes and the screen repaints
+   before the server has confirmed anything. That is what makes the app feel
+   instant, but it also means a write that never lands — offline, a flaky
+   connection, a missing grant — used to be invisible. The failure was logged to
+   the console and nothing else: the row sat there looking saved until the next
+   reload quietly dropped it.
+
+   Two entry points close that gap, and both say so out loud:
+     persist(promise, { message, rollback })  — for a single write whose inverse
+       is cheap and obvious. Reverts exactly that change.
+     writeFailed(label, error)                — for everything else, including
+       multi-statement saves (task + tags + subtasks) where a hand-written
+       inverse would be its own source of bugs. It schedules one reconciliation
+       against the server, which is authoritative, so local state snaps back to
+       what actually got stored.
+   scheduleReconcile() is deliberately hard to loop: loadAll() itself writes (it
+   rolls over reminders and generates recurring instances), so a dead connection
+   could otherwise fail -> reconcile -> fail forever. One in flight at a time,
+   and at most one per 10s. */
+let saveErrorTimer = null;
+function showSaveError(message){
+  state.saveError = { message };
+  render();
+  if(saveErrorTimer) clearTimeout(saveErrorTimer);
+  saveErrorTimer = setTimeout(() => { state.saveError = null; render(); }, 8000);
+}
+function dismissSaveError(){
+  state.saveError = null;
+  if(saveErrorTimer) clearTimeout(saveErrorTimer);
+  render();
+}
+
+const SAVE_FAILED_MSG = 'تغییرت ذخیره نشد — اینترنتت رو چک کن و دوباره امتحان کن.';
+
+let reconcileTimer = null;
+let reconcileInFlight = false;
+let lastReconcileAt = 0;
+function scheduleReconcile(){
+  if(reconcileTimer || reconcileInFlight) return;
+  if(Date.now() - lastReconcileAt < 10000) return;
+  reconcileTimer = setTimeout(async () => {
+    reconcileTimer = null;
+    reconcileInFlight = true;
+    try{ await loadAll(); }
+    finally{ reconcileInFlight = false; lastReconcileAt = Date.now(); }
+  }, 600);
+}
+
+/* Call from any `if(error) ...` branch on a write. Replaces the old bare
+   console.error, which only ever reached the devtools console. */
+function writeFailed(label, error, message){
+  console.error(label + ' failed', error);
+  showSaveError(message || SAVE_FAILED_MSG);
+  scheduleReconcile();
+  return false;
+}
+
+async function persist(promise, { message, rollback } = {}){
+  let error = null;
+  try{
+    const res = await promise;
+    error = res && res.error;
+  } catch(e){
+    error = e;
+  }
+  if(!error) return true;
+  console.error('write failed', error);
+  if(rollback){
+    rollback();
+    showSaveError(message || SAVE_FAILED_MSG);
+    render();
+    return false;
+  }
+  return writeFailed('write', error, message);
+}
+
 const pendingTaskDeleteTimers = {}; // taskId -> timeoutId, while the undo window is open
 async function deleteTask(taskId, evt){
   if(evt) evt.stopPropagation();
@@ -2284,7 +2394,7 @@ async function deleteTask(taskId, evt){
   pendingTaskDeleteTimers[taskId] = setTimeout(async () => {
     delete pendingTaskDeleteTimers[taskId];
     const { error } = await sb.from('tasks').delete().eq('id', taskId);
-    if(error) console.error('deleteTask failed', error);
+    if(error) writeFailed('deleteTask', error);
   }, 5000);
 }
 async function toggleTaskDone(taskId, evt){
@@ -2295,10 +2405,10 @@ async function toggleTaskDone(taskId, evt){
   markDone(t, turningDone);
   render();
   const { error } = await sb.from('tasks').update({ done:t.done, completed_at:t.completedAt }).eq('id', taskId);
-  if(error) console.error('toggleTaskDone failed', error);
+  if(error) writeFailed('toggleTaskDone', error);
   if(t.subtasks.length){
     const { error: subErr } = await sb.from('subtasks').update({ done:t.done }).eq('task_id', taskId);
-    if(subErr) console.error('subtask sync failed', subErr);
+    if(subErr) writeFailed('subtask sync', subErr);
   }
   if(turningDone){
     state.taskCompletionModal = { taskId, minutes:null, difficulty:null };
@@ -2316,7 +2426,7 @@ async function addActualMinToTask(taskId, deltaMin){
   t.actualMin = (t.actualMin || 0) + deltaMin;
   render();
   const { error } = await sb.from('tasks').update({ actual_min: t.actualMin }).eq('id', taskId);
-  if(error) console.error('addActualMinToTask failed', error);
+  if(error) writeFailed('addActualMinToTask', error);
 }
 async function confirmTaskCompletion(){
   const m = state.taskCompletionModal;
@@ -2329,7 +2439,7 @@ async function confirmTaskCompletion(){
     t.difficulty = m.difficulty;
     render();
     const { error } = await sb.from('tasks').update({ difficulty:m.difficulty }).eq('id', t.id);
-    if(error) console.error('save difficulty failed', error);
+    if(error) writeFailed('save difficulty', error);
   }
 }
 function skipTaskCompletion(){ state.taskCompletionModal = null; render(); }
@@ -2338,7 +2448,7 @@ async function commitTaskTitle(taskId, value){
   if(!t || !value.trim()) return;
   t.title = value.trim();
   const { error } = await sb.from('tasks').update({ title:t.title }).eq('id', taskId);
-  if(error) console.error('commitTaskTitle failed', error);
+  if(error) writeFailed('commitTaskTitle', error);
 }
 async function addSubtask(taskId){
   const input = document.getElementById('subtask-input-' + taskId);
@@ -2349,7 +2459,7 @@ async function addSubtask(taskId){
   t.subtasks.push(newSub);
   render();
   const { error } = await sb.from('subtasks').insert({ id:newSub.id, task_id:taskId, title:newSub.title, done:false });
-  if(error) console.error('addSubtask failed', error);
+  if(error) writeFailed('addSubtask', error);
 }
 async function toggleSubtask(taskId, subId, evt){
   if(evt) evt.stopPropagation();
@@ -2370,10 +2480,10 @@ async function toggleSubtask(taskId, subId, evt){
   }
   render();
   const { error } = await sb.from('subtasks').update({ done:s.done }).eq('id', subId);
-  if(error) console.error('toggleSubtask failed', error);
+  if(error) writeFailed('toggleSubtask', error);
   if(t.done !== wasDone){
     const { error: taskErr } = await sb.from('tasks').update({ done:t.done, completed_at:t.completedAt }).eq('id', taskId);
-    if(taskErr) console.error('parent sync failed', taskErr);
+    if(taskErr) writeFailed('parent sync', taskErr);
     // finishing a task by ticking its last subtask should prompt for time/difficulty
     // just like ticking the task itself does
     if(t.done){
@@ -2387,7 +2497,7 @@ async function deleteSubtask(taskId, subId){
   t.subtasks = t.subtasks.filter(s => s.id !== subId);
   render();
   const { error } = await sb.from('subtasks').delete().eq('id', subId);
-  if(error) console.error('deleteSubtask failed', error);
+  if(error) writeFailed('deleteSubtask', error);
 }
 function subtaskKeydown(e, taskId){ if(e.key === 'Enter') addSubtask(taskId); }
 function toggleTodayExpand(taskId){ state.todayExpanded[taskId] = !state.todayExpanded[taskId]; render(); }
@@ -2711,14 +2821,14 @@ async function confirmTaskEditor(){
     render();
 
     const { error: taskErr } = await sb.from('tasks').insert({ id:newTask.id, ...taskRow, done:false });
-    if(taskErr){ console.error('create task failed', taskErr); return; }
+    if(taskErr){ writeFailed('create task', taskErr); return; }
     if(newTask.tagIds.length){
       const { error: tagErr } = await sb.from('task_tags').insert(newTask.tagIds.map(tagId => ({ task_id:newTask.id, tag_id:tagId })));
-      if(tagErr) console.error('link tags failed', tagErr);
+      if(tagErr) writeFailed('link tags', tagErr);
     }
     if(newTask.subtasks.length){
       const { error: subErr } = await sb.from('subtasks').insert(newTask.subtasks.map((s,i) => ({ id:s.id, task_id:newTask.id, title:s.title, done:false, position:i })));
-      if(subErr) console.error('create subtasks failed', subErr);
+      if(subErr) writeFailed('create subtasks', subErr);
     }
   } else {
     const t = state.tasks.find(t => t.id === ed.taskId);
@@ -2732,14 +2842,14 @@ async function confirmTaskEditor(){
     render();
 
     const { error: taskErr } = await sb.from('tasks').update(taskRow).eq('id', t.id);
-    if(taskErr) console.error('update task failed', taskErr);
+    if(taskErr) writeFailed('update task', taskErr);
     if(prevDate !== t.date) logTaskDateChange(t.id, prevDate, t.date);
 
     const { error: delTagErr } = await sb.from('task_tags').delete().eq('task_id', t.id);
-    if(delTagErr) console.error('clear tags failed', delTagErr);
+    if(delTagErr) writeFailed('clear tags', delTagErr);
     if(t.tagIds.length){
       const { error: tagErr } = await sb.from('task_tags').insert(t.tagIds.map(tagId => ({ task_id:t.id, tag_id:tagId })));
-      if(tagErr) console.error('relink tags failed', tagErr);
+      if(tagErr) writeFailed('relink tags', tagErr);
     }
 
     /* Sync subtasks by diffing against what existed before, instead of deleting
@@ -2753,17 +2863,17 @@ async function confirmTaskEditor(){
 
     if(removedIds.length){
       const { error } = await sb.from('subtasks').delete().in('id', removedIds);
-      if(error) console.error('delete removed subtasks failed', error);
+      if(error) writeFailed('delete removed subtasks', error);
     }
     if(newOnes.length){
       const { error } = await sb.from('subtasks').insert(newOnes.map(s => ({
         id:s.id, task_id:t.id, title:s.title, done:s.done, position:t.subtasks.indexOf(s),
       })));
-      if(error) console.error('insert new subtasks failed', error);
+      if(error) writeFailed('insert new subtasks', error);
     }
     await Promise.all(keptOnes.map(s =>
       sb.from('subtasks').update({ title:s.title, done:s.done, position:t.subtasks.indexOf(s) }).eq('id', s.id)
-        .then(({ error }) => { if(error) console.error('update subtask failed', error); })
+        .then(({ error }) => { if(error) writeFailed('update subtask', error); })
     ));
 
     if(applyToFuture){
@@ -2786,10 +2896,10 @@ async function createRecurringTemplate(){
     id: tpl.id, title: tpl.title, priority: tpl.priority, duration_min: tpl.durationMin,
     weekdays: tpl.weekdays, active: true,
   });
-  if(tplErr){ console.error('create recurring template failed', tplErr); return; }
+  if(tplErr){ writeFailed('create recurring template', tplErr); return; }
   if(tpl.tagIds.length){
     const { error: tagErr } = await sb.from('recurring_template_tags').insert(tpl.tagIds.map(tagId => ({ template_id:tpl.id, tag_id:tagId })));
-    if(tagErr) console.error('link recurring template tags failed', tagErr);
+    if(tagErr) writeFailed('link recurring template tags', tagErr);
   }
   await maybeGenerateTodayForTemplate(tpl);
 }
@@ -2802,13 +2912,13 @@ async function updateRecurringTemplateFromInstance(templateId, instance){
   const { error: tplErr } = await sb.from('recurring_templates')
     .update({ title: tpl.title, priority: tpl.priority, duration_min: tpl.durationMin })
     .eq('id', templateId);
-  if(tplErr) console.error('update recurring template failed', tplErr);
+  if(tplErr) writeFailed('update recurring template', tplErr);
 
   const { error: delErr } = await sb.from('recurring_template_tags').delete().eq('template_id', templateId);
-  if(delErr) console.error('clear recurring template tags failed', delErr);
+  if(delErr) writeFailed('clear recurring template tags', delErr);
   if(tpl.tagIds.length){
     const { error: tagErr } = await sb.from('recurring_template_tags').insert(tpl.tagIds.map(tagId => ({ template_id:templateId, tag_id:tagId })));
-    if(tagErr) console.error('relink recurring template tags failed', tagErr);
+    if(tagErr) writeFailed('relink recurring template tags', tagErr);
   }
 }
 /* A recurring instance that was never finished stays on "today" as an overdue
@@ -2823,7 +2933,7 @@ async function dropStaleRecurringInstances(templateId, todayStr){
   const ids = stale.map(t => t.id);
   state.tasks = state.tasks.filter(t => !ids.includes(t.id));
   const { error } = await sb.from('tasks').delete().in('id', ids);
-  if(error) console.error('drop stale recurring instances failed', error);
+  if(error) writeFailed('drop stale recurring instances', error);
 }
 async function maybeGenerateTodayForTemplate(tpl){
   if(!tpl.active) return;
@@ -2845,10 +2955,10 @@ async function maybeGenerateTodayForTemplate(tpl){
     id:newTask.id, title:newTask.title, priority:newTask.priority, date:newTask.date,
     duration_min:newTask.durationMin, done:false, recurring_template_id:tpl.id,
   });
-  if(taskErr){ console.error('generate recurring instance failed', taskErr); return; }
+  if(taskErr){ writeFailed('generate recurring instance', taskErr); return; }
   if(newTask.tagIds.length){
     const { error: tagErr } = await sb.from('task_tags').insert(newTask.tagIds.map(tagId => ({ task_id:newTask.id, tag_id:tagId })));
-    if(tagErr) console.error('link recurring instance tags failed', tagErr);
+    if(tagErr) writeFailed('link recurring instance tags', tagErr);
   }
 }
 function generateRecurringInstances(){
@@ -3144,12 +3254,12 @@ async function moveTaskToDate(taskId){
   state.moveTaskPicker = null;
   render();
   const { error } = await sb.from('tasks').update({ date: dateStr }).eq('id', taskId);
-  if(error) console.error('moveTaskToDate failed', error);
+  if(error) writeFailed('moveTaskToDate', error);
   if(prevDate !== dateStr) logTaskDateChange(taskId, prevDate, dateStr);
 }
 async function logTaskDateChange(taskId, oldDate, newDate){
   const { error } = await sb.from('task_date_changes').insert({ task_id:taskId, old_date: oldDate || null, new_date: newDate || null });
-  if(error) console.error('logTaskDateChange failed', error);
+  if(error) writeFailed('logTaskDateChange', error);
 }
 function renderMoveTaskPicker(){
   const search = state.moveTaskPicker.search.trim();
@@ -3258,7 +3368,7 @@ async function deleteRecurringTemplate(templateId){
   state.tasks.forEach(t => { if(t.recurringTemplateId === templateId) t.recurringTemplateId = null; });
   render();
   const { error } = await sb.from('recurring_templates').delete().eq('id', templateId);
-  if(error) console.error('deleteRecurringTemplate failed', error);
+  if(error) writeFailed('deleteRecurringTemplate', error);
 }
 /* Stops a series from generating any FUTURE occurrences. Past instances and
    today's (already-generated) one are real tasks and stay untouched — deleting
@@ -3280,10 +3390,10 @@ async function deleteRecurringFuture(templateId){
   render();
   if(futureIds.length){
     const { error: delErr } = await sb.from('tasks').delete().in('id', futureIds);
-    if(delErr) console.error('delete future recurring instances failed', delErr);
+    if(delErr) writeFailed('delete future recurring instances', delErr);
   }
   const { error } = await sb.from('recurring_templates').delete().eq('id', templateId);
-  if(error) console.error('deleteRecurringFuture failed', error);
+  if(error) writeFailed('deleteRecurringFuture', error);
 }
 
 /* ---------- recurring template editing (from a future-day preview) ---------- */
@@ -3352,13 +3462,13 @@ async function confirmRecurringEditor(){
   const { error } = await sb.from('recurring_templates')
     .update({ title: tpl.title, priority: tpl.priority, duration_min: tpl.durationMin, weekdays: tpl.weekdays })
     .eq('id', tpl.id);
-  if(error) console.error('update recurring template failed', error);
+  if(error) writeFailed('update recurring template', error);
 
   const { error: delErr } = await sb.from('recurring_template_tags').delete().eq('template_id', tpl.id);
-  if(delErr) console.error('clear recurring tags failed', delErr);
+  if(delErr) writeFailed('clear recurring tags', delErr);
   if(tpl.tagIds.length){
     const { error: tagErr } = await sb.from('recurring_template_tags').insert(tpl.tagIds.map(tagId => ({ template_id:tpl.id, tag_id:tagId })));
-    if(tagErr) console.error('relink recurring tags failed', tagErr);
+    if(tagErr) writeFailed('relink recurring tags', tagErr);
   }
 }
 function renderRecurringEditorModal(){
@@ -3956,14 +4066,21 @@ async function confirmSubscriptionEditor(){
   };
   if(ed.subId){
     const sub = state.subscriptions.find(s => s.id === ed.subId);
+    const before = { name:sub.name, cycle:sub.cycle, nextRenewal:sub.nextRenewal, notifyDaysBefore:sub.notifyDaysBefore, note:sub.note };
     Object.assign(sub, { name:payload.name, cycle:payload.cycle, nextRenewal:ed.nextRenewal, notifyDaysBefore:ed.notifyDaysBefore, note:ed.note });
     state.subscriptionEditor = null; render();
-    await sb.from('subscriptions').update(payload).eq('id', ed.subId);
+    await persist(sb.from('subscriptions').update(payload).eq('id', ed.subId), {
+      message: `تغییرات «${before.name}» ذخیره نشد — اینترنتت رو چک کن و دوباره امتحان کن.`,
+      rollback: () => Object.assign(sub, before),
+    });
   } else {
     const id = crypto.randomUUID();
-    state.subscriptions.push({ id, ...payload, nextRenewal:ed.nextRenewal, active:true, notifyDaysBefore:ed.notifyDaysBefore, note:ed.note });
+    state.subscriptions.push({ id, name:payload.name, cycle:payload.cycle, nextRenewal:ed.nextRenewal, active:true, notifyDaysBefore:ed.notifyDaysBefore, note:ed.note });
     state.subscriptionEditor = null; render();
-    await sb.from('subscriptions').insert({ id, ...payload, active:true });
+    await persist(sb.from('subscriptions').insert({ id, ...payload, active:true }), {
+      message: `«${payload.name}» ذخیره نشد — اینترنتت رو چک کن و دوباره اضافه‌ش کن.`,
+      rollback: () => { state.subscriptions = state.subscriptions.filter(s => s.id !== id); },
+    });
   }
 }
 async function toggleSubActive(subId){
@@ -3971,19 +4088,31 @@ async function toggleSubActive(subId){
   if(!sub) return;
   sub.active = !sub.active;
   render();
-  await sb.from('subscriptions').update({ active: sub.active }).eq('id', subId);
+  await persist(sb.from('subscriptions').update({ active: sub.active }).eq('id', subId), {
+    message: `وضعیت «${sub.name}» ذخیره نشد — اینترنتت رو چک کن.`,
+    rollback: () => { sub.active = !sub.active; },
+  });
 }
 async function markSubRenewed(subId){
   const sub = state.subscriptions.find(s => s.id === subId);
   if(!sub || !sub.nextRenewal) return;
+  const before = sub.nextRenewal;
   sub.nextRenewal = advanceRenewal(sub.nextRenewal, sub.cycle);
   render();
-  await sb.from('subscriptions').update({ next_renewal: sub.nextRenewal }).eq('id', subId);
+  await persist(sb.from('subscriptions').update({ next_renewal: sub.nextRenewal }).eq('id', subId), {
+    message: `تمدید «${sub.name}» ذخیره نشد — اینترنتت رو چک کن.`,
+    rollback: () => { sub.nextRenewal = before; },
+  });
 }
 async function deleteSubscription(subId){
-  state.subscriptions = state.subscriptions.filter(s => s.id !== subId);
+  const idx = state.subscriptions.findIndex(s => s.id === subId);
+  if(idx === -1) return;
+  const [removed] = state.subscriptions.splice(idx, 1);
   render();
-  await sb.from('subscriptions').delete().eq('id', subId);
+  await persist(sb.from('subscriptions').delete().eq('id', subId), {
+    message: `حذف «${removed.name}» ذخیره نشد — اینترنتت رو چک کن.`,
+    rollback: () => { state.subscriptions.splice(idx, 0, removed); },
+  });
 }
 
 /* ---------- reminders ("یادت نره") ----------
@@ -4296,13 +4425,13 @@ async function confirmReminderEditor(){
     if(r) Object.assign(r, local);
     state.reminderEditor = null; render();
     const { error } = await sb.from('reminders').update(row).eq('id', ed.reminderId);
-    if(error) console.error('update reminder failed', error);
+    if(error) writeFailed('update reminder', error);
   } else {
     const id = uid();
     state.reminders.push(Object.assign({ id, done:false, createdAt:new Date().toISOString() }, local));
     state.reminderEditor = null; render();
     const { error } = await sb.from('reminders').insert(Object.assign({ id, done:false }, row));
-    if(error) console.error('create reminder failed', error);
+    if(error) writeFailed('create reminder', error);
   }
 }
 /* Ticking a yearly reminder doesn't retire it — it books the next year. */
@@ -4313,19 +4442,19 @@ async function completeReminder(id){
     const next = advanceJalaliYear(r.date);
     r.date = next; render();
     const { error } = await sb.from('reminders').update({ date: next }).eq('id', id);
-    if(error) console.error('roll yearly reminder failed', error);
+    if(error) writeFailed('roll yearly reminder', error);
     return;
   }
   r.done = true; render();
   const { error } = await sb.from('reminders').update({ done:true }).eq('id', id);
-  if(error) console.error('complete reminder failed', error);
+  if(error) writeFailed('complete reminder', error);
 }
 async function reopenReminder(id){
   const r = state.reminders.find(x => x.id === id);
   if(!r) return;
   r.done = false; render();
   const { error } = await sb.from('reminders').update({ done:false }).eq('id', id);
-  if(error) console.error('reopen reminder failed', error);
+  if(error) writeFailed('reopen reminder', error);
 }
 const pendingReminderDeleteTimers = {};
 async function deleteReminder(id){
@@ -4342,7 +4471,7 @@ async function deleteReminder(id){
   pendingReminderDeleteTimers[id] = setTimeout(async () => {
     delete pendingReminderDeleteTimers[id];
     const { error } = await sb.from('reminders').delete().eq('id', id);
-    if(error) console.error('delete reminder failed', error);
+    if(error) writeFailed('delete reminder', error);
   }, 5000);
 }
 /* A birthday you never ticked shouldn't sit there red forever — once it's a
@@ -4355,7 +4484,7 @@ function rolloverYearlyReminders(){
     if(d === r.date) return;
     r.date = d;
     sb.from('reminders').update({ date:d }).eq('id', r.id)
-      .then(({ error }) => { if(error) console.error('rollover yearly reminder failed', error); });
+      .then(({ error }) => { if(error) writeFailed('rollover yearly reminder', error); });
   });
 }
 
@@ -4643,6 +4772,7 @@ function render(){
     ${renderTaskEditorModal()}
     ${state.taskCompletionModal ? renderTaskCompletionModal() : ''}
     ${state.undoToast ? renderUndoToast() : ''}
+    ${state.saveError ? renderSaveErrorToast() : ''}
     ${state.moreMenuOpen ? renderMoreMenu() : ''}
     ${state.recurringEditor ? renderRecurringEditorModal() : ''}
     ${state.subscriptionEditor ? renderSubscriptionEditorModal() : ''}
@@ -4747,6 +4877,14 @@ function renderUndoToast(){
       <span>${escapeHtml(state.undoToast.message)}</span>
       <button onclick="triggerUndo()">واگرد</button>
       <button class="undo-close" onclick="dismissUndoToast()" title="بستن">✕</button>
+    </div>
+  `;
+}
+function renderSaveErrorToast(){
+  return `
+    <div class="undo-toast failed">
+      <span>${escapeHtml(state.saveError.message)}</span>
+      <button class="undo-close" onclick="dismissSaveError()" title="بستن">✕</button>
     </div>
   `;
 }
