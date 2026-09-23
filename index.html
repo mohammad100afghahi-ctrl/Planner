@@ -1073,7 +1073,8 @@ global.jalaali = {
 
   .loading{text-align:center; color:var(--text-muted); font-size:13px; padding:60px 0;}
 
-  /* sign-in gate */
+  /* sign-in gate — no nav rail yet, so drop the space the rail reserves */
+  body.signed-out{padding-right:0;}
   .login{max-width:340px; margin:12vh auto 0; display:flex; flex-direction:column; gap:12px;}
   .login h1{font-family:var(--display); font-size:44px; line-height:1; color:var(--accent); text-align:center;}
   .login .sub{font-size:12px; color:var(--text-muted); text-align:center; margin-bottom:12px;}
@@ -5417,10 +5418,12 @@ let appStarted = false;
 function bootApp(){
   if(appStarted) return;
   appStarted = true;
+  document.body.classList.remove('signed-out');
   loadAll();
   loadEncouragement();
 }
 function renderLogin(){
+  document.body.classList.add('signed-out');
   document.getElementById('app').innerHTML = `
     <form class="login" onsubmit="submitLogin(event)">
       <h1>مدار</h1>
