@@ -553,7 +553,24 @@ global.jalaali = {
   }
   .add-purchase-box > input:focus{border-color:var(--accent);}
   .add-purchase-row{display:flex; flex-wrap:wrap; gap:6px; align-items:center;}
-  .add-purchase-row .num-text{width:110px;}
+  /* One look for every field. :where() keeps this at zero specificity, so any
+     component rule (.modal-title-input, .add-idea-box textarea, …) still wins;
+     this only catches inputs nobody styled, which used to fall back to the
+     browser's grey box. */
+  :where(input:not([type=checkbox],[type=radio],[type=color],[type=file],[type=range]), select, textarea){
+    background:var(--surface-2); border:1px solid var(--line); color:var(--text);
+    font-family:inherit; font-size:13px; padding:7px 10px; border-radius:8px; outline:none;
+  }
+  :where(input, select, textarea):focus{border-color:var(--accent);}
+  :where(input, textarea)::placeholder{color:var(--text-muted); opacity:.75;}
+  input[type=number]{-moz-appearance:textfield; appearance:textfield;}
+  input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none; margin:0;}
+  .num-text{
+    width:80px; background:var(--surface-2); border:1px solid var(--line); color:var(--text);
+    font-family:inherit; font-size:12.5px; padding:6px 10px; border-radius:8px; outline:none; text-align:center;
+  }
+  .num-text:focus{border-color:var(--accent);}
+  .add-purchase-row .num-text{flex:1 1 60px; min-width:0; max-width:140px;}
   .add-purchase-row button{
     margin-right:auto; background:var(--accent); color:#12161C; border:none; font-family:inherit;
     font-size:13px; font-weight:700; padding:8px 16px; border-radius:8px; cursor:pointer;
@@ -571,6 +588,7 @@ global.jalaali = {
     font-size:14px; padding:10px 12px; border-radius:9px; outline:none; font-family:inherit; resize:vertical; line-height:1.8;
   }
   .add-idea-box textarea:focus{border-color:var(--accent);}
+  .move-pick-tags{display:flex; flex-wrap:wrap; gap:6px; margin:10px 0 4px;}
   .add-idea-tags{display:flex; flex-wrap:wrap; gap:6px; margin-top:10px;}
   .add-idea-btn{
     margin-top:10px; background:var(--accent); color:#12161C; border:none; font-family:inherit;
@@ -598,7 +616,11 @@ global.jalaali = {
   }
   .idea-thumb-x:hover{background:var(--danger);}
   .idea-thumb-dl:hover{background:var(--accent); color:#12161C;}
-  .add-idea-actions{display:flex; align-items:center; gap:8px; margin-top:10px;}
+  .add-idea-actions{display:flex; align-items:stretch; gap:8px; margin-top:10px;}
+  .add-idea-actions .add-idea-btn{margin-top:0;}
+  .add-idea-actions .add-idea-btn, .add-idea-actions .idea-img-btn{
+    font-size:13px; line-height:1.4; padding:9px 16px; justify-content:center;
+  }
   .idea-img-btn{
     display:inline-flex; align-items:center; gap:6px; background:var(--surface-2); border:1px solid var(--line);
     color:var(--text-muted); font-size:12.5px; font-weight:700; padding:9px 14px; border-radius:8px; cursor:pointer;
@@ -700,6 +722,11 @@ global.jalaali = {
     background:color-mix(in srgb, var(--chip-color) 16%, var(--surface-2)); color:var(--chip-color);
   }
   .tag-chip .tag-x{opacity:.6; font-size:11px;}
+  .tag-color-dot{
+    position:relative; width:14px; height:14px; border-radius:50%; flex-shrink:0; cursor:pointer;
+    background:var(--chip-color); border:1px solid color-mix(in srgb, var(--chip-color) 60%, white 40%);
+  }
+  .tag-color-dot input{position:absolute; inset:0; width:100%; height:100%; opacity:0; cursor:pointer; border:0; padding:0;}
   .tag-chip .tag-x:hover{opacity:1;}
   .new-tag-row{display:flex; gap:8px; align-items:center;}
   .new-tag-row input[type=text]{
@@ -711,7 +738,7 @@ global.jalaali = {
   }
   .tag-goals-section{margin-top:16px; padding-top:14px; border-top:1px solid var(--line);}
   .tag-goal-row{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:8px;}
-  .tag-goal-row .num-text{width:60px;}
+  .tag-goal-row .num-text{width:84px;}
   .goal-reason-input{
     width:100%; margin-top:6px; background:var(--surface-2); border:1px solid var(--line); color:var(--text);
     font-size:11.5px; padding:7px 10px; border-radius:8px; outline:none; font-family:inherit;
@@ -1386,7 +1413,7 @@ let state = {
     const j = window.jalaali.toJalaali(new Date());
     return { jy: j.jy, jm: j.jm, panel: 'grid', selectedDayKey: null };
   })(),
-  moveTaskPicker: null, // { search:'', dateStr } when picking an existing task to move into a calendar day
+  moveTaskPicker: null, // { search:'', tagIds:[], dateStr } when picking an existing task to move into a calendar day
   recurringTemplates: [], // [{ id, title, priority, durationMin, weekdays:[0-6], active, tagIds }]
   recurringManagerOpen: false,
   tagGoals: [], // [{ tagId, weeklyMinutes }] — standing weekly time targets per tag
@@ -1883,6 +1910,14 @@ async function addTag(){
   render();
   const { error } = await sb.from('tags').insert({ id:newTag.id, name:newTag.name, color:newTag.color });
   if(error) writeFailed('addTag', error);
+}
+async function updateTagColor(tagId, color){
+  const tag = state.tags.find(t => t.id === tagId);
+  if(!tag || tag.color === color) return;
+  tag.color = color;
+  render();
+  const { error } = await sb.from('tags').update({ color }).eq('id', tagId);
+  if(error) writeFailed('updateTagColor', error);
 }
 async function deleteTag(tagId){
   state.tags = state.tags.filter(t => t.id !== tagId);
@@ -3354,10 +3389,23 @@ function renderCalendarPageDayPanel(){
   `;
 }
 function openMoveTaskPicker(dateStr){
-  state.moveTaskPicker = { search:'', dateStr };
+  state.moveTaskPicker = { search:'', tagIds:[], dateStr };
   render();
 }
-function moveTaskPickerSetSearch(v){ state.moveTaskPicker.search = v; render(); }
+/* Search and tag filter only redraw the result list — a full render() would
+   rebuild the input on every keystroke, dropping focus and the mobile keyboard. */
+function refreshMoveTaskPickerList(){
+  const el = document.getElementById('move-task-pick-list');
+  if(el) el.innerHTML = renderMoveTaskPickerList();
+}
+function moveTaskPickerSetSearch(v){ state.moveTaskPicker.search = v; refreshMoveTaskPickerList(); }
+function moveTaskPickerToggleTag(tagId, chip){
+  const f = state.moveTaskPicker.tagIds;
+  const i = f.indexOf(tagId);
+  if(i === -1) f.push(tagId); else f.splice(i, 1);
+  chip.classList.toggle('on', i === -1);
+  refreshMoveTaskPickerList();
+}
 function cancelMoveTaskPicker(){ state.moveTaskPicker = null; render(); }
 async function moveTaskToDate(taskId){
   const dateStr = state.moveTaskPicker.dateStr;
@@ -3375,27 +3423,37 @@ async function logTaskDateChange(taskId, oldDate, newDate){
   const { error } = await sb.from('task_date_changes').insert({ task_id:taskId, old_date: oldDate || null, new_date: newDate || null });
   if(error) writeFailed('logTaskDateChange', error);
 }
-function renderMoveTaskPicker(){
-  const search = state.moveTaskPicker.search.trim();
-  const dateStr = state.moveTaskPicker.dateStr;
+function renderMoveTaskPickerList(){
+  const { dateStr, tagIds } = state.moveTaskPicker;
+  const search = state.moveTaskPicker.search.trim().toLowerCase();
   let list = state.tasks.filter(t => !t.done && t.date !== dateStr);
-  if(search) list = list.filter(t => t.title.includes(search));
+  if(search) list = list.filter(t => t.title.toLowerCase().includes(search));
+  if(tagIds.length) list = list.filter(t => t.tagIds.some(id => tagIds.includes(id)));
+  return list.length === 0
+    ? `<div class="empty-state" style="padding:14px 0;">تسک انجام‌نشده‌ای با این جست‌وجو پیدا نشد</div>`
+    : list.map(t => `
+      <button class="pomo-task-pick-row" onclick="moveTaskToDate('${t.id}')">
+        <span>${escapeHtml(t.title)}${t.date ? ` <span class="summary-text">(${formatDateShort(t.date)})</span>` : ''}</span>
+        ${t.durationMin ? `<span class="summary-text">${toFaDigits(t.durationMin)} د</span>` : ''}
+      </button>
+    `).join('');
+}
+function renderMoveTaskPicker(){
+  const tagIds = state.moveTaskPicker.tagIds;
   return `
     <div class="modal-overlay" onclick="if(event.target===this) cancelMoveTaskPicker()">
       <div class="modal-box">
         <h3>کدوم کار بیاد توی این روز؟</h3>
         <input type="text" class="modal-title-input" placeholder="جست‌وجو در تسک‌های انجام‌نشده…"
-          value="${escapeHtml(state.moveTaskPicker.search)}" oninput="moveTaskPickerSetSearch(this.value)" />
-        <div class="pomo-task-pick-list">
-          ${list.length === 0
-            ? `<div class="empty-state" style="padding:14px 0;">تسک انجام‌نشده‌ای با این جست‌وجو پیدا نشد</div>`
-            : list.map(t => `
-              <button class="pomo-task-pick-row" onclick="moveTaskToDate('${t.id}')">
-                <span>${escapeHtml(t.title)}${t.date ? ` <span class="summary-text">(${formatDateShort(t.date)})</span>` : ''}</span>
-                ${t.durationMin ? `<span class="summary-text">${toFaDigits(t.durationMin)} د</span>` : ''}
-              </button>
-            `).join('')
-          }
+          value="${escapeHtml(state.moveTaskPicker.search)}" oninput="moveTaskPickerSetSearch(this.value)"
+          onkeydown="if(event.key==='Enter'){ event.preventDefault(); this.blur(); }" />
+        ${state.tags.length ? `
+          <div class="move-pick-tags">
+            ${state.tags.map(t => `<span class="pick-chip ${tagIds.includes(t.id)?'on':''}" style="--chip-color:${t.color}" onclick="moveTaskPickerToggleTag('${t.id}', this)">${escapeHtml(t.name)}</span>`).join('')}
+          </div>
+        ` : ''}
+        <div class="pomo-task-pick-list" id="move-task-pick-list">
+          ${renderMoveTaskPickerList()}
         </div>
         <div class="modal-actions">
           <button class="cancel" onclick="cancelMoveTaskPicker()">انصراف</button>
@@ -3418,6 +3476,9 @@ function renderTagManager(){
           <div class="tag-list">
             ${state.tags.map(tag => `
               <span class="tag-chip" style="--chip-color:${tag.color}">
+                <label class="tag-color-dot" title="تغییر رنگ">
+                  <input type="color" value="${tag.color}" onchange="updateTagColor('${tag.id}', this.value)" />
+                </label>
                 ${escapeHtml(tag.name)}
                 <span class="tag-x" onclick="deleteTag('${tag.id}')">✕</span>
               </span>
@@ -3961,7 +4022,7 @@ function renderPurchasesPage(){
     <div class="add-purchase-box">
       <input type="text" id="new-purchase-title" placeholder="چی باید بخری؟" value="${escapeHtml(state.newPurchaseTitle || '')}" onkeydown="if(event.key==='Enter'){event.preventDefault(); addPurchase();}" />
       <div class="add-purchase-row">
-        <input type="text" id="new-purchase-price" inputmode="numeric" class="num-text" placeholder="قیمت (اختیاری)" value="${escapeHtml(state.newPurchasePrice || '')}" oninput="normalizeNumericInput(this)" />
+        <input type="text" id="new-purchase-price" inputmode="numeric" class="num-text" placeholder="قیمت" value="${escapeHtml(state.newPurchasePrice || '')}" oninput="normalizeNumericInput(this)" />
         <span class="priority-chip high ${state.newPurchasePriority==='high'?'active':''}" onclick="setNewPurchasePriority('high')">بالا</span>
         <span class="priority-chip medium ${state.newPurchasePriority==='medium'?'active':''}" onclick="setNewPurchasePriority('medium')">متوسط</span>
         <span class="priority-chip low ${state.newPurchasePriority==='low'?'active':''}" onclick="setNewPurchasePriority('low')">پایین</span>
@@ -4193,7 +4254,8 @@ function renderSubscriptionEditorModal(){
         </div>
         <div class="modal-section">
           <span class="modal-section-label">چند روز قبل هشدار بده</span>
-          <input type="number" min="0" max="30" value="${ed.notifyDaysBefore}" onchange="subEditorSet('notifyDaysBefore',this.value)" />
+          <input type="text" inputmode="numeric" class="num-text" value="${toFaDigits(ed.notifyDaysBefore)}"
+            oninput="normalizeNumericInput(this)" onchange="subEditorSet('notifyDaysBefore', Math.min(30, parseInt(toEnDigits(this.value),10) || 0))" />
         </div>
         <div class="modal-section">
           <span class="modal-section-label">یادداشت</span>
