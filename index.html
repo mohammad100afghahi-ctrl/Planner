@@ -556,6 +556,7 @@ global.jalaali = {
   }
   .idea-editor-textarea:focus{border-color:var(--accent);}
   .idea-tags{display:flex; flex-wrap:wrap; gap:5px;}
+  .ideas-filter{margin-bottom:14px;}
 
   .icn{display:inline-block; vertical-align:-0.18em; flex-shrink:0;}
   h2.section-title{font-family:var(--display); font-size:23px; font-weight:600; color:var(--text); margin:26px 0 12px; line-height:1.2;}
@@ -689,6 +690,14 @@ global.jalaali = {
   }
   .recurring-tpl-title{font-size:13px; font-weight:600; color:var(--text);}
   .recurring-tpl-days{font-size:11px; color:var(--text-muted); margin-top:3px;}
+  .recurring-tpl-row.paused .recurring-tpl-title{color:var(--text-muted);}
+  .recurring-paused-label{color:var(--text-muted); font-weight:700;}
+  .recurring-tpl-actions{display:flex; align-items:center; gap:4px; flex-shrink:0;}
+  .recurring-pause-btn{
+    display:inline-flex; align-items:center; justify-content:center; width:28px; height:28px;
+    background:none; border:1px solid var(--line); border-radius:7px; color:var(--text-muted); cursor:pointer;
+  }
+  .recurring-pause-btn:hover{border-color:var(--accent); color:var(--accent);}
   .recurring-toggle, .apply-future-check{
     display:flex; align-items:center; gap:8px; font-size:12.5px; color:var(--text); cursor:pointer; user-select:none;
   }
@@ -1082,6 +1091,11 @@ global.jalaali = {
   .streak-count{font-family:var(--display); font-size:26px; font-weight:700; line-height:1; color:var(--accent); font-variant-numeric:tabular-nums;}
   .streak-badge.at-risk .streak-count{color:var(--text-muted);}
   .streak-label{font-size:11.5px; color:var(--text-muted);}
+  .streak-freeze{
+    display:inline-flex; align-items:center; gap:4px; margin-inline-start:6px; padding-inline-start:10px;
+    border-inline-start:1px solid var(--line); color:var(--python); font-size:13px; font-weight:700;
+  }
+  .streak-freeze.empty{color:var(--text-muted); opacity:.6;}
 
   /* shared "pick a task from a list" pattern — used by the move-to-day calendar picker */
   .actual-time-row{font-size:11.5px; color:var(--freelance); margin-top:4px;}
@@ -1239,6 +1253,7 @@ function icon(name, size){
     pause:    `<path d="M9 5v14M15 5v14"/>`,
     play:     `<path d="M7 5l12 7-12 7z"/>`,
     close:    `<path d="M6 6l12 12M18 6L6 18"/>`,
+    snowflake:`<path d="M12 2v20M4.9 7l14.2 10M4.9 17L19.1 7"/><path d="M9.5 3.5L12 6l2.5-2.5M9.5 20.5L12 18l2.5 2.5"/>`,
     flame:    `<path d="M12 22c4 0 6.5-2.7 6.5-6 0-4.5-4.5-6-4.5-10-3 1.5-4.5 4-4.5 6.5 0 1-.6 1.6-1.2 1.6-.9 0-1.3-1-1.3-2.3C5.8 13.4 5.5 14.7 5.5 16c0 3.3 2.5 6 6.5 6z"/>`,
     copy:     `<rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/>`,
     repeat:   `<path d="M17 2l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14M7 22l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/>`,
@@ -1362,6 +1377,7 @@ let state = {
   purchases: [], // [{ id, title, priority, price, bought, boughtAt }]
   purchaseSort: 'default', // 'default' | 'cheapest' | 'priciest'
   ideas: [], // [{ id, body, tagIds, createdAt }]
+  ideasFilterTagIds: [], // ideas page: show only ideas carrying ANY of these tags (empty = all)
   archiveSection: 'tasks', // 'tasks' | 'purchases'
   moreMenuOpen: false,
   ideaEditor: null, // { ideaId, body, tagIds, images } while editing an idea
@@ -1541,6 +1557,7 @@ function startRealtimeSync(){
       state.tasks.forEach(task => { task.tagIds = task.tagIds.filter(id => id !== old.id); });
       state.todayFilters.tagIds = state.todayFilters.tagIds.filter(id => id !== old.id);
       state.tasksFilters.tagIds = state.tasksFilters.tagIds.filter(id => id !== old.id);
+      state.ideasFilterTagIds = state.ideasFilterTagIds.filter(id => id !== old.id);
       render();
     },
   });
@@ -2094,6 +2111,12 @@ function downloadIdeaImage(ideaId, imgId){
   a.click();
   document.body.removeChild(a);
 }
+function toggleIdeasFilterTag(tagId){
+  const f = state.ideasFilterTagIds;
+  state.ideasFilterTagIds = f.includes(tagId) ? f.filter(id => id !== tagId) : [...f, tagId];
+  render();
+}
+function clearIdeasFilter(){ state.ideasFilterTagIds = []; render(); }
 function toggleNewIdeaTag(tagId){
   /* same preservation rule as purchases: re-rendering must not discard the text
      the user has already typed into the textarea */
@@ -3420,18 +3443,43 @@ function renderRecurringManager(){
       ${state.recurringManagerOpen ? `
         <div class="tag-manager-body">
           ${state.recurringTemplates.length === 0 ? `<div class="empty-state" style="padding:10px 0;">هنوز کار تکرارشونده‌ای نساختی — از فرم «افزودن کار» می‌تونی بسازی</div>` : state.recurringTemplates.map(tpl => `
-            <div class="recurring-tpl-row">
+            <div class="recurring-tpl-row ${tpl.active ? '' : 'paused'}">
               <div>
                 <div class="recurring-tpl-title">${escapeHtml(tpl.title)}</div>
-                <div class="recurring-tpl-days">${WEEKDAY_DISPLAY_ORDER.filter(d => tpl.weekdays.includes(d)).map(d => WEEKDAYS_FA[d].slice(0,2)).join('، ')}</div>
+                <div class="recurring-tpl-days">${tpl.active ? '' : '<span class="recurring-paused-label">متوقف · </span>'}${WEEKDAY_DISPLAY_ORDER.filter(d => tpl.weekdays.includes(d)).map(d => WEEKDAYS_FA[d].slice(0,2)).join('، ')}</div>
               </div>
-              <button class="tag-x" onclick="deleteRecurringTemplate('${tpl.id}')" title="حذف تکرار">✕</button>
+              <div class="recurring-tpl-actions">
+                <button class="recurring-pause-btn" onclick="toggleRecurringActive('${tpl.id}')" title="${tpl.active ? 'توقف' : 'ادامه'}" aria-label="${tpl.active ? 'توقف' : 'ادامه'}">${icon(tpl.active ? 'pause' : 'play',14)}</button>
+                <button class="tag-x" onclick="deleteRecurringTemplate('${tpl.id}')" title="حذف تکرار">✕</button>
+              </div>
             </div>
           `).join('')}
         </div>
       ` : ''}
     </div>
   `;
+}
+/* Pausing stops new occurrences until resumed. An unfinished occurrence for
+   today or later goes too — otherwise a "paused" task would still sit on today.
+   Finished ones are history and stay. Resuming generates today's right away. */
+async function toggleRecurringActive(templateId){
+  const tpl = state.recurringTemplates.find(t => t.id === templateId);
+  if(!tpl) return;
+  tpl.active = !tpl.active;
+  let dropIds = [];
+  if(!tpl.active){
+    const todayStr = dateKey(new Date());
+    dropIds = state.tasks.filter(t => t.recurringTemplateId === templateId && !t.done && t.date && t.date >= todayStr).map(t => t.id);
+    state.tasks = state.tasks.filter(t => !dropIds.includes(t.id));
+  }
+  render();
+  const { error } = await sb.from('recurring_templates').update({ active: tpl.active }).eq('id', templateId);
+  if(error){ writeFailed('toggleRecurringActive', error); return; }
+  if(dropIds.length){
+    const { error: delErr } = await sb.from('tasks').delete().in('id', dropIds);
+    if(delErr) writeFailed('drop paused recurring instances', delErr);
+  }
+  if(tpl.active) await maybeGenerateTodayForTemplate(tpl);
 }
 async function deleteRecurringTemplate(templateId){
   state.recurringTemplates = state.recurringTemplates.filter(t => t.id !== templateId);
@@ -3915,10 +3963,15 @@ function renderPurchasesPage(){
 function renderIdeasPage(){
   const selected = state.newIdeaTagIds || [];
   const newImages = state.newIdeaImages || [];
+  // only tags that at least one idea actually carries are worth offering as filters
+  const usedTagIds = new Set(state.ideas.flatMap(i => i.tagIds));
+  const filterTags = state.tags.filter(t => usedTagIds.has(t.id));
+  const filterIds = state.ideasFilterTagIds.filter(id => usedTagIds.has(id));
+  const shownIdeas = filterIds.length ? state.ideas.filter(i => i.tagIds.some(id => filterIds.includes(id))) : state.ideas;
   return `
     <h2 class="section-title">افکار و ایده‌ها</h2>
     <div class="add-idea-box">
-      <textarea id="new-idea-body" placeholder="چی توی ذهنته؟ (خام و بدون ساختار بنویس…)">${escapeHtml(state.newIdeaBody || '')}</textarea>
+      <textarea id="new-idea-body" data-preserve oninput="state.newIdeaBody=this.value" placeholder="چی توی ذهنته؟ (خام و بدون ساختار بنویس…)">${escapeHtml(state.newIdeaBody || '')}</textarea>
       ${newImages.length ? `
         <div class="idea-image-strip">
           ${newImages.map(im => `
@@ -3940,7 +3993,16 @@ function renderIdeasPage(){
         <button class="add-idea-btn" onclick="addIdea()">ثبت ایده</button>
       </div>
     </div>
-    ${state.ideas.length === 0 ? `<div class="empty-state">هنوز ایده‌ای ثبت نکردی</div>` : state.ideas.map(i => `
+    ${filterTags.length ? `
+      <div class="filter-group ideas-filter">
+        <span class="filter-group-label">تگ:</span>
+        <span class="filter-chip ${filterIds.length ? '' : 'active'}" onclick="clearIdeasFilter()">همه</span>
+        ${filterTags.map(t => `<span class="filter-chip ${filterIds.includes(t.id)?'active':''}" onclick="toggleIdeasFilterTag('${t.id}')">${escapeHtml(t.name)}</span>`).join('')}
+      </div>
+    ` : ''}
+    ${state.ideas.length === 0 ? `<div class="empty-state">هنوز ایده‌ای ثبت نکردی</div>`
+      : shownIdeas.length === 0 ? `<div class="empty-state">ایده‌ای با این تگ‌ها نیست</div>`
+      : shownIdeas.map(i => `
       <div class="idea-card">
         ${i.body ? `<div class="idea-body">${escapeHtml(i.body)}</div>` : ''}
         ${(i.images && i.images.length) ? `
@@ -3973,7 +4035,7 @@ function renderIdeaEditorModal(){
     <div class="modal-overlay" onclick="if(event.target===this) closeIdeaEditor()">
       <div class="modal-box">
         <h3>ویرایش ایده</h3>
-        <textarea id="idea-editor-body" class="idea-editor-textarea" placeholder="متن ایده…">${escapeHtml(ed.body)}</textarea>
+        <textarea id="idea-editor-body" class="idea-editor-textarea" data-preserve oninput="state.ideaEditor.body=this.value" placeholder="متن ایده…">${escapeHtml(ed.body)}</textarea>
         ${ed.images.length ? `
           <div class="idea-image-strip">
             ${ed.images.map(im => `
@@ -4953,7 +5015,14 @@ function renderFab(){
   return `<button class="fab" onclick="openTaskEditorNew()" title="افزودن تسک" aria-label="افزودن تسک">+</button>`;
 }
 
-/* ---------- streak (Duolingo-style: consecutive days with >=1 task completed on that task's own date) ---------- */
+/* ---------- streak (Duolingo-style: consecutive days with >=1 task completed on that task's own date) ----------
+   Streak freezes are derived from history rather than stored, so every device
+   agrees and nothing can drift: replay each day from the first completion. Every
+   STREAK_FREEZE_EVERY active days earns one freeze (holding at most
+   STREAK_FREEZE_MAX); a missed day while a streak is alive spends one
+   automatically. A frozen day keeps the streak alive but doesn't add to it. */
+const STREAK_FREEZE_EVERY = 7;
+const STREAK_FREEZE_MAX = 2;
 function computeStreak(){
   const doneDates = new Set();
   state.tasks.forEach(t => {
@@ -4968,22 +5037,44 @@ function computeStreak(){
   const todayKey = dateKey(new Date());
   const atRisk = !doneDates.has(todayKey);
 
-  let streak = 0;
-  const cursor = new Date();
-  if(atRisk) cursor.setDate(cursor.getDate() - 1); // today not done yet: count contiguous days ending yesterday
-  while(doneDates.has(dateKey(cursor))){
-    streak++;
-    cursor.setDate(cursor.getDate() - 1);
+  let streak = 0, freezes = 0, towardFreeze = 0, frozeYesterday = false;
+  const first = [...doneDates].sort()[0];
+  if(first && first <= todayKey){
+    const [y, m, d] = first.split('-').map(Number);
+    const cursor = new Date(y, m - 1, d);
+    for(let key = dateKey(cursor); key <= todayKey; cursor.setDate(cursor.getDate() + 1), key = dateKey(cursor)){
+      if(doneDates.has(key)){
+        streak++;
+        if(++towardFreeze >= STREAK_FREEZE_EVERY){
+          towardFreeze = 0;
+          if(freezes < STREAK_FREEZE_MAX) freezes++;
+        }
+        frozeYesterday = false;
+      } else if(key === todayKey){
+        // today isn't over yet: not a miss, just at risk
+      } else if(streak > 0 && freezes > 0){
+        freezes--;
+        frozeYesterday = true;
+      } else {
+        streak = 0; towardFreeze = 0; frozeYesterday = false;
+      }
+    }
   }
-  return { streak, atRisk };
+  return { streak, atRisk, freezes, frozeYesterday };
 }
 function renderStreakBadge(){
-  const { streak, atRisk } = computeStreak();
+  const { streak, atRisk, freezes, frozeYesterday } = computeStreak();
+  const title = frozeYesterday ? 'دیروز یه فریز خرج شد و استریکت حفظ شد'
+    : atRisk ? 'امروز هنوز تسکی تکمیل نکردی — استریکت در خطره'
+    : 'امروز حفظ شد';
   return `
-    <div class="streak-badge ${atRisk ? 'at-risk' : ''}" title="${atRisk ? 'امروز هنوز تسکی تکمیل نکردی — استریکت در خطره' : 'امروز حفظ شد'}">
+    <div class="streak-badge ${atRisk ? 'at-risk' : ''}" title="${title}">
       <span class="streak-flame">${icon('flame',18)}</span>
       <span class="streak-count mono">${toFaDigits(streak)}</span>
       <span class="streak-label">روز پیاپی</span>
+      <span class="streak-freeze ${freezes ? '' : 'empty'}" title="فریز: هر ${toFaDigits(STREAK_FREEZE_EVERY)} روز پیاپی یکی جایزه می‌گیری (حداکثر ${toFaDigits(STREAK_FREEZE_MAX)} تا) و روزی که جا بندازی خودکار خرج می‌شه">
+        ${icon('snowflake',14)}<span class="mono">${toFaDigits(freezes)}</span>
+      </span>
     </div>
   `;
 }
@@ -5008,7 +5099,27 @@ function resetArchiveFilters(){ state.archiveFilters = { search:'', tagIds:[], d
 /* ---------- nav / render ---------- */
 function setView(v){ state.view = v; render(); }
 
+/* Every render() replaces the whole #app, which destroys a focused textarea —
+   on a phone that closes the keyboard mid-sentence. Background renders (realtime
+   echoes, the reconnect reload, toast timers) arrive with no user event behind
+   them, so while a [data-preserve] field has focus they're held back and flushed
+   once it blurs. Renders caused by the user's own taps/typing still run at once. */
+const USER_EVENT_TYPES = new Set(['click','change','input','keydown','keyup','submit','pointerdown','pointerup','mousedown','mouseup','touchstart','touchend']);
+let renderDeferred = false;
+function preservedFieldFocused(){
+  const ae = document.activeElement;
+  return !!(ae && ae.matches && ae.matches('[data-preserve]'));
+}
+document.addEventListener('focusout', e => {
+  if(!renderDeferred || !(e.target.matches && e.target.matches('[data-preserve]'))) return;
+  // wait out the tap that caused the blur, so its click still lands on the old DOM
+  setTimeout(() => { if(renderDeferred && !preservedFieldFocused()) render(); }, 300);
+});
+
 function render(){
+  const ev = window.event;
+  if(preservedFieldFocused() && !(ev && USER_EVENT_TYPES.has(ev.type))){ renderDeferred = true; return; }
+  renderDeferred = false;
   const { jalali, gregorian } = fmtHeaderDate(state.today);
   const app = document.getElementById('app');
   app.innerHTML = `
