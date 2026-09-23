@@ -423,64 +423,118 @@ global.jalaali = {
   .date-block .jalali{font-family:var(--display); font-size:20px; line-height:1.1; color:var(--text); font-weight:600;}
   .date-block .gregorian{font-size:11px; color:var(--text-muted); margin-top:3px;}
 
-  /* ---- navigation: bottom bar on phones, top bar on wider screens ---- */
-  nav.main-nav{display:flex; gap:5px; margin-bottom:22px; background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:4px;}
-  nav.main-nav button{
-    flex:1; white-space:nowrap; background:transparent; border:none; color:var(--text-muted);
-    font-size:13.5px; font-weight:600; padding:9px 10px;
-    border-radius:7px; cursor:pointer; transition:background .15s, color .15s;
-    display:flex; align-items:center; justify-content:center; gap:6px;
+  /* ---- navigation ----
+     Sections are grouped by what they're for (NAV_GROUPS). New sections join a
+     group, so the bars never get more crowded than the number of groups:
+       phones (≤640)      bottom bar of groups + the group's sections as tabs up top
+       tablets (641–1099) the same groups in a right-hand rail, tabs up top
+       laptops (≥1100)    full sidebar listing every section, no tabs needed */
+  nav.main-nav{display:flex; background:var(--surface);}
+  .nav-groups{display:flex;}
+  .nav-scroll{display:none;}
+  .nav-group-title{display:block; font-size:12px; font-weight:600; color:var(--text-muted); padding:0 12px 6px; opacity:.8;}
+  .nav-item, .nav-group-btn{
+    position:relative; background:transparent; border:none; color:var(--text-muted);
+    font-family:inherit; font-weight:600; cursor:pointer; white-space:nowrap;
+    display:flex; align-items:center; transition:background .15s, color .15s;
   }
-  nav.main-nav button.active{background:var(--surface-3); color:var(--text);}
-  /* the active tab gets a rule on its leading edge — a marker that says
-     "you are here", rather than just a slightly lighter box */
-  nav.main-nav button.active::after{
-    content:''; position:absolute; top:0; left:22%; right:22%; height:2px;
-    background:var(--accent); border-radius:0 0 2px 2px;
+  .nav-item:hover:not(.active), .nav-group-btn:hover:not(.active){color:var(--text); background:var(--surface-2);}
+  .nav-item.active, .nav-group-btn.active{color:var(--text);}
+  .nav-item.active{background:var(--surface-3);}
+  .nav-item.active .nav-icon, .nav-group-btn.active .nav-icon{color:var(--accent);}
+  .nav-item:focus-visible, .nav-group-btn:focus-visible, .nav-add:focus-visible, .subnav button:focus-visible{
+    outline:2px solid var(--accent); outline-offset:-2px;
   }
-  nav.main-nav button{position:relative;}
-  nav.main-nav button:hover:not(.active){color:var(--text);}
-  nav.main-nav .nav-icon{display:inline-flex; align-items:center;}
+  .nav-icon{display:inline-flex; align-items:center; justify-content:center;}
+  .nav-add{
+    display:flex; align-items:center; justify-content:center; gap:8px;
+    background:var(--accent); color:#16120A; border:none; cursor:pointer;
+    font-family:inherit; font-weight:800;
+  }
+  .nav-add:hover{opacity:.92;}
 
+  /* the current group's sections, as tabs under the header */
+  .subnav{
+    position:sticky; top:0; z-index:30; margin:0 -16px 18px; padding:8px 16px;
+    background:var(--bg); border-bottom:1px solid var(--line);
+  }
+  .subnav-scroll{display:flex; gap:6px; overflow-x:auto; scrollbar-width:none; overscroll-behavior-x:contain;}
+  .subnav-scroll::-webkit-scrollbar{display:none;}
+  .subnav button{
+    flex:1 0 auto; justify-content:center; min-height:40px; padding:8px 14px; border-radius:10px;
+    background:transparent; border:1px solid transparent; color:var(--text-muted);
+    font-family:inherit; font-size:14px; font-weight:600; cursor:pointer; white-space:nowrap;
+    display:inline-flex; align-items:center; gap:7px;
+  }
+  .subnav button:hover:not(.active){color:var(--text); background:var(--surface-2);}
+  .subnav button.active{background:var(--surface-3); border-color:var(--line-strong); color:var(--text);}
+  /* only when a group has more tabs than fit: fade the far edge as a hint */
+  .subnav-scroll.overflowing{
+    -webkit-mask-image:linear-gradient(to left, transparent 0, #000 32px);
+            mask-image:linear-gradient(to left, transparent 0, #000 32px);
+    padding-inline-end:24px;
+  }
+
+  /* phones: bottom bar of groups */
   @media (max-width: 640px){
     nav.main-nav{
-      position:fixed; bottom:0; left:0; right:0; z-index:45; margin:0; border-radius:16px 16px 0 0;
-      padding:6px 6px calc(6px + env(safe-area-inset-bottom, 0px)); gap:2px;
-      background:var(--surface);
-      border:1px solid var(--line); border-bottom:none; box-shadow:0 -4px 16px -8px rgba(0,0,0,.7);
+      position:fixed; bottom:0; left:0; right:0; z-index:45; gap:4px;
+      padding:6px 6px calc(6px + env(safe-area-inset-bottom, 0px));
+      border-top:1px solid var(--line); box-shadow:0 -4px 16px -8px rgba(0,0,0,.7);
     }
-    nav.main-nav button{flex-direction:column; gap:3px; font-size:10.5px; padding:7px 2px;}
-    nav.main-nav .nav-icon{display:inline-flex;}
+    .nav-groups{flex:1; gap:4px;}
+    .nav-group-btn{
+      flex:1 1 0; min-width:0; min-height:56px; padding:6px 2px; border-radius:12px;
+      flex-direction:column; justify-content:center; gap:5px; font-size:12.5px;
+    }
+    .nav-group-btn.active{background:var(--surface-3);}
+    .nav-group-btn.active::after{
+      content:''; position:absolute; top:0; left:28%; right:28%; height:2px;
+      background:var(--accent); border-radius:0 0 2px 2px;
+    }
+    .nav-add{
+      flex:0 0 60px; flex-direction:column; gap:5px; border-radius:12px;
+      background:transparent; color:var(--accent); font-size:12.5px; font-weight:700;
+    }
+    .nav-add .nav-icon{width:30px; height:30px; border-radius:50%; background:var(--accent); color:#16120A;}
     /* leave room so the bottom bar never covers the last item
-       (the fab/undo-toast offsets live at the end of this stylesheet so they
-        aren't overridden by the later base rules) */
-    body{padding-bottom:calc(78px + env(safe-area-inset-bottom, 0px));}
+       (the undo-toast offset lives at the end of this stylesheet so it
+        isn't overridden by the later base rule) */
+    body{padding-bottom:calc(84px + env(safe-area-inset-bottom, 0px));}
   }
 
-  /* "more" bottom sheet — unlimited room for future sections */
-  .more-overlay{
-    position:fixed; inset:0; z-index:60; background:rgba(8,10,20,0.5);
-    backdrop-filter:blur(3px); -webkit-backdrop-filter:blur(3px);
-    display:flex; align-items:flex-end; justify-content:center;
-  }
-  .more-sheet{
-    width:100%; max-width:520px; border-radius:18px 18px 0 0; padding:10px 14px calc(20px + env(safe-area-inset-bottom, 0px));
-    background:var(--glass-fill-3); backdrop-filter:var(--glass-blur); -webkit-backdrop-filter:var(--glass-blur);
-    border:1px solid var(--line); border-bottom:none; box-shadow:var(--glass-shadow);
-  }
-  .more-handle{width:38px; height:4px; border-radius:2px; background:var(--text-muted); opacity:.4; margin:2px auto 14px;}
-  .more-item{
-    display:flex; align-items:center; gap:12px; width:100%; background:transparent; border:none;
-    color:var(--text); font-family:inherit; font-size:14px; font-weight:600; padding:13px 10px;
-    border-radius:10px; cursor:pointer; text-align:right;
-  }
-  .more-item:hover{background:var(--surface-2);}
-  .more-item.active{background:var(--surface-3); color:var(--accent);}
-  .more-icon{width:24px; display:inline-flex; align-items:center; justify-content:center; color:var(--text-muted);}
-  .more-item.active .more-icon{color:var(--accent);}
+  /* tablets and up: nav moves to a rail on the right edge */
   @media (min-width: 641px){
-    .more-overlay{align-items:center;}
-    .more-sheet{border-radius:18px; border-bottom:1px solid var(--line); max-width:380px;}
+    nav.main-nav{
+      position:fixed; top:0; bottom:0; right:0; z-index:45; flex-direction:column; gap:12px;
+      width:96px; padding:16px 8px; border-left:1px solid var(--line); overflow-y:auto; scrollbar-width:thin;
+    }
+    body{padding-right:96px;}
+    .nav-add{order:-1; flex-direction:column; gap:4px; min-height:56px; border-radius:12px; font-size:12.5px;}
+    .nav-groups{flex-direction:column; gap:4px;}
+    .nav-group-btn{
+      flex-direction:column; justify-content:center; gap:5px; min-height:64px;
+      padding:8px 4px; border-radius:12px; font-size:12.5px;
+    }
+    .nav-group-btn.active{background:var(--surface-3);}
+    .nav-group-btn.active::before, .nav-item.active::before{
+      content:''; position:absolute; right:-8px; top:12px; bottom:12px; width:3px;
+      background:var(--accent); border-radius:3px 0 0 3px;
+    }
+  }
+
+  /* laptops: full sidebar, every section listed, tabs not needed */
+  @media (min-width: 1100px){
+    nav.main-nav{width:240px; padding:22px 14px; gap:20px;}
+    body{padding-right:240px;}
+    .nav-add{flex-direction:row; min-height:44px; font-size:14px; border-radius:10px;}
+    .nav-groups{display:none;}
+    .nav-scroll{display:flex; flex-direction:column; gap:16px;}
+    .nav-group{display:flex; flex-direction:column; gap:2px;}
+    .nav-group + .nav-group{border-top:1px solid var(--line); padding-top:16px;}
+    .nav-item{gap:12px; min-height:42px; padding:8px 12px; border-radius:10px; font-size:14px;}
+    .nav-item.active::before{right:-14px; top:9px; bottom:9px;}
+    .subnav{display:none;}
   }
 
   /* archive sub-tabs */
@@ -992,15 +1046,6 @@ global.jalaali = {
 
   .loading{text-align:center; color:var(--text-muted); font-size:13px; padding:60px 0;}
 
-  /* Floating add-task button */
-  .fab{
-    position:fixed; bottom:24px; right:24px; width:56px; height:56px; border-radius:50%;
-    background:var(--accent); color:#12161C; border:none; font-size:28px; font-weight:700;
-    cursor:pointer; box-shadow:0 4px 14px rgba(0,0,0,.45); z-index:40; display:flex;
-    align-items:center; justify-content:center; line-height:1; padding:0;
-  }
-  .fab:hover{opacity:.9;}
-
   /* today-item extra action buttons */
   .today-item .item-edit{background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:13px; padding:2px 4px; flex-shrink:0;}
   .today-item .item-edit:hover{color:var(--accent);}
@@ -1167,42 +1212,18 @@ global.jalaali = {
     box-shadow:none;
   }
 
-  /* the one deliberately bold element on the page */
-  .fab{
-    background:var(--accent);
-    color:#16120A;
-    box-shadow:0 6px 18px -8px rgba(242,177,52,0.7);
-  }
-
   /* Numbers are the substance of this app, so they get the display face,
      tabular figures, and room to breathe. */
   .streak-count, .progress-box .goal-hours, .cal-day-total strong, .planned-total strong{
     font-family:var(--display); font-variant-numeric:tabular-nums;
   }
 
-  /* ---- phone bottom-bar offsets ----
-     These MUST stay at the end of the stylesheet: media queries add no
-     specificity, so if they appear earlier the later base rules
-     (.fab{bottom:24px}, .undo-toast{bottom:24px}) win and the button
-     ends up hidden behind the tab bar. */
+  /* ---- phone bottom-bar offset ----
+     Must stay at the end of the stylesheet: media queries add no specificity,
+     so if this appeared earlier the base .undo-toast{bottom:…} would win and
+     the toast would sit behind the tab bar. */
   @media (max-width: 640px){
-    /* On phones the add button lives inside the bottom bar, so it can never
-       float over task text the way a floating button does. */
-    .fab{display:none;}
     .undo-toast{bottom:calc(96px + env(safe-area-inset-bottom, 0px));}
-    nav.main-nav .nav-add{
-      color:var(--accent);
-    }
-    nav.main-nav .nav-add .nav-icon{
-      font-size:19px; font-weight:800; line-height:1;
-      width:26px; height:26px; border-radius:50%;
-      align-items:center; justify-content:center;
-      background:var(--accent); color:#16120A;
-    }
-  }
-  /* Desktop / wide screens keep the floating button and hide the nav one. */
-  @media (min-width: 641px){
-    nav.main-nav .nav-add{display:none;}
   }
 </style>
 </head>
@@ -1240,6 +1261,7 @@ function icon(name, size){
   const paths = {
     sun:      `<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>`,
     check:    `<path d="M20 6L9 17l-5-5"/>`,
+    plus:     `<path d="M12 5v14M5 12h14"/>`,
     calendar: `<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>`,
     bulb:     `<path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z"/>`,
     dots:     `<circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/>`,
@@ -1379,7 +1401,6 @@ let state = {
   ideas: [], // [{ id, body, tagIds, createdAt }]
   ideasFilterTagIds: [], // ideas page: show only ideas carrying ANY of these tags (empty = all)
   archiveSection: 'tasks', // 'tasks' | 'purchases'
-  moreMenuOpen: false,
   ideaEditor: null, // { ideaId, body, tagIds, images } while editing an idea
   recurringEditor: null, // { templateId, title, priority, durationMin, weekdays, tagIds }
   filterPanelOpen: {}, // per-page: is the filter/sort panel expanded?
@@ -5010,11 +5031,6 @@ function renderToday(){
 }
 
 
-/* ---------- floating add-task button ---------- */
-function renderFab(){
-  return `<button class="fab" onclick="openTaskEditorNew()" title="افزودن تسک" aria-label="افزودن تسک">+</button>`;
-}
-
 /* ---------- streak (Duolingo-style: consecutive days with >=1 task completed on that task's own date) ----------
    Streak freezes are derived from history rather than stored, so every device
    agrees and nothing can drift: replay each day from the first completion. Every
@@ -5122,6 +5138,8 @@ function render(){
   renderDeferred = false;
   const { jalali, gregorian } = fmtHeaderDate(state.today);
   const app = document.getElementById('app');
+  const prevStrip = document.querySelector('.subnav-scroll');
+  const stripScroll = prevStrip ? prevStrip.scrollLeft : 0;
   app.innerHTML = `
     <header>
       <div class="brand">
@@ -5135,6 +5153,7 @@ function render(){
     </header>
 
     ${renderNav()}
+    ${renderSubnav()}
 
     ${loadError ? `<div class="empty-state" style="background:var(--surface);border:1px solid var(--danger);border-radius:10px;color:var(--danger);margin-bottom:16px;">اتصال به دیتابیس برقرار نشد — اینترنتت رو چک کن و صفحه رو رفرش کن.</div>` : ''}
 
@@ -5150,72 +5169,112 @@ function render(){
       ${state.view === 'archive' ? renderArchivePage() : ''}
       ${state.view === 'ai-reports' ? renderAIReportsPage() : ''}
     </main>
-    ${(state.view === 'today' || state.view === 'tasks') ? renderFab() : ''}
     ${renderTaskEditorModal()}
     ${state.taskCompletionModal ? renderTaskCompletionModal() : ''}
     ${state.undoToast ? renderUndoToast() : ''}
     ${state.saveError ? renderSaveErrorToast() : ''}
-    ${state.moreMenuOpen ? renderMoreMenu() : ''}
     ${state.recurringEditor ? renderRecurringEditorModal() : ''}
     ${state.subscriptionEditor ? renderSubscriptionEditorModal() : ''}
     ${state.reminderEditor ? renderReminderEditorModal() : ''}
     ${state.promptEditor ? renderPromptEditorModal() : ''}
   `;
+  // every render rebuilds the tabs; if a group ever has more than fit, keep
+  // the strip where it was and bring a newly opened tab into view
+  const strip = document.querySelector('.subnav-scroll');
+  if(strip){
+    strip.classList.toggle('overflowing', strip.scrollWidth > strip.clientWidth + 1);
+    strip.scrollLeft = stripScroll;
+    if(revealActiveTab){
+      revealActiveTab = false;
+      const a = strip.querySelector('button.active');
+      if(a) a.scrollIntoView({block:'nearest', inline:'nearest'});
+    }
+  }
 }
 
 /* ---------- navigation ----------
-   Primary destinations stay always-visible; everything else lives behind the
-   "more" sheet, so adding future sections never crowds the bar. On phones the
-   bar sits at the bottom (thumb reach); on wider screens it returns to the top. */
-const PRIMARY_NAV = [
-  { id:'today',    label:'امروز',  icon:'sun' },
-  { id:'tasks',    label:'تسک‌ها', icon:'check' },
-  { id:'calendar', label:'تقویم',  icon:'calendar' },
-  { id:'ideas',    label:'ایده‌ها', icon:'bulb' },
-];const MORE_NAV = [
-  { id:'reminders',     label:'یادآوری‌ها',     icon:'bell' },
-  { id:'purchases',     label:'خریدها',        icon:'cart' },
-  { id:'subscriptions', label:'اشتراک‌ها',      icon:'card' },
-  { id:'prompts',       label:'پرامپت‌ها',      icon:'prompt' },
-  { id:'archive',       label:'آرشیو',          icon:'archive' },
-  { id:'ai-reports',    label:'گزارش هوشمند',  icon:'sparkle' },
+   Sections are grouped by what they're for. Phones and tablets show the groups
+   in the bar and the current group's sections as tabs under the header, so a new
+   section only adds a tab to its group and the bar never gets more crowded.
+   Laptops list every section in the sidebar. To add a section, add it to the
+   group it belongs in; add a new group only if nothing fits (phones hold 5). */
+const NAV_GROUPS = [
+  { id:'plan',   label:'برنامه‌ریزی', icon:'calendar', items:[
+    { id:'today',     label:'امروز',      icon:'sun' },
+    { id:'tasks',     label:'تسک‌ها',      icon:'check' },
+    { id:'calendar',  label:'تقویم',       icon:'calendar' },
+    { id:'reminders', label:'یادآوری‌ها',  icon:'bell' },
+  ]},
+  { id:'notes',  label:'یادداشت‌ها', icon:'bulb', items:[
+    { id:'ideas',     label:'ایده‌ها',      icon:'bulb' },
+    { id:'prompts',   label:'پرامپت‌ها',   icon:'prompt' },
+  ]},
+  { id:'money',  label:'هزینه‌ها', icon:'card', items:[
+    { id:'purchases',     label:'خریدها',    icon:'cart' },
+    { id:'subscriptions', label:'اشتراک‌ها', icon:'card' },
+  ]},
+  { id:'review', label:'مرور', icon:'archive', items:[
+    { id:'archive',    label:'آرشیو',         icon:'archive' },
+    { id:'ai-reports', label:'گزارش هوشمند', icon:'sparkle' },
+  ]},
 ];
-function toggleMoreMenu(){ state.moreMenuOpen = !state.moreMenuOpen; render(); }
+const groupOfView = v => NAV_GROUPS.find(g => g.items.some(i => i.id === v)) || NAV_GROUPS[0];
+// the section last opened in each group, so tapping a group returns you there
+const lastViewInGroup = {};
 function navigateTo(view){
-  state.moreMenuOpen = false;
+  if(state.view !== view) window.scrollTo(0, 0);
+  lastViewInGroup[groupOfView(view).id] = view;
+  revealActiveTab = true;
   setView(view);
 }
+function openGroup(groupId){
+  const g = NAV_GROUPS.find(g => g.id === groupId);
+  navigateTo(lastViewInGroup[g.id] || g.items[0].id);
+}
+let revealActiveTab = false;
 function renderNav(){
-  const inMore = MORE_NAV.some(m => m.id === state.view);
+  const current = groupOfView(state.view);
   return `
-    <nav class="main-nav">
-      ${PRIMARY_NAV.map(n => `
-        <button class="${state.view===n.id ? 'active' : ''}" onclick="navigateTo('${n.id}')">
-          <span class="nav-icon">${icon(n.icon, 17)}</span>
-          <span class="nav-label">${n.label}</span>
-        </button>
-      `).join('')}
-      <button class="${inMore ? 'active' : ''}" onclick="toggleMoreMenu()">
-        <span class="nav-icon">${icon('dots',17)}</span>
-        <span class="nav-label">بیشتر</span>
-      </button>
-      <button class="nav-add" onclick="openTaskEditorNew()" title="افزودن تسک" aria-label="افزودن تسک">
-        <span class="nav-icon">+</span>
-        <span class="nav-label">افزودن</span>
+    <nav class="main-nav" aria-label="بخش‌ها">
+      <div class="nav-groups">
+        ${NAV_GROUPS.map(g => `
+          <button class="nav-group-btn ${g === current ? 'active' : ''}" onclick="openGroup('${g.id}')"
+            ${g === current ? 'aria-current="true"' : ''}>
+            <span class="nav-icon">${icon(g.icon, 22)}</span>
+            <span>${g.label}</span>
+          </button>
+        `).join('')}
+      </div>
+      <div class="nav-scroll">
+        ${NAV_GROUPS.map(g => `
+          <div class="nav-group" role="group" aria-label="${g.label}">
+            <div class="nav-group-title" aria-hidden="true">${g.label}</div>
+            ${g.items.map(n => `
+              <button class="nav-item ${state.view===n.id ? 'active' : ''}" onclick="navigateTo('${n.id}')"
+                ${state.view===n.id ? 'aria-current="page"' : ''}>
+                <span class="nav-icon">${icon(n.icon, 18)}</span>
+                <span>${n.label}</span>
+              </button>
+            `).join('')}
+          </div>
+        `).join('')}
+      </div>
+      <button class="nav-add" onclick="openTaskEditorNew()" aria-label="افزودن تسک">
+        <span class="nav-icon">${icon('plus', 18)}</span>
+        <span>افزودن</span>
       </button>
     </nav>
   `;
 }
-function renderMoreMenu(){
+function renderSubnav(){
+  const g = groupOfView(state.view);
+  if(g.items.length < 2) return '';
   return `
-    <div class="more-overlay" onclick="if(event.target===this) toggleMoreMenu()">
-      <div class="more-sheet">
-        <div class="more-handle"></div>
-        ${MORE_NAV.map(n => `
-          <button class="more-item ${state.view===n.id ? 'active' : ''}" onclick="navigateTo('${n.id}')">
-            <span class="more-icon">${icon(n.icon, 17)}</span>
-            <span>${n.label}</span>
-          </button>
+    <div class="subnav">
+      <div class="subnav-scroll" role="tablist" aria-label="${g.label}">
+        ${g.items.map(n => `
+          <button role="tab" class="${state.view===n.id ? 'active' : ''}" aria-selected="${state.view===n.id}"
+            onclick="navigateTo('${n.id}')">${n.label}</button>
         `).join('')}
       </div>
     </div>
