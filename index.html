@@ -1198,9 +1198,23 @@ global.jalaali = {
     padding:9px 12px; border-radius:9px; outline:none;
   }
   .archive-search-input:focus{border-color:var(--accent);}
-  .ai-report-card{background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:16px; margin-top:12px;}
-  .ai-report-period{font-size:11.5px; color:var(--text-muted); font-weight:700; margin-bottom:8px;}
-  .ai-report-text{font-size:13.5px; line-height:1.9; color:var(--text); white-space:pre-wrap;}
+  .ai-report-card{background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:16px; margin-top:12px; cursor:pointer;}
+  .ai-report-period{font-size:11.5px; color:var(--text-muted); font-weight:700; margin-bottom:8px; display:flex; align-items:center; gap:8px;}
+  .ai-report-fresh{font-size:10.5px; color:var(--accent); border:1px solid var(--accent); border-radius:999px; padding:1px 8px;}
+  /* collapsed to a three-line preview until tapped, so a long history stays scannable */
+  .ai-report-text{
+    font-size:13.5px; line-height:1.9; color:var(--text); white-space:pre-wrap;
+    display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden;
+  }
+  .ai-report-card.open .ai-report-text{display:block;}
+  .ai-report-more{font-size:12px; color:var(--accent); font-weight:700; margin-top:8px;}
+  .ai-report-filter{margin-top:14px;}
+  .ai-report-filter input[type="date"]{font-family:inherit;}
+  .report-notice{align-items:center;}
+  .report-notice-btn{
+    flex-shrink:0; background:var(--accent); color:#16120A; border:none; border-radius:8px;
+    padding:6px 12px; font-family:inherit; font-size:12.5px; font-weight:700; cursor:pointer;
+  }
 
   /* ============ surface system ============
      Flat ink panels separated by hairlines. No blur, no gradients, no rim
@@ -1433,9 +1447,13 @@ let state = {
   undoToast: null, // { message, undo } while a delete's undo window is open
   saveError: null, // { message } while a failed-write warning is on screen
   taskCompletionModal: null, // { taskId, minutes, difficulty } shown right after checking a task done
-  aiReports: [], // [{ id, periodStart, periodEnd, text, createdAt }]
+  aiReports: [], // [{ id, periodStart, periodEnd, text, createdAt, seenAt }]
   aiReportGenerating: false,
   aiReportError: null,
+  aiReportRange: 'all', // 'all' | '30' | '90' | 'custom' — date filter on the reports page
+  aiReportFrom: '', aiReportTo: '', // custom range, dateKey strings
+  aiReportOpen: {}, // { [reportId]: true } — reports expanded past their preview
+  aiReportFreshIds: [], // reports that were unread when this visit to the page began
   purchases: [], // [{ id, title, priority, price, bought, boughtAt }]
   purchaseSort: 'default', // 'default' | 'cheapest' | 'priciest'
   ideas: [], // [{ id, body, tagIds, createdAt }]
@@ -1507,7 +1525,7 @@ async function loadAll(){
 
     const { data: aiReports, error: aiReportsErr } = await sb.from('ai_reports').select('*').order('period_end', { ascending:false });
     if(aiReportsErr) throw aiReportsErr;
-    state.aiReports = aiReports.map(r => ({ id:r.id, periodStart:r.period_start, periodEnd:r.period_end, text:r.report_text, createdAt:r.created_at }));
+    state.aiReports = aiReports.map(mapAIReport);
 
     const { data: purchases, error: purchasesErr } = await sb.from('purchases').select('*').order('created_at', { ascending:false });
     if(purchasesErr) throw purchasesErr;
@@ -1744,8 +1762,15 @@ function startRealtimeSync(){
   registerRealtimeSync(channel, 'ai_reports', {
     onInsert(row){
       if(state.aiReports.some(r => r.id === row.id)) return;
-      state.aiReports.unshift({ id:row.id, periodStart:row.period_start, periodEnd:row.period_end, text:row.report_text, createdAt:row.created_at });
+      state.aiReports.unshift(mapAIReport(row));
       state.aiReports.sort((a,b) => b.periodEnd.localeCompare(a.periodEnd));
+      if(state.view === 'ai-reports') markAIReportsSeen();
+      render();
+    },
+    onUpdate(row){
+      const r = state.aiReports.find(r => r.id === row.id);
+      if(!r) return;
+      r.seenAt = row.seen_at;
       render();
     },
     onDelete(old){
@@ -3921,7 +3946,8 @@ async function generateAIReportNow(){
     } else {
       const { data: rows, error } = await sb.from('ai_reports').select('*').order('period_end', { ascending:false });
       if(error) throw error;
-      state.aiReports = rows.map(r => ({ id:r.id, periodStart:r.period_start, periodEnd:r.period_end, text:r.report_text, createdAt:r.created_at }));
+      state.aiReports = rows.map(mapAIReport);
+      markAIReportsSeen();
     }
   } catch(e){
     console.error('generateAIReportNow failed', e);
@@ -3930,7 +3956,57 @@ async function generateAIReportNow(){
   state.aiReportGenerating = false;
   render();
 }
+function mapAIReport(r){
+  return { id:r.id, periodStart:r.period_start, periodEnd:r.period_end, text:r.report_text, createdAt:r.created_at, seenAt:r.seen_at };
+}
+/* Opening the reports page reads everything on it. The ids are remembered for
+   this visit so the cards can still say "تازه" after seen_at is written. */
+function markAIReportsSeen(){
+  const unseen = state.aiReports.filter(r => !r.seenAt);
+  if(!unseen.length) return;
+  const now = new Date().toISOString();
+  unseen.forEach(r => { r.seenAt = now; });
+  state.aiReportFreshIds = [...new Set([...state.aiReportFreshIds, ...unseen.map(r => r.id)])];
+  sb.from('ai_reports').update({ seen_at: now }).in('id', unseen.map(r => r.id))
+    .then(({ error }) => { if(error) writeFailed('mark ai reports seen', error); });
+}
+function setAIReportRange(range){ state.aiReportRange = range; render(); }
+function setAIReportCustom(which, value){
+  state.aiReportRange = 'custom';
+  if(which === 'from') state.aiReportFrom = value; else state.aiReportTo = value;
+  render();
+}
+function toggleAIReport(id){ state.aiReportOpen[id] = !state.aiReportOpen[id]; render(); }
+function filteredAIReports(){
+  const range = state.aiReportRange;
+  if(range === '30' || range === '90'){
+    const from = new Date();
+    from.setDate(from.getDate() - Number(range));
+    const fromKey = dateKey(from);
+    return state.aiReports.filter(r => r.periodEnd >= fromKey);
+  }
+  if(range === 'custom'){
+    // a report counts if its period overlaps the chosen range
+    return state.aiReports.filter(r =>
+      (!state.aiReportFrom || r.periodEnd >= state.aiReportFrom) &&
+      (!state.aiReportTo || r.periodStart <= state.aiReportTo));
+  }
+  return state.aiReports;
+}
+function renderUnseenReportNotice(){
+  const unseen = state.aiReports.filter(r => !r.seenAt);
+  if(!unseen.length) return '';
+  return `
+    <div class="encourage report-notice">
+      <span style="color:var(--accent); flex-shrink:0; margin-top:2px;">${icon('sparkle',16)}</span>
+      <span class="encourage-text">${unseen.length > 1 ? `${toFaDigits(unseen.length)} گزارش هوشمند تازه آماده‌ست` : 'گزارش هوشمند تازه‌ت آماده‌ست'}</span>
+      <button type="button" class="report-notice-btn" onclick="navigateTo('ai-reports')">دیدن گزارش</button>
+    </div>
+  `;
+}
 function renderAIReportsPage(){
+  const reports = filteredAIReports();
+  const range = state.aiReportRange;
   return `
     <h2 class="section-title">گزارش هوشمند</h2>
     <button type="button" class="add-task-for-day-btn" onclick="generateAIReportNow()" ${state.aiReportGenerating ? 'disabled' : ''}>
@@ -3941,12 +4017,35 @@ function renderAIReportsPage(){
       <div class="empty-state" style="margin-top:16px;">
         هنوز گزارشی ساخته نشده. یه گزارش خودکار هر ۴ روز ساخته می‌شه، یا همین الان با دکمه‌ی بالا بساز.
       </div>
-    ` : state.aiReports.map(r => `
-      <div class="ai-report-card">
-        <div class="ai-report-period">${formatDateShort(r.periodStart)} تا ${formatDateShort(r.periodEnd)}</div>
-        <div class="ai-report-text">${escapeHtml(r.text)}</div>
+    ` : `
+      <div class="filter-panel ai-report-filter">
+        <div class="filter-group">
+          <span class="filter-group-label">بازه:</span>
+          <span class="filter-chip ${range==='all'?'active':''}" onclick="setAIReportRange('all')">همه</span>
+          <span class="filter-chip ${range==='30'?'active':''}" onclick="setAIReportRange('30')">۳۰ روز اخیر</span>
+          <span class="filter-chip ${range==='90'?'active':''}" onclick="setAIReportRange('90')">۹۰ روز اخیر</span>
+        </div>
+        <div class="filter-group">
+          <span class="filter-group-label">از:</span>
+          <input type="date" value="${range==='custom' ? state.aiReportFrom : ''}" onchange="setAIReportCustom('from', this.value)" />
+          <span class="filter-group-label">تا:</span>
+          <input type="date" value="${range==='custom' ? state.aiReportTo : ''}" onchange="setAIReportCustom('to', this.value)" />
+        </div>
       </div>
-    `).join('')}
+      ${reports.length === 0 ? `<div class="empty-state">گزارشی در این بازه نیست</div>` : reports.map(r => {
+        const open = !!state.aiReportOpen[r.id];
+        const fresh = state.aiReportFreshIds.includes(r.id);
+        return `
+        <div class="ai-report-card ${open ? 'open' : ''}" onclick="toggleAIReport('${r.id}')">
+          <div class="ai-report-period">
+            ${formatDateShort(r.periodStart)} تا ${formatDateShort(r.periodEnd)}
+            ${fresh ? '<span class="ai-report-fresh">تازه</span>' : ''}
+          </div>
+          <div class="ai-report-text">${escapeHtml(r.text)}</div>
+          <div class="ai-report-more">${open ? 'بستن' : 'ادامه‌ی گزارش'}</div>
+        </div>`;
+      }).join('')}
+    `}
   `;
 }
 function setArchiveSection(section){ state.archiveSection = section; render(); }
@@ -4934,7 +5033,7 @@ function renderEncouragement(){
 async function loadEncouragement(){
   const todayStr = dateKey(new Date());
   try{
-    const cached = JSON.parse(localStorage.getItem('medar-encouragement') || 'null');
+    const cached = JSON.parse(localStorage.getItem('medar-encouragement-v2') || 'null');
     if(cached && cached.date === todayStr && cached.text){
       state.encouragement = cached;
       render();
@@ -4946,7 +5045,7 @@ async function loadEncouragement(){
     if(error || !data || !data.text) return;
     const fresh = { date: todayStr, text: data.text };
     state.encouragement = fresh;
-    try{ localStorage.setItem('medar-encouragement', JSON.stringify(fresh)); }catch(_e){}
+    try{ localStorage.setItem('medar-encouragement-v2', JSON.stringify(fresh)); }catch(_e){}
     render();
   }catch(_e){ /* offline or function down — the line is optional, skip silently */ }
 }
@@ -5095,6 +5194,7 @@ function renderToday(){
       ${renderStreakBadge()}
       ${renderTimeBadge(todayTasksRaw)}
     </div>
+    ${renderUnseenReportNotice()}
     ${renderWeeklyGoals()}
     ${renderEncouragement()}
     <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
@@ -5190,7 +5290,11 @@ function setArchiveDateTo(v){ state.archiveFilters.dateTo = v || null; render();
 function resetArchiveFilters(){ state.archiveFilters = { search:'', tagIds:[], dateFrom:null, dateTo:null }; render(); }
 
 /* ---------- nav / render ---------- */
-function setView(v){ state.view = v; render(); }
+function setView(v){
+  state.view = v;
+  if(v === 'ai-reports') markAIReportsSeen();
+  render();
+}
 
 /* Every render() replaces the whole #app, which destroys a focused textarea —
    on a phone that closes the keyboard mid-sentence. Background renders (realtime
@@ -5455,7 +5559,7 @@ async function submitLogin(e){
 }
 async function signOut(){
   if(!confirm('از حسابت خارج بشی؟')) return;
-  try{ localStorage.removeItem('medar-encouragement'); }catch(_e){}
+  try{ localStorage.removeItem('medar-encouragement-v2'); }catch(_e){}
   await sb.auth.signOut();
 }
 sb.auth.onAuthStateChange((event, session) => {
