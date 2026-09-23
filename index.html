@@ -792,6 +792,36 @@ global.jalaali = {
   .sub-actions{display:flex; gap:4px; flex-shrink:0;}
   .sub-actions button{background:none; border:none; color:var(--text-muted); cursor:pointer; padding:5px; font-family:inherit;}
   .sub-section-label{font-size:12px; color:var(--text-muted); font-weight:600; margin:18px 0 10px;}
+
+  /* prompts */
+  .prompt-filters{display:flex; flex-wrap:wrap; gap:6px; margin:10px 0 16px;}
+  .prompt-card{background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:14px; margin-bottom:10px;}
+  .prompt-head{display:flex; align-items:flex-start; gap:8px;}
+  .prompt-title{flex:1; min-width:0; font-size:14.5px; font-weight:700; color:var(--text); line-height:1.7;}
+  .prompt-cat{
+    display:inline-block; font-size:11px; font-weight:600; color:var(--text-muted); background:var(--surface-2);
+    border:1px solid var(--line); border-radius:6px; padding:1px 8px; margin-top:4px;
+  }
+  .prompt-body{
+    margin-top:10px; background:var(--surface-2); border:1px solid var(--line); border-radius:9px; padding:10px 12px; cursor:pointer;
+  }
+  /* clamp lives on the inner text so the box's padding can't show a sliver of line five */
+  .prompt-text{
+    font-size:13px; line-height:1.85; color:var(--text); white-space:pre-wrap; word-break:break-word;
+    display:-webkit-box; -webkit-line-clamp:4; -webkit-box-orient:vertical; overflow:hidden;
+  }
+  .prompt-body.open .prompt-text{display:block;}
+  .prompt-note{font-size:12px; color:var(--text-muted); line-height:1.8; margin-top:8px;}
+  .prompt-actions{display:flex; gap:2px; flex-shrink:0;}
+  .prompt-actions button{background:none; border:none; color:var(--text-muted); cursor:pointer; padding:5px; display:inline-flex;}
+  .prompt-actions button:hover{color:var(--accent);}
+  .prompt-actions button.fav{color:var(--accent);}
+  .prompt-actions button.copied{color:var(--accent);}
+  .prompt-copy-btn{
+    display:inline-flex; align-items:center; gap:6px; margin-top:10px; background:var(--surface-2); border:1px solid var(--line);
+    color:var(--text-muted); font-family:inherit; font-size:12px; font-weight:700; padding:7px 14px; border-radius:8px; cursor:pointer;
+  }
+  .prompt-copy-btn:hover, .prompt-copy-btn.copied{border-color:var(--accent); color:var(--accent);}
   .filter-group{display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-bottom:10px;}
   .filter-group:last-of-type{margin-bottom:0;}
   .filter-group-label{font-size:11.5px; color:var(--text-muted); font-weight:700; margin-left:2px; flex-shrink:0;}
@@ -1219,6 +1249,9 @@ function icon(name, size){
     download: `<path d="M12 3v12M7 11l5 5 5-5M4 21h16"/>`,
     pencil:   `<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/>`,
     bell:     `<path d="M18 9a6 6 0 1 0-12 0c0 5-2 6-2 6h16s-2-1-2-6"/><path d="M10.3 20a2 2 0 0 0 3.4 0"/>`,
+    star:     `<path d="M12 3l2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3 6.4 20.2l1.1-6.2L3 9.6l6.2-.9z"/>`,
+    starFill: `<path fill="currentColor" d="M12 3l2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3 6.4 20.2l1.1-6.2L3 9.6l6.2-.9z"/>`,
+    prompt:   `<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9l3 3-3 3M12 15h5"/>`,
     gift:     `<rect x="3" y="9" width="18" height="12" rx="1.5"/><path d="M3 13h18M12 9v12"/><path d="M12 9S10.5 4 8 4a2.3 2.3 0 0 0 0 5zM12 9s1.5-5 4-5a2.3 2.3 0 0 1 0 5z"/>`,
   };
   return open + (paths[name] || '') + '</svg>';
@@ -1341,6 +1374,10 @@ let state = {
   reminders: [], // [{ id, title, kind:'once'|'yearly'|'deadline'|'always', date, leadDays, note, done, createdAt }]
   reminderEditor: null, // { reminderId, title, kind, date, leadDays, note, calendarOpen, calJY, calJM }
   reminderShowDone: false,
+  prompts: [], // [{ id, title, body, category, note, favorite, createdAt }]
+  promptEditor: null, // { promptId, title, body, category, note }
+  promptSearch: '',
+  promptFilter: 'all', // 'all' | 'fav' | a category name
 };
 
 let loadError = false;
@@ -1349,6 +1386,7 @@ let realtimeStarted = false;
    that doesn't exist yet would error the whole shared channel, taking every
    other table's live sync down with it. */
 let remindersTableReady = false;
+let promptsTableReady = false; // same reason as remindersTableReady
 
 async function loadAll(){
   loadError = false;
@@ -1451,6 +1489,18 @@ async function loadAll(){
   } catch(e){
     console.error('load reminders failed', e);
     if(!state.reminders) state.reminders = [];
+  }
+  try{
+    const { data: prompts, error: promptsErr } = await sb
+      .from('prompts')
+      .select('*')
+      .order('created_at', { ascending:false });
+    if(promptsErr) throw promptsErr;
+    state.prompts = prompts.map(promptFromRow);
+    promptsTableReady = true;
+  } catch(e){
+    console.error('load prompts failed', e);
+    if(!state.prompts) state.prompts = [];
   }
   rolloverYearlyReminders();
   generateRecurringInstances();
@@ -1749,6 +1799,24 @@ function startRealtimeSync(){
     },
   });
 
+  if(promptsTableReady) registerRealtimeSync(channel, 'prompts', {
+    onInsert(row){
+      if(state.prompts.some(p => p.id === row.id)) return;
+      state.prompts.unshift(promptFromRow(row));
+      render();
+    },
+    onUpdate(row){
+      const p = state.prompts.find(x => x.id === row.id);
+      if(!p) return;
+      Object.assign(p, promptFromRow(row));
+      render();
+    },
+    onDelete(old){
+      state.prompts = state.prompts.filter(p => p.id !== old.id);
+      render();
+    },
+  });
+
   let hasSubscribedBefore = false;
   channel.subscribe(status => {
     if(status === 'SUBSCRIBED'){
@@ -1763,6 +1831,8 @@ function startRealtimeSync(){
 
 function uid(){ return (crypto.randomUUID ? crypto.randomUUID() : 'id-'+Date.now()+'-'+Math.random()); }
 function escapeHtml(str){ const div = document.createElement('div'); div.textContent = str; return div.innerHTML; }
+/* escapeHtml leaves quotes alone, so anything interpolated into a "…" attribute goes through this */
+function escapeAttr(str){ return escapeHtml(str).replace(/"/g, '&quot;'); }
 
 /* ---------- tags ---------- */
 async function addTag(){
@@ -4115,6 +4185,206 @@ async function deleteSubscription(subId){
   });
 }
 
+/* ---------- prompts ----------
+   A personal library of prompts worth keeping. Search and the copy button are
+   the two things used most, so search repaints only the list (the input keeps
+   focus while typing) and copying never re-renders the page. */
+function promptFromRow(row){
+  return {
+    id:row.id, title:row.title || '', body:row.body || '',
+    category:row.category || '', note:row.note || '',
+    favorite:!!row.favorite, createdAt:row.created_at,
+  };
+}
+function promptCategories(){
+  return [...new Set((state.prompts || []).map(p => p.category).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'fa'));
+}
+function filteredPrompts(){
+  const q = state.promptSearch.trim().toLowerCase();
+  const f = state.promptFilter;
+  return (state.prompts || [])
+    .filter(p => f === 'all' || (f === 'fav' ? p.favorite : p.category === f))
+    .filter(p => !q || [p.title, p.body, p.note, p.category].some(s => s.toLowerCase().includes(q)))
+    // favorites float to the top; otherwise newest first, as loaded
+    .sort((a, b) => (b.favorite - a.favorite) || (b.createdAt || '').localeCompare(a.createdAt || ''));
+}
+function renderPromptsPage(){
+  const all = state.prompts || [];
+  const cats = promptCategories();
+  // a filter pointing at a category that no longer exists would show an empty page for no visible reason
+  if(!['all','fav'].includes(state.promptFilter) && !cats.includes(state.promptFilter)) state.promptFilter = 'all';
+  const chip = (val, label) => `<button class="filter-chip ${state.promptFilter===val?'active':''}" data-v="${escapeAttr(val)}" onclick="setPromptFilter(this.dataset.v)">${label}</button>`;
+  return `
+    <h2 class="section-title">پرامپت‌ها</h2>
+    <button class="add-task-btn" onclick="openPromptEditor(null)" style="margin-bottom:14px;">+ افزودن پرامپت</button>
+    ${all.length ? `
+      <input type="text" class="archive-search-input" placeholder="جست‌وجو در پرامپت‌ها…" value="${escapeAttr(state.promptSearch)}" oninput="setPromptSearch(this.value)" />
+      <div class="prompt-filters">
+        ${chip('all', `همه (${toFaDigits(all.length)})`)}
+        ${all.some(p => p.favorite) ? chip('fav', '★ علاقه‌مندی‌ها') : ''}
+        ${cats.map(c => chip(c, escapeHtml(c))).join('')}
+      </div>
+    ` : ''}
+    <div id="prompt-list">${renderPromptList()}</div>
+  `;
+}
+function renderPromptList(){
+  if(!(state.prompts || []).length) return `<div class="empty-state">هنوز پرامپتی ذخیره نکردی</div>`;
+  const list = filteredPrompts();
+  if(!list.length) return `<div class="empty-state">پرامپتی با این جست‌وجو پیدا نشد</div>`;
+  return list.map(renderPromptCard).join('');
+}
+function renderPromptCard(p){
+  return `
+    <div class="prompt-card">
+      <div class="prompt-head">
+        <div class="prompt-title">
+          <div dir="auto">${escapeHtml(p.title || p.body.split('\n')[0].slice(0, 80))}</div>
+          ${p.category ? `<div><span class="prompt-cat">${escapeHtml(p.category)}</span></div>` : ''}
+        </div>
+        <div class="prompt-actions">
+          <button class="${p.favorite ? 'fav' : ''}" onclick="togglePromptFavorite('${p.id}')" title="${p.favorite ? 'حذف از علاقه‌مندی‌ها' : 'علاقه‌مندی'}">${icon(p.favorite ? 'starFill' : 'star', 16)}</button>
+          <button onclick="openPromptEditor('${p.id}')" title="ویرایش">${icon('pencil',15)}</button>
+          <button onclick="deletePrompt('${p.id}')" title="حذف">${icon('close',15)}</button>
+        </div>
+      </div>
+      <div class="prompt-body" onclick="this.classList.toggle('open')"><div class="prompt-text" dir="auto">${escapeHtml(p.body)}</div></div>
+      ${p.note ? `<div class="prompt-note">${escapeHtml(p.note)}</div>` : ''}
+      <button class="prompt-copy-btn" onclick="copyPrompt('${p.id}', this)">${icon('copy',14)}<span>کپی</span></button>
+    </div>
+  `;
+}
+function setPromptSearch(v){
+  state.promptSearch = v;
+  const el = document.getElementById('prompt-list');
+  if(el) el.innerHTML = renderPromptList();
+}
+function setPromptFilter(v){ state.promptFilter = v; render(); }
+async function copyPrompt(id, btn){
+  const p = state.prompts.find(x => x.id === id);
+  if(!p) return;
+  try{
+    await navigator.clipboard.writeText(p.body);
+  } catch(e){
+    // older iOS Safari / non-secure origins: fall back to a hidden textarea
+    const ta = document.createElement('textarea');
+    ta.value = p.body; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    const ok = document.execCommand('copy');
+    ta.remove();
+    if(!ok){ showSaveError('کپی نشد — متن رو دستی انتخاب و کپی کن.'); render(); return; }
+  }
+  if(btn){
+    btn.classList.add('copied');
+    btn.innerHTML = `${icon('check',14)}<span>کپی شد</span>`;
+    setTimeout(() => {
+      btn.classList.remove('copied');
+      btn.innerHTML = `${icon('copy',14)}<span>کپی</span>`;
+    }, 1500);
+  }
+}
+function openPromptEditor(promptId){
+  const p = promptId ? state.prompts.find(x => x.id === promptId) : null;
+  state.promptEditor = p
+    ? { promptId:p.id, title:p.title, body:p.body, category:p.category, note:p.note }
+    : { promptId:null, title:'', body:'', category:'', note:'' };
+  render();
+}
+function closePromptEditor(){ state.promptEditor = null; render(); }
+function promptEditorSet(field, value){
+  if(!state.promptEditor) return;
+  state.promptEditor[field] = value;
+}
+function pickPromptCategory(c){
+  if(!state.promptEditor) return;
+  state.promptEditor.category = state.promptEditor.category === c ? '' : c;
+  render();
+}
+function renderPromptEditorModal(){
+  const ed = state.promptEditor;
+  const cats = promptCategories();
+  return `
+    <div class="modal-overlay" onclick="if(event.target===this)closePromptEditor()">
+      <div class="modal-box">
+        <input type="text" class="modal-title-input" placeholder="عنوان (اختیاری)" value="${escapeAttr(ed.title)}" oninput="promptEditorSet('title',this.value)" />
+        <div class="modal-section">
+          <span class="modal-section-label">متن پرامپت</span>
+          <textarea class="idea-editor-textarea" dir="auto" style="min-height:160px;" placeholder="پرامپت رو اینجا بچسبون…" oninput="promptEditorSet('body',this.value)">${escapeHtml(ed.body)}</textarea>
+        </div>
+        <div class="modal-section">
+          <span class="modal-section-label">دسته‌بندی</span>
+          ${cats.length ? `<div style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px;">
+            ${cats.map(c => `<span class="pick-chip ${ed.category===c?'on':''}" style="--chip-color:var(--accent)" data-v="${escapeAttr(c)}" onclick="pickPromptCategory(this.dataset.v)">${escapeHtml(c)}</span>`).join('')}
+          </div>` : ''}
+          <input type="text" placeholder="${cats.length ? 'یا یه دستهٔ جدید بنویس' : 'مثلاً کدنویسی، نوشتن، تصویر'}" value="${escapeAttr(ed.category)}" oninput="promptEditorSet('category',this.value)" />
+        </div>
+        <div class="modal-section">
+          <span class="modal-section-label">یادداشت</span>
+          <input type="text" placeholder="کجا به کار میاد، از کجا پیداش کردی…" value="${escapeAttr(ed.note)}" oninput="promptEditorSet('note',this.value)" />
+        </div>
+        <div class="modal-actions">
+          <button class="confirm" onclick="confirmPromptEditor()">ذخیره</button>
+          <button class="cancel" onclick="closePromptEditor()">انصراف</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+async function confirmPromptEditor(){
+  const ed = state.promptEditor;
+  if(!ed || !ed.body.trim()) return;
+  const fields = { title:ed.title.trim(), body:ed.body.trim(), category:ed.category.trim(), note:ed.note.trim() };
+  const payload = { title:fields.title || null, body:fields.body, category:fields.category || null, note:fields.note || null };
+  const label = fields.title || 'پرامپت';
+  if(ed.promptId){
+    const p = state.prompts.find(x => x.id === ed.promptId);
+    if(!p){ closePromptEditor(); return; }
+    const before = { title:p.title, body:p.body, category:p.category, note:p.note };
+    Object.assign(p, fields);
+    state.promptEditor = null; render();
+    await persist(sb.from('prompts').update(payload).eq('id', p.id), {
+      message: `تغییرات «${label}» ذخیره نشد — اینترنتت رو چک کن و دوباره امتحان کن.`,
+      rollback: () => Object.assign(p, before),
+    });
+  } else {
+    const id = crypto.randomUUID();
+    state.prompts.unshift({ id, ...fields, favorite:false, createdAt:new Date().toISOString() });
+    state.promptEditor = null; render();
+    await persist(sb.from('prompts').insert({ id, ...payload }), {
+      message: `«${label}» ذخیره نشد — اینترنتت رو چک کن و دوباره اضافه‌ش کن.`,
+      rollback: () => { state.prompts = state.prompts.filter(x => x.id !== id); },
+    });
+  }
+}
+async function togglePromptFavorite(id){
+  const p = state.prompts.find(x => x.id === id);
+  if(!p) return;
+  p.favorite = !p.favorite;
+  render();
+  await persist(sb.from('prompts').update({ favorite:p.favorite }).eq('id', id), {
+    message: 'علاقه‌مندی ذخیره نشد — اینترنتت رو چک کن.',
+    rollback: () => { p.favorite = !p.favorite; },
+  });
+}
+const pendingPromptDeleteTimers = {}; // promptId -> timeoutId, while the undo window is open
+function deletePrompt(id){
+  const idx = state.prompts.findIndex(x => x.id === id);
+  if(idx === -1) return;
+  const [removed] = state.prompts.splice(idx, 1);
+  showUndoToast('پرامپت حذف شد', () => {
+    clearTimeout(pendingPromptDeleteTimers[id]);
+    delete pendingPromptDeleteTimers[id];
+    state.prompts.splice(idx, 0, removed);
+    render();
+  });
+  render();
+  pendingPromptDeleteTimers[id] = setTimeout(async () => {
+    delete pendingPromptDeleteTimers[id];
+    const { error } = await sb.from('prompts').delete().eq('id', id);
+    if(error) writeFailed('deletePrompt', error);
+  }, 5000);
+}
+
 /* ---------- reminders ("یادت نره") ----------
    Things that aren't tasks and have no place on a to-do list, but must not slip
    your mind: a subscription you paid for and haven't used, a birthday, a date
@@ -4765,6 +5035,7 @@ function render(){
       ${state.view === 'purchases' ? renderPurchasesPage() : ''}
       ${state.view === 'subscriptions' ? renderSubscriptionsPage() : ''}
       ${state.view === 'reminders' ? renderRemindersPage() : ''}
+      ${state.view === 'prompts' ? renderPromptsPage() : ''}
       ${state.view === 'archive' ? renderArchivePage() : ''}
       ${state.view === 'ai-reports' ? renderAIReportsPage() : ''}
     </main>
@@ -4777,6 +5048,7 @@ function render(){
     ${state.recurringEditor ? renderRecurringEditorModal() : ''}
     ${state.subscriptionEditor ? renderSubscriptionEditorModal() : ''}
     ${state.reminderEditor ? renderReminderEditorModal() : ''}
+    ${state.promptEditor ? renderPromptEditorModal() : ''}
   `;
 }
 
@@ -4793,6 +5065,7 @@ const PRIMARY_NAV = [
   { id:'reminders',     label:'یادآوری‌ها',     icon:'bell' },
   { id:'purchases',     label:'خریدها',        icon:'cart' },
   { id:'subscriptions', label:'اشتراک‌ها',      icon:'card' },
+  { id:'prompts',       label:'پرامپت‌ها',      icon:'prompt' },
   { id:'archive',       label:'آرشیو',          icon:'archive' },
   { id:'ai-reports',    label:'گزارش هوشمند',  icon:'sparkle' },
 ];
