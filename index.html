@@ -1073,6 +1073,18 @@ global.jalaali = {
 
   .loading{text-align:center; color:var(--text-muted); font-size:13px; padding:60px 0;}
 
+  /* sign-in gate */
+  .login{max-width:340px; margin:12vh auto 0; display:flex; flex-direction:column; gap:12px;}
+  .login h1{font-family:var(--display); font-size:44px; line-height:1; color:var(--accent); text-align:center;}
+  .login .sub{font-size:12px; color:var(--text-muted); text-align:center; margin-bottom:12px;}
+  .login input{background:var(--surface); border:1px solid var(--line-strong); border-radius:10px; color:var(--text); font-size:15px; padding:12px 14px; direction:ltr; text-align:left;}
+  .login input:focus{outline:none; border-color:var(--accent);}
+  .login button{background:var(--accent); color:#12161C; border:none; border-radius:10px; font-size:15px; font-weight:700; padding:12px; cursor:pointer;}
+  .login button:disabled{opacity:.6; cursor:default;}
+  .login .login-error{color:var(--danger); font-size:13px; text-align:center; min-height:18px;}
+  .date-block .sign-out{background:none; border:none; color:var(--text-muted); font-size:11px; cursor:pointer; padding:4px 0 0;}
+  .date-block .sign-out:hover{color:var(--danger);}
+
   /* today-item extra action buttons */
   .today-item .item-edit{background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:13px; padding:2px 4px; flex-shrink:0;}
   .today-item .item-edit:hover{color:var(--accent);}
@@ -3894,9 +3906,11 @@ async function generateAIReportNow(){
   state.aiReportError = null;
   render();
   try{
+    // the function only answers a signed-in user's token, never the public anon key
+    const { data:{ session } } = await sb.auth.getSession();
     const res = await fetch(`${SUPABASE_URL}/functions/v1/generate-ai-report`, {
       method:'POST',
-      headers:{ 'Content-Type':'application/json', 'Authorization':`Bearer ${SUPABASE_ANON_KEY}` },
+      headers:{ 'Content-Type':'application/json', 'Authorization':`Bearer ${session?.access_token}` },
       body: JSON.stringify({ force:true }),
     });
     const data = await res.json();
@@ -5211,6 +5225,7 @@ function render(){
       <div class="date-block">
         <div class="jalali">${jalali}</div>
         <div class="gregorian">${gregorian}</div>
+        <button class="sign-out" onclick="signOut()">خروج</button>
       </div>
     </header>
 
@@ -5394,8 +5409,59 @@ function renderSaveErrorToast(){
   `;
 }
 
-loadAll();
-loadEncouragement();
+/* ---------- auth gate ----------
+   Every table is locked to its owner by RLS (user_id = auth.uid()), so nothing
+   loads until there's a session. The account is created in the Supabase
+   dashboard (sign-ups are off), which is why there's no register form here. */
+let appStarted = false;
+function bootApp(){
+  if(appStarted) return;
+  appStarted = true;
+  loadAll();
+  loadEncouragement();
+}
+function renderLogin(){
+  document.getElementById('app').innerHTML = `
+    <form class="login" onsubmit="submitLogin(event)">
+      <h1>مدار</h1>
+      <div class="sub">برای دیدن برنامه‌هات وارد شو</div>
+      <input id="loginEmail" type="email" autocomplete="username" placeholder="ایمیل" required>
+      <input id="loginPassword" type="password" autocomplete="current-password" placeholder="رمز عبور" required>
+      <button type="submit" id="loginSubmit">ورود</button>
+      <div class="login-error" id="loginError"></div>
+    </form>
+  `;
+}
+async function submitLogin(e){
+  e.preventDefault();
+  const btn = document.getElementById('loginSubmit');
+  const errEl = document.getElementById('loginError');
+  btn.disabled = true;
+  errEl.textContent = '';
+  const { error } = await sb.auth.signInWithPassword({
+    email: document.getElementById('loginEmail').value.trim(),
+    password: document.getElementById('loginPassword').value,
+  });
+  if(error){
+    btn.disabled = false;
+    errEl.textContent = /invalid/i.test(error.message)
+      ? 'ایمیل یا رمز عبور درست نیست.'
+      : 'ورود انجام نشد — اینترنتت رو چک کن و دوباره امتحان کن.';
+  }
+  // on success onAuthStateChange boots the app
+}
+async function signOut(){
+  if(!confirm('از حسابت خارج بشی؟')) return;
+  try{ localStorage.removeItem('medar-encouragement'); }catch(_e){}
+  await sb.auth.signOut();
+}
+sb.auth.onAuthStateChange((event, session) => {
+  // supabase-js warns against awaiting its own calls inside this callback,
+  // so hand off to the next tick before loadAll() starts querying
+  if(event === 'SIGNED_OUT') location.reload();
+  else if(session) setTimeout(bootApp, 0);
+  else if(event === 'INITIAL_SESSION') renderLogin();
+});
 
 /* ---------- PWA: register the app-shell service worker ---------- */
 if('serviceWorker' in navigator){
