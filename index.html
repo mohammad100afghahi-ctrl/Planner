@@ -818,6 +818,12 @@ global.jalaali = {
   }
   .encourage-text{font-size:13.5px; line-height:1.85; color:var(--text); flex:1;}
   .encourage.loading .encourage-text{color:var(--text-muted);}
+  /* هوشواره can't reach the AI (credit ran out, bad key) — same card, danger edge */
+  .encourage.ai-health{border-inline-start-color:var(--danger); align-items:center;}
+  .ai-health-close{
+    flex-shrink:0; background:none; border:none; color:var(--text-muted); cursor:pointer;
+    display:inline-flex; align-items:center; justify-content:center; min-width:32px; min-height:32px;
+  }
 
   /* reminders — the "don't let this slip" card at the top of امروز */
   .reminder-card{
@@ -1572,6 +1578,7 @@ let state = {
   winEditor: null, // { winId, title, hardship, why, tagIds, happenedOn, calendarOpen, calJY, calJM }
   winsFilterTagIds: [], // show only wins carrying ANY of these tags (empty = all)
   winSos: null, // { order:[winId…], index } while the one-at-a-time view is open
+  aiHealth: null, // { errorKind, errorMessage, errorAt, okAt } — did هوشواره's last AI call work?
 };
 
 let loadError = false;
@@ -1582,6 +1589,7 @@ let realtimeStarted = false;
 let remindersTableReady = false;
 let promptsTableReady = false; // same reason as remindersTableReady
 let winsTableReady = false; // same reason as remindersTableReady
+let aiHealthTableReady = false; // same reason as remindersTableReady
 
 async function loadAll(){
   loadError = false;
@@ -1709,6 +1717,14 @@ async function loadAll(){
   } catch(e){
     console.error('load wins failed', e);
     if(!state.wins) state.wins = [];
+  }
+  try{
+    const { data: health, error: healthErr } = await sb.from('ai_health').select('*').maybeSingle();
+    if(healthErr) throw healthErr;
+    state.aiHealth = health ? aiHealthFromRow(health) : null;
+    aiHealthTableReady = true;
+  } catch(e){
+    console.error('load ai_health failed', e);
   }
   rolloverYearlyReminders();
   generateRecurringInstances();
@@ -2034,6 +2050,11 @@ function startRealtimeSync(){
       state.prompts = state.prompts.filter(p => p.id !== old.id);
       render();
     },
+  });
+
+  if(aiHealthTableReady) registerRealtimeSync(channel, 'ai_health', {
+    onInsert(row){ state.aiHealth = aiHealthFromRow(row); render(); },
+    onUpdate(row){ state.aiHealth = aiHealthFromRow(row); render(); },
   });
 
   if(winsTableReady) registerRealtimeSync(channel, 'wins', {
@@ -4304,6 +4325,44 @@ function filteredAIReports(){
   }
   return state.aiReports;
 }
+/* ---------- هوشواره health ----------
+   The edge functions record every AI call in ai_health. When the last one
+   failed for a reason only the user can fix (credit ran out, key missing or
+   invalid), say so up front — otherwise reports just silently stop coming.
+   Rate limits and outages aren't shown: the daily cron retries on its own.
+   Closing the banner hides that one failure; a newer failure brings it back. */
+const AI_HEALTH_DISMISS_KEY = 'medar-ai-health-dismissed';
+function aiHealthFromRow(r){
+  return { errorKind:r.error_kind, errorMessage:r.error_message, errorAt:r.error_at, okAt:r.ok_at };
+}
+function aiHealthProblem(){
+  const h = state.aiHealth;
+  if(!h || !h.errorAt || !['credit','key'].includes(h.errorKind)) return null;
+  if(h.okAt && h.okAt >= h.errorAt) return null;
+  return h;
+}
+function dismissAIHealth(){
+  const h = aiHealthProblem();
+  if(!h) return;
+  try{ localStorage.setItem(AI_HEALTH_DISMISS_KEY, h.errorAt); }catch(_e){}
+  render();
+}
+function renderAIHealthBanner({ dismissible = true } = {}){
+  const h = aiHealthProblem();
+  if(!h) return '';
+  if(dismissible){
+    let dismissed = null;
+    try{ dismissed = localStorage.getItem(AI_HEALTH_DISMISS_KEY); }catch(_e){}
+    if(dismissed === h.errorAt) return '';
+  }
+  return `
+    <div class="encourage ai-health" role="alert">
+      <span style="color:var(--danger); flex-shrink:0;">${icon('sparkle',16)}</span>
+      <span class="encourage-text"><b>هوشواره متوقف شده</b><br>${escapeHtml(h.errorMessage || '')}<br><span class="summary-text">گزارش‌های ۴روزه، بازبرنامه‌ریزی خودکار و جمله‌ی روزانه تا اون موقع متوقفن.</span></span>
+      ${dismissible ? `<button type="button" class="ai-health-close" onclick="dismissAIHealth()" title="بستن">${icon('close',15)}</button>` : ''}
+    </div>
+  `;
+}
 function renderUnseenReportNotice(){
   const unseen = state.aiReports.filter(r => !r.seenAt);
   if(!unseen.length) return '';
@@ -4320,10 +4379,11 @@ function renderAIReportsPage(){
   const range = state.aiReportRange;
   return `
     <h2 class="section-title">گزارش هوشمند</h2>
+    ${renderAIHealthBanner({ dismissible:false })}
     <button type="button" class="add-task-for-day-btn" onclick="generateAIReportNow()" ${state.aiReportGenerating ? 'disabled' : ''}>
       ${state.aiReportGenerating ? 'در حال تولید…' : `${icon('sparkle',14)} تولید گزارش الان`}
     </button>
-    ${state.aiReportError ? `<div class="empty-state" style="background:var(--surface);border:1px solid var(--danger);border-radius:10px;color:var(--danger);margin-top:12px;padding:12px;">${escapeHtml(state.aiReportError)}</div>` : ''}
+    ${state.aiReportError && state.aiReportError !== aiHealthProblem()?.errorMessage ? `<div class="empty-state" style="background:var(--surface);border:1px solid var(--danger);border-radius:10px;color:var(--danger);margin-top:12px;padding:12px;">${escapeHtml(state.aiReportError)}</div>` : ''}
     ${state.aiReports.length === 0 ? `
       <div class="empty-state" style="margin-top:16px;">
         هنوز گزارشی ساخته نشده. یه گزارش خودکار هر ۴ روز ساخته می‌شه، یا همین الان با دکمه‌ی بالا بساز.
@@ -5833,6 +5893,7 @@ function renderToday(){
       ${renderStreakBadge()}
       ${renderTimeBadge(todayTasksRaw)}
     </div>
+    ${renderAIHealthBanner()}
     ${renderUnseenReportNotice()}
     ${renderWeeklyGoals()}
     ${renderEncouragement()}
