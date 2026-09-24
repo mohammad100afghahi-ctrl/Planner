@@ -912,6 +912,62 @@ global.jalaali = {
     color:var(--text-muted); font-family:inherit; font-size:12px; font-weight:700; padding:7px 14px; border-radius:8px; cursor:pointer;
   }
   .prompt-copy-btn:hover, .prompt-copy-btn.copied{border-color:var(--accent); color:var(--accent);}
+
+  /* wins («تونستم») — a wall of evidence */
+  .wins-hero{
+    display:flex; align-items:flex-end; justify-content:space-between; gap:14px; flex-wrap:wrap;
+    padding:18px 18px 16px; margin-bottom:12px; background:var(--surface); border:1px solid var(--line); border-radius:14px;
+  }
+  .wins-count{font-family:var(--display); font-size:54px; line-height:.9; font-weight:700; color:var(--accent);}
+  .wins-count-label{font-size:14px; color:var(--text); font-weight:600; margin-top:8px;}
+  .wins-count-sub{font-size:11.5px; color:var(--text-muted); margin-top:4px;}
+  .wins-sos-btn{
+    display:inline-flex; align-items:center; gap:7px; background:var(--surface-2); border:1px solid var(--line-strong);
+    color:var(--text); font-family:inherit; font-size:12.5px; font-weight:700; padding:9px 14px; border-radius:10px; cursor:pointer;
+  }
+  .wins-sos-btn:hover{border-color:var(--accent); color:var(--accent);}
+  /* a grid, not CSS columns: columns fill top-to-bottom and would scramble newest-first */
+  .wins-wall{display:grid; grid-template-columns:repeat(auto-fill, minmax(240px, 1fr)); gap:10px; align-items:start;}
+  .win-card{
+    background:var(--surface); border:1px solid var(--line); border-top:3px solid var(--win-color, var(--accent));
+    border-radius:12px; padding:13px 14px 10px;
+  }
+  .win-title{font-size:14.5px; font-weight:700; color:var(--text); line-height:1.75; word-break:break-word;}
+  .win-hardship{font-size:12.5px; color:var(--text); line-height:1.8; margin-top:8px; word-break:break-word;}
+  .win-hardship b{color:var(--win-color, var(--accent)); font-weight:700;}
+  .win-why{font-size:12.5px; color:var(--text-muted); line-height:1.85; margin-top:6px; word-break:break-word;}
+  .win-foot{display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-top:10px;}
+  .win-date{font-size:11px; color:var(--text-muted); margin-inline-end:auto;}
+  .win-actions{display:flex; gap:2px;}
+  .win-actions button{background:none; border:none; color:var(--text-muted); cursor:pointer; padding:4px; display:inline-flex;}
+  .win-actions button:hover{color:var(--accent);}
+  .wins-empty{background:var(--surface); border:1px dashed var(--line-strong); border-radius:12px; padding:22px 18px; color:var(--text-muted); font-size:13px; line-height:2;}
+  .wins-empty b{color:var(--text);}
+  /* the «مغزم داره شکست‌هامو می‌شمره» view: one win at a time, big */
+  .win-sos{
+    position:fixed; inset:0; z-index:60; background:var(--bg); display:flex; flex-direction:column;
+    align-items:center; justify-content:center; padding:24px 20px; text-align:center;
+  }
+  .win-sos-kicker{font-size:12.5px; color:var(--text-muted); margin-bottom:22px; line-height:1.9;}
+  .win-sos-card{max-width:520px; width:100%; animation:winIn .35s ease-out;}
+  .win-sos-title{font-family:var(--display); font-size:34px; line-height:1.35; font-weight:700; color:var(--text); word-break:break-word;}
+  .win-sos-hardship{font-size:15px; line-height:1.9; color:var(--accent); margin-top:16px;}
+  .win-sos-why{font-size:14px; line-height:1.95; color:var(--text-muted); margin-top:10px;}
+  .win-sos-date{font-size:12px; color:var(--text-muted); margin-top:16px;}
+  .win-sos-progress{font-size:11.5px; color:var(--text-muted); margin-top:30px;}
+  .win-sos-actions{display:flex; gap:8px; margin-top:12px; flex-wrap:wrap; justify-content:center;}
+  .win-sos-actions button{
+    font-family:inherit; font-size:13px; font-weight:700; padding:10px 18px; border-radius:10px; cursor:pointer;
+    background:var(--surface-2); border:1px solid var(--line-strong); color:var(--text);
+  }
+  .win-sos-actions button.primary{background:var(--accent); border-color:var(--accent); color:var(--bg);}
+  @keyframes winIn{from{opacity:0; transform:translateY(8px);} to{opacity:1; transform:none;}}
+  @media (prefers-reduced-motion: reduce){ .win-sos-card{animation:none;} }
+  .modal-section textarea.win-textarea{
+    width:100%; min-height:64px; resize:vertical; background:var(--surface-2); border:1px solid var(--line); color:var(--text);
+    font-family:inherit; font-size:13px; line-height:1.8; padding:9px 12px; border-radius:8px; outline:none;
+  }
+  .modal-section textarea.win-textarea:focus{border-color:var(--accent);}
   .filter-group{display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-bottom:10px;}
   .filter-group:last-of-type{margin-bottom:0;}
   .filter-group-label{font-size:11.5px; color:var(--text-muted); font-weight:700; margin-left:2px; flex-shrink:0;}
@@ -1341,6 +1397,7 @@ function icon(name, size){
     pencil:   `<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/>`,
     bell:     `<path d="M18 9a6 6 0 1 0-12 0c0 5-2 6-2 6h16s-2-1-2-6"/><path d="M10.3 20a2 2 0 0 0 3.4 0"/>`,
     star:     `<path d="M12 3l2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3 6.4 20.2l1.1-6.2L3 9.6l6.2-.9z"/>`,
+    trophy:   `<path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4z"/><path d="M7 6H4v1a3 3 0 0 0 3 3M17 6h3v1a3 3 0 0 1-3 3"/>`,
     starFill: `<path fill="currentColor" d="M12 3l2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3 6.4 20.2l1.1-6.2L3 9.6l6.2-.9z"/>`,
     prompt:   `<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9l3 3-3 3M12 15h5"/>`,
     gift:     `<rect x="3" y="9" width="18" height="12" rx="1.5"/><path d="M3 13h18M12 9v12"/><path d="M12 9S10.5 4 8 4a2.3 2.3 0 0 0 0 5zM12 9s1.5-5 4-5a2.3 2.3 0 0 1 0 5z"/>`,
@@ -1473,6 +1530,10 @@ let state = {
   promptEditor: null, // { promptId, title, body, category, note }
   promptSearch: '',
   promptFilter: 'all', // 'all' | 'fav' | a category name
+  wins: [], // [{ id, title, hardship, why, tagIds, happenedOn, createdAt }]
+  winEditor: null, // { winId, title, hardship, why, tagIds, happenedOn, calendarOpen, calJY, calJM }
+  winsFilterTagIds: [], // show only wins carrying ANY of these tags (empty = all)
+  winSos: null, // { order:[winId…], index } while the one-at-a-time view is open
 };
 
 let loadError = false;
@@ -1482,6 +1543,7 @@ let realtimeStarted = false;
    other table's live sync down with it. */
 let remindersTableReady = false;
 let promptsTableReady = false; // same reason as remindersTableReady
+let winsTableReady = false; // same reason as remindersTableReady
 
 async function loadAll(){
   loadError = false;
@@ -1597,6 +1659,19 @@ async function loadAll(){
     console.error('load prompts failed', e);
     if(!state.prompts) state.prompts = [];
   }
+  try{
+    const { data: wins, error: winsErr } = await sb
+      .from('wins')
+      .select('*')
+      .order('happened_on', { ascending:false })
+      .order('created_at', { ascending:false });
+    if(winsErr) throw winsErr;
+    state.wins = wins.map(winFromRow);
+    winsTableReady = true;
+  } catch(e){
+    console.error('load wins failed', e);
+    if(!state.wins) state.wins = [];
+  }
   rolloverYearlyReminders();
   generateRecurringInstances();
   if(!realtimeStarted){ realtimeStarted = true; startRealtimeSync(); }
@@ -1637,6 +1712,8 @@ function startRealtimeSync(){
       state.todayFilters.tagIds = state.todayFilters.tagIds.filter(id => id !== old.id);
       state.tasksFilters.tagIds = state.tasksFilters.tagIds.filter(id => id !== old.id);
       state.ideasFilterTagIds = state.ideasFilterTagIds.filter(id => id !== old.id);
+      // wins keep tag ids in an array column (no FK), so drop the stale id locally
+      state.wins.forEach(w => { w.tagIds = w.tagIds.filter(id => id !== old.id); });
       render();
     },
   });
@@ -1920,6 +1997,26 @@ function startRealtimeSync(){
     },
   });
 
+  if(winsTableReady) registerRealtimeSync(channel, 'wins', {
+    onInsert(row){
+      if(state.wins.some(w => w.id === row.id)) return;
+      state.wins.push(winFromRow(row));
+      sortWins();
+      render();
+    },
+    onUpdate(row){
+      const w = state.wins.find(x => x.id === row.id);
+      if(!w) return;
+      Object.assign(w, winFromRow(row));
+      sortWins();
+      render();
+    },
+    onDelete(old){
+      state.wins = state.wins.filter(w => w.id !== old.id);
+      render();
+    },
+  });
+
   let hasSubscribedBefore = false;
   channel.subscribe(status => {
     if(status === 'SUBSCRIBED'){
@@ -1963,6 +2060,7 @@ async function deleteTag(tagId){
   state.todayFilters.tagIds = state.todayFilters.tagIds.filter(id => id !== tagId);
   state.tasksFilters.tagIds = state.tasksFilters.tagIds.filter(id => id !== tagId);
   state.tagGoals = state.tagGoals.filter(g => g.tagId !== tagId);
+  state.wins.forEach(w => { w.tagIds = w.tagIds.filter(id => id !== tagId); });
   render();
   const { error } = await sb.from('tags').delete().eq('id', tagId);
   if(error) writeFailed('deleteTag', error);
@@ -4644,6 +4742,291 @@ function deletePrompt(id){
   }, 5000);
 }
 
+/* ---------- wins («تونستم») ----------
+   Evidence for the days my mind only counts the failures. Each entry is
+   written by hand — what I managed, what stood in the way («با اینکه…»), and
+   why it mattered — and the page is a wall of them under one big count.
+   The «مغزم داره شکست‌هامو می‌شمره» button opens them one at a time, shuffled,
+   so on a bad day they're read one by one instead of skimmed as a list. */
+function winFromRow(row){
+  return {
+    id:row.id, title:row.title || '', hardship:row.hardship || '', why:row.why || '',
+    tagIds:row.tag_ids || [], happenedOn:row.happened_on, createdAt:row.created_at,
+  };
+}
+function sortWins(){
+  state.wins.sort((a, b) => (b.happenedOn || '').localeCompare(a.happenedOn || '') || (b.createdAt || '').localeCompare(a.createdAt || ''));
+}
+function fmtWinDate(dateStr){
+  if(!dateStr) return '';
+  const j = window.jalaali.toJalaali(new Date(dateStr + 'T00:00:00'));
+  const thisYear = window.jalaali.toJalaali(new Date()).jy;
+  return `${toFaDigits(j.jd)} ${MONTHS_JALALI[j.jm-1]}${j.jy !== thisYear ? ` ${toFaDigits(j.jy)}` : ''}`;
+}
+function winColor(w){
+  const tag = w.tagIds.map(id => state.tags.find(t => t.id === id)).find(Boolean);
+  return tag ? tag.color : 'var(--accent)';
+}
+function renderWinsPage(){
+  const all = state.wins || [];
+  const nowJ = window.jalaali.toJalaali(new Date());
+  const thisMonth = all.filter(w => {
+    if(!w.happenedOn) return false;
+    const j = window.jalaali.toJalaali(new Date(w.happenedOn + 'T00:00:00'));
+    return j.jy === nowJ.jy && j.jm === nowJ.jm;
+  }).length;
+  const usedTagIds = new Set(all.flatMap(w => w.tagIds));
+  const filterTags = state.tags.filter(t => usedTagIds.has(t.id));
+  const filterIds = state.winsFilterTagIds.filter(id => usedTagIds.has(id));
+  const shown = filterIds.length ? all.filter(w => w.tagIds.some(id => filterIds.includes(id))) : all;
+  return `
+    <h2 class="section-title">تونستم</h2>
+    ${all.length ? `
+      <div class="wins-hero">
+        <div>
+          <div class="wins-count">${toFaDigits(all.length)}</div>
+          <div class="wins-count-label">بار تونستی</div>
+          <div class="wins-count-sub">${thisMonth ? `${toFaDigits(thisMonth)} تاش همین ماه` : 'کوچیک و بزرگ، همه‌ش کار خودت بود'}</div>
+        </div>
+        <button class="wins-sos-btn" onclick="openWinSos()">${icon('sparkle',15)} مغزم داره شکست‌هامو می‌شمره</button>
+      </div>
+    ` : ''}
+    <button class="add-task-btn" onclick="openWinEditor(null)" style="margin-bottom:14px;">+ یه چیزی که تونستم</button>
+    ${filterTags.length ? `
+      <div class="filter-group ideas-filter">
+        <span class="filter-group-label">حوزه:</span>
+        <span class="filter-chip ${filterIds.length ? '' : 'active'}" onclick="clearWinsFilter()">همه</span>
+        ${filterTags.map(t => `<span class="filter-chip ${filterIds.includes(t.id)?'active':''}" onclick="toggleWinsFilterTag('${t.id}')">${escapeHtml(t.name)}</span>`).join('')}
+      </div>
+    ` : ''}
+    ${!all.length ? `
+      <div class="wins-empty">
+        <b>اینجا جای کارهاییه که تونستی.</b><br>
+        هر چیزی حساب می‌شه، حتی اگه کوچیک به نظر بیاد. مثلاً:<br>
+        «با اینکه حوصله نداشتم، ۲۰ دقیقه پایتون خوندم»<br>
+        «با اینکه می‌ترسیدم، به اون مشتری پیام دادم»<br>
+        چیزهای قدیمی‌تر رو هم می‌تونی با تاریخ خودشون اضافه کنی.
+      </div>
+    ` : !shown.length ? `<div class="empty-state">موردی با این حوزه‌ها نیست</div>`
+      : `<div class="wins-wall">${shown.map(renderWinCard).join('')}</div>`}
+  `;
+}
+function renderWinCard(w){
+  return `
+    <div class="win-card" style="--win-color:${winColor(w)}">
+      <div class="win-title" dir="auto">${escapeHtml(w.title)}</div>
+      ${w.hardship ? `<div class="win-hardship" dir="auto"><b>با اینکه</b> ${escapeHtml(w.hardship)}</div>` : ''}
+      ${w.why ? `<div class="win-why" dir="auto">${escapeHtml(w.why)}</div>` : ''}
+      <div class="win-foot">
+        <span class="win-date">${fmtWinDate(w.happenedOn)}</span>
+        ${w.tagIds.map(tid => { const tag = state.tags.find(x => x.id === tid); return tag ? `<span class="mini-tag" style="--chip-color:${tag.color}">${escapeHtml(tag.name)}</span>` : ''; }).join('')}
+        <div class="win-actions">
+          <button onclick="openWinEditor('${w.id}')" title="ویرایش">${icon('pencil',14)}</button>
+          <button onclick="deleteWin('${w.id}')" title="حذف">${icon('close',14)}</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+function toggleWinsFilterTag(tagId){
+  const f = state.winsFilterTagIds;
+  state.winsFilterTagIds = f.includes(tagId) ? f.filter(id => id !== tagId) : [...f, tagId];
+  render();
+}
+function clearWinsFilter(){ state.winsFilterTagIds = []; render(); }
+
+/* ---------- wins: editor ---------- */
+function openWinEditor(winId){
+  const w = winId ? state.wins.find(x => x.id === winId) : null;
+  const base = w ? { winId:w.id, title:w.title, hardship:w.hardship, why:w.why, tagIds:[...w.tagIds], happenedOn:w.happenedOn }
+                 : { winId:null, title:'', hardship:'', why:'', tagIds:[], happenedOn:dateKey(new Date()) };
+  const j = window.jalaali.toJalaali(new Date(base.happenedOn + 'T00:00:00'));
+  state.winEditor = Object.assign(base, { calendarOpen:false, calJY:j.jy, calJM:j.jm });
+  render();
+}
+function closeWinEditor(){ state.winEditor = null; render(); }
+function winEditorToggleTag(tagId){
+  const ed = state.winEditor;
+  ed.tagIds = ed.tagIds.includes(tagId) ? ed.tagIds.filter(id => id !== tagId) : [...ed.tagIds, tagId];
+  render();
+}
+function winEditorQuickDate(daysAgo){
+  const d = new Date(); d.setDate(d.getDate() - daysAgo);
+  state.winEditor.happenedOn = dateKey(d);
+  state.winEditor.calendarOpen = false;
+  render();
+}
+function toggleWinCalendar(){
+  const ed = state.winEditor;
+  ed.calendarOpen = !ed.calendarOpen;
+  if(ed.calendarOpen){
+    const j = window.jalaali.toJalaali(new Date(ed.happenedOn + 'T00:00:00'));
+    ed.calJY = j.jy; ed.calJM = j.jm;
+  }
+  render();
+}
+function winCalPrevMonth(){
+  const ed = state.winEditor;
+  ed.calJM--; if(ed.calJM < 1){ ed.calJM = 12; ed.calJY--; }
+  render();
+}
+function winCalNextMonth(){
+  const ed = state.winEditor;
+  ed.calJM++; if(ed.calJM > 12){ ed.calJM = 1; ed.calJY++; }
+  render();
+}
+function winCalPick(jy, jm, jd){
+  const g = window.jalaali.toGregorian(jy, jm, jd);
+  const ed = state.winEditor;
+  ed.happenedOn = dateKey(new Date(g.gy, g.gm - 1, g.gd));
+  ed.calendarOpen = false;
+  render();
+}
+function renderWinEditorModal(){
+  const ed = state.winEditor;
+  const today = dateKey(new Date());
+  const yesterday = dateKey(new Date(Date.now() - 86400000));
+  const other = ed.happenedOn !== today && ed.happenedOn !== yesterday;
+  return `
+    <div class="modal-overlay" onclick="if(event.target===this) closeWinEditor()">
+      <div class="modal-box">
+        <h3>${ed.winId ? 'ویرایش' : 'یه چیزی که تونستم'}</h3>
+        <input type="text" class="modal-title-input" dir="auto" placeholder="چی رو تونستی؟"
+          value="${escapeAttr(ed.title)}" oninput="state.winEditor.title=this.value" />
+        <div class="modal-section">
+          <span class="modal-section-label">با اینکه…</span>
+          <textarea class="win-textarea" dir="auto" placeholder="خسته بودم، می‌ترسیدم، حوصله نداشتم…" oninput="state.winEditor.hardship=this.value">${escapeHtml(ed.hardship)}</textarea>
+        </div>
+        <div class="modal-section">
+          <span class="modal-section-label">چرا برام مهم بود / چه حسی داشتم</span>
+          <textarea class="win-textarea" dir="auto" placeholder="چیزی که بعداً خوندنش بهت یادآوری کنه" oninput="state.winEditor.why=this.value">${escapeHtml(ed.why)}</textarea>
+        </div>
+        ${state.tags.length ? `
+          <div class="modal-section">
+            <span class="modal-section-label">حوزه</span>
+            ${state.tags.map(t => `<span class="pick-chip ${ed.tagIds.includes(t.id)?'on':''}" style="--chip-color:${t.color}" onclick="winEditorToggleTag('${t.id}')">${escapeHtml(t.name)}</span>`).join('')}
+          </div>
+        ` : ''}
+        <div class="modal-section">
+          <span class="modal-section-label">کِی؟</span>
+          <div class="quick-group">
+            <span class="quick-chip ${ed.happenedOn===today?'active':''}" onclick="winEditorQuickDate(0)">امروز</span>
+            <span class="quick-chip ${ed.happenedOn===yesterday?'active':''}" onclick="winEditorQuickDate(1)">دیروز</span>
+            <button type="button" class="date-picker-btn" onclick="toggleWinCalendar()">${icon('calendar',13)} ${other ? fmtWinDate(ed.happenedOn) : 'یه روز دیگه'}</button>
+          </div>
+          ${ed.calendarOpen ? renderPickCalendar({ jy:ed.calJY, jm:ed.calJM, date:ed.happenedOn, prev:'winCalPrevMonth', next:'winCalNextMonth', pick:'winCalPick' }) : ''}
+        </div>
+        <div class="modal-actions">
+          <button class="confirm" onclick="confirmWinEditor()">ثبتش کن</button>
+          <button class="cancel" onclick="closeWinEditor()">انصراف</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+async function confirmWinEditor(){
+  const ed = state.winEditor;
+  if(!ed || !ed.title.trim()) return;
+  const fields = {
+    title: ed.title.trim(),
+    // the label already says «با اینکه», so don't let it read twice on the card
+    hardship: ed.hardship.trim().replace(/^با\s*این\s*‌?\s*که\s*/, ''),
+    why: ed.why.trim(),
+    tagIds: ed.tagIds.filter(id => state.tags.some(t => t.id === id)),
+    happenedOn: ed.happenedOn,
+  };
+  const payload = { title:fields.title, hardship:fields.hardship || null, why:fields.why || null, tag_ids:fields.tagIds, happened_on:fields.happenedOn };
+  if(ed.winId){
+    const w = state.wins.find(x => x.id === ed.winId);
+    if(!w){ closeWinEditor(); return; }
+    const before = { title:w.title, hardship:w.hardship, why:w.why, tagIds:w.tagIds, happenedOn:w.happenedOn };
+    Object.assign(w, fields);
+    sortWins();
+    state.winEditor = null; render();
+    await persist(sb.from('wins').update(payload).eq('id', w.id), {
+      message: 'تغییرات ذخیره نشد — اینترنتت رو چک کن و دوباره امتحان کن.',
+      rollback: () => { Object.assign(w, before); sortWins(); },
+    });
+  } else {
+    const id = crypto.randomUUID();
+    state.wins.push({ id, ...fields, createdAt:new Date().toISOString() });
+    sortWins();
+    state.winEditor = null; render();
+    await persist(sb.from('wins').insert({ id, ...payload }), {
+      message: `«${fields.title}» ذخیره نشد — اینترنتت رو چک کن و دوباره اضافه‌ش کن.`,
+      rollback: () => { state.wins = state.wins.filter(x => x.id !== id); },
+    });
+  }
+}
+const pendingWinDeleteTimers = {}; // winId -> timeoutId, while the undo window is open
+function deleteWin(id){
+  const idx = state.wins.findIndex(x => x.id === id);
+  if(idx === -1) return;
+  const [removed] = state.wins.splice(idx, 1);
+  showUndoToast('حذف شد', () => {
+    clearTimeout(pendingWinDeleteTimers[id]);
+    delete pendingWinDeleteTimers[id];
+    state.wins.splice(idx, 0, removed);
+    render();
+  });
+  render();
+  pendingWinDeleteTimers[id] = setTimeout(async () => {
+    delete pendingWinDeleteTimers[id];
+    const { error } = await sb.from('wins').delete().eq('id', id);
+    if(error) writeFailed('deleteWin', error);
+  }, 5000);
+}
+
+/* ---------- wins: one at a time ---------- */
+function openWinSos(){
+  const order = state.wins.map(w => w.id);
+  for(let i = order.length - 1; i > 0; i--){
+    const j = Math.floor(Math.random() * (i + 1));
+    [order[i], order[j]] = [order[j], order[i]];
+  }
+  state.winSos = { order, index:0 };
+  render();
+}
+function nextWinSos(){ if(state.winSos){ state.winSos.index++; render(); } }
+function closeWinSos(){ state.winSos = null; render(); }
+function renderWinSos(){
+  const s = state.winSos;
+  // skip anything deleted on another device while this was open
+  const order = s.order.filter(id => state.wins.some(w => w.id === id));
+  const total = order.length;
+  if(s.index >= total){
+    return `
+      <div class="win-sos" role="dialog" aria-modal="true">
+        <div class="win-sos-card">
+          <div class="win-sos-title">${toFaDigits(total)} بار تونستی.</div>
+          <div class="win-sos-why">همه‌ش کار خودت بود. یه بار دیگه هم می‌تونی.</div>
+        </div>
+        <div class="win-sos-actions">
+          <button class="primary" onclick="closeWinSos()">بسه، بهترم</button>
+          <button onclick="openWinSos()">از اول</button>
+        </div>
+      </div>
+    `;
+  }
+  const w = state.wins.find(x => x.id === order[s.index]);
+  return `
+    <div class="win-sos" role="dialog" aria-modal="true">
+      <div class="win-sos-kicker">مغزت داره شکست‌ها رو می‌شمره؟<br>پس اینا رو هم بشمر.</div>
+      <div class="win-sos-card">
+        <div class="win-sos-title" dir="auto">${escapeHtml(w.title)}</div>
+        ${w.hardship ? `<div class="win-sos-hardship" dir="auto">با اینکه ${escapeHtml(w.hardship)}</div>` : ''}
+        ${w.why ? `<div class="win-sos-why" dir="auto">${escapeHtml(w.why)}</div>` : ''}
+        <div class="win-sos-date">${fmtWinDate(w.happenedOn)}</div>
+      </div>
+      <div class="win-sos-progress">${toFaDigits(s.index + 1)} از ${toFaDigits(total)}</div>
+      <div class="win-sos-actions">
+        <button class="primary" onclick="nextWinSos()">یکی دیگه</button>
+        <button onclick="closeWinSos()">بسه، بهترم</button>
+      </div>
+    </div>
+  `;
+}
+
 /* ---------- reminders ("یادت نره") ----------
    Things that aren't tasks and have no place on a to-do list, but must not slip
    your mind: a subscription you paid for and haven't used, a birthday, a date
@@ -4842,28 +5225,31 @@ function reminderCalPick(jy, jm, jd){
   render();
 }
 /* The same Jalali grid the task editor uses, minus the per-day task dots —
-   a reminder only ever needs to pick one day. */
+   for editors that only ever pick one day. prev/next/pick name global handlers. */
 function renderReminderCalendar(){
   const ed = state.reminderEditor;
-  const jy = ed.calJY, jm = ed.calJM;
+  return renderPickCalendar({ jy:ed.calJY, jm:ed.calJM, date:ed.date,
+    prev:'reminderCalPrevMonth', next:'reminderCalNextMonth', pick:'reminderCalPick' });
+}
+function renderPickCalendar({ jy, jm, date, prev, next, pick }){
   const monthLen = window.jalaali.jalaaliMonthLength(jy, jm);
   const firstG = window.jalaali.toGregorian(jy, jm, 1);
   const firstDate = new Date(firstG.gy, firstG.gm - 1, firstG.gd);
   const startOffset = (firstDate.getDay() + 1) % 7; // Persian week starts Saturday
   const todayJ = window.jalaali.toJalaali(new Date());
-  const selJ = ed.date ? window.jalaali.toJalaali(new Date(ed.date + 'T00:00:00')) : null;
+  const selJ = date ? window.jalaali.toJalaali(new Date(date + 'T00:00:00')) : null;
   const cells = [];
   for(let i = 0; i < startOffset; i++) cells.push(null);
   for(let d = 1; d <= monthLen; d++) cells.push(d);
   return `
     <div class="task-calendar">
       <div class="cal-header">
-        <button type="button" class="cal-nav" onclick="reminderCalPrevMonth()">ماه قبل</button>
+        <button type="button" class="cal-nav" onclick="${prev}()">ماه قبل</button>
         <div class="cal-title">
           <span class="cal-jalali">${MONTHS_JALALI[jm-1]} ${toFaDigits(jy)}</span>
           <span class="cal-greg">${MONTHS_GREG_FA[firstG.gm-1]} ${firstG.gy}</span>
         </div>
-        <button type="button" class="cal-nav" onclick="reminderCalNextMonth()">ماه بعد</button>
+        <button type="button" class="cal-nav" onclick="${next}()">ماه بعد</button>
       </div>
       <div class="cal-weekdays">${['ش','ی','د','س','چ','پ','ج'].map(w => `<span>${w}</span>`).join('')}</div>
       <div class="cal-grid">
@@ -4871,7 +5257,7 @@ function renderReminderCalendar(){
           if(dnum === null) return `<div class="cal-cell empty"></div>`;
           const isToday = (jy===todayJ.jy && jm===todayJ.jm && dnum===todayJ.jd);
           const isSel = selJ && jy===selJ.jy && jm===selJ.jm && dnum===selJ.jd;
-          return `<div class="cal-cell ${isToday?'today':''} ${isSel?'selected':''}" onclick="reminderCalPick(${jy},${jm},${dnum})"><span class="cal-daynum">${toFaDigits(dnum)}</span></div>`;
+          return `<div class="cal-cell ${isToday?'today':''} ${isSel?'selected':''}" onclick="${pick}(${jy},${jm},${dnum})"><span class="cal-daynum">${toFaDigits(dnum)}</span></div>`;
         }).join('')}
       </div>
     </div>
@@ -5348,6 +5734,7 @@ function render(){
       ${state.view === 'subscriptions' ? renderSubscriptionsPage() : ''}
       ${state.view === 'reminders' ? renderRemindersPage() : ''}
       ${state.view === 'prompts' ? renderPromptsPage() : ''}
+      ${state.view === 'wins' ? renderWinsPage() : ''}
       ${state.view === 'archive' ? renderArchivePage() : ''}
       ${state.view === 'ai-reports' ? renderAIReportsPage() : ''}
     </main>
@@ -5359,6 +5746,8 @@ function render(){
     ${state.subscriptionEditor ? renderSubscriptionEditorModal() : ''}
     ${state.reminderEditor ? renderReminderEditorModal() : ''}
     ${state.promptEditor ? renderPromptEditorModal() : ''}
+    ${state.winEditor ? renderWinEditorModal() : ''}
+    ${state.winSos ? renderWinSos() : ''}
   `;
   // every render rebuilds the tabs; if a group ever has more than fit, keep
   // the strip where it was and bring a newly opened tab into view
@@ -5394,6 +5783,9 @@ const NAV_GROUPS = [
   { id:'money',  label:'هزینه‌ها', icon:'card', items:[
     { id:'purchases',     label:'خریدها',    icon:'cart' },
     { id:'subscriptions', label:'اشتراک‌ها', icon:'card' },
+  ]},
+  { id:'wins',   label:'تونستم', icon:'trophy', items:[
+    { id:'wins',       label:'تونستم',        icon:'trophy' },
   ]},
   { id:'review', label:'مرور', icon:'archive', items:[
     { id:'archive',    label:'آرشیو',         icon:'archive' },
