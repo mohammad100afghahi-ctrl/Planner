@@ -605,7 +605,7 @@ global.jalaali = {
   .idea-actions .item-edit{
     background:none; border:none; color:var(--text-muted); cursor:pointer; padding:2px 6px; display:inline-flex;
   }
-  .idea-actions .item-edit:hover{color:var(--accent);}
+  .idea-actions .item-edit:hover, .idea-actions .item-edit.copied{color:var(--accent);}
   .idea-image-strip{display:flex; flex-wrap:wrap; gap:8px; margin-top:10px;}
   .idea-thumb{position:relative; width:84px; height:84px; border-radius:10px; overflow:hidden; border:1px solid var(--line);}
   .idea-thumb img{width:100%; height:100%; object-fit:cover; display:block;}
@@ -1052,7 +1052,9 @@ global.jalaali = {
     color:var(--danger); white-space:nowrap; background:none; border:none;
   }
   .today-item-row{display:flex; align-items:flex-start; gap:10px; padding:13px 14px; cursor:pointer;}
-  .today-item-row .priority-dot, .today-item-row .task-check{margin-top:3px;}
+  .today-item-row .task-check{margin-top:3px;}
+  /* centred on the 20px checkbox beside it (3px + (20-8)/2) */
+  .today-item-row .priority-dot{margin-top:9px;}
   .today-item .ti-main{flex:1; min-width:0;}
   .today-item .ti-title-row{display:flex; align-items:center; gap:6px;}
   .today-item .ti-title{
@@ -1335,6 +1337,26 @@ global.jalaali = {
   @media (max-width: 640px){
     .undo-toast{bottom:calc(96px + env(safe-area-inset-bottom, 0px));}
   }
+
+  /* ---- finger-sized row actions ----
+     On touch screens the little icon buttons beside each row (edit / pause /
+     delete…) were ~25px and sat 4px apart, so a thumb aimed at one hit its
+     neighbour. Give each a ≥40px target, and set delete apart from the rest. */
+  @media (pointer: coarse){
+    .sub-actions, .prompt-actions, .win-actions, .idea-actions, .today-item .ti-actions{gap:6px;}
+    .sub-actions button, .prompt-actions button, .win-actions button,
+    .idea-actions .item-edit, .idea-footer .item-del,
+    .today-item .item-del, .today-item .item-edit{
+      min-width:40px; min-height:40px; padding:0 8px;
+      display:inline-flex; align-items:center; justify-content:center; border-radius:10px;
+    }
+    .sub-actions button:active, .prompt-actions button:active, .win-actions button:active,
+    .idea-actions button:active, .today-item .ti-actions button:active{background:var(--surface-2, rgba(255,255,255,.06));}
+    .sub-actions button[onclick^="delete"], .idea-footer .item-del,
+    .today-item .item-del, .win-actions button[onclick^="delete"], .prompt-actions button[onclick^="delete"]{margin-inline-start:8px;}
+    /* 40px buttons centred on the checkbox line (13px) without growing the row */
+    .today-item-row .ti-actions{margin-top:-7px; margin-bottom:-7px;}
+  }
 </style>
 </head>
 <body>
@@ -1512,7 +1534,8 @@ let state = {
   aiReportOpen: {}, // { [reportId]: true } — reports expanded past their preview
   aiReportFreshIds: [], // reports that were unread when this visit to the page began
   purchases: [], // [{ id, title, priority, price, bought, boughtAt }]
-  purchaseSort: 'default', // 'default' | 'cheapest' | 'priciest'
+  purchaseSort: 'priority', // 'default' | 'priority' | 'cheapest' | 'priciest'
+  purchaseEditor: null, // { id, title, price, priority } while editing a purchase
   ideas: [], // [{ id, body, tagIds, createdAt }]
   ideasFilterTagIds: [], // ideas page: show only ideas carrying ANY of these tags (empty = all)
   archiveSection: 'tasks', // 'tasks' | 'purchases'
@@ -2054,16 +2077,36 @@ async function updateTagColor(tagId, color){
   const { error } = await sb.from('tags').update({ color }).eq('id', tagId);
   if(error) writeFailed('updateTagColor', error);
 }
-async function deleteTag(tagId){
-  state.tags = state.tags.filter(t => t.id !== tagId);
-  state.tasks.forEach(task => { task.tagIds = task.tagIds.filter(id => id !== tagId); });
+const pendingTagDeleteTimers = {}; // tagId -> timeoutId, while the undo window is open
+function deleteTag(tagId){
+  const idx = state.tags.findIndex(t => t.id === tagId);
+  if(idx === -1) return;
+  const [removed] = state.tags.splice(idx, 1);
+  /* remember everything that carried the tag, so undo can put it back exactly */
+  const holders = [...state.tasks, ...state.recurringTemplates, ...state.ideas, ...state.wins].filter(x => (x.tagIds || []).includes(tagId));
+  const inTodayFilter = state.todayFilters.tagIds.includes(tagId);
+  const inTasksFilter = state.tasksFilters.tagIds.includes(tagId);
+  const goal = state.tagGoals.find(g => g.tagId === tagId);
+  holders.forEach(x => { x.tagIds = x.tagIds.filter(id => id !== tagId); });
   state.todayFilters.tagIds = state.todayFilters.tagIds.filter(id => id !== tagId);
   state.tasksFilters.tagIds = state.tasksFilters.tagIds.filter(id => id !== tagId);
   state.tagGoals = state.tagGoals.filter(g => g.tagId !== tagId);
-  state.wins.forEach(w => { w.tagIds = w.tagIds.filter(id => id !== tagId); });
+  showUndoToast(`تگ «${removed.name}» حذف شد`, () => {
+    clearTimeout(pendingTagDeleteTimers[tagId]);
+    delete pendingTagDeleteTimers[tagId];
+    state.tags.splice(Math.min(idx, state.tags.length), 0, removed);
+    holders.forEach(x => { if(!x.tagIds.includes(tagId)) x.tagIds.push(tagId); });
+    if(inTodayFilter) state.todayFilters.tagIds.push(tagId);
+    if(inTasksFilter) state.tasksFilters.tagIds.push(tagId);
+    if(goal) state.tagGoals.push(goal);
+    render();
+  });
   render();
-  const { error } = await sb.from('tags').delete().eq('id', tagId);
-  if(error) writeFailed('deleteTag', error);
+  pendingTagDeleteTimers[tagId] = setTimeout(async () => {
+    delete pendingTagDeleteTimers[tagId];
+    const { error } = await sb.from('tags').delete().eq('id', tagId);
+    if(error) writeFailed('deleteTag', error);
+  }, 5000);
 }
 function toggleTagManager(){ state.tagManagerOpen = !state.tagManagerOpen; render(); }
 function toggleRecurringManager(){ state.recurringManagerOpen = !state.recurringManagerOpen; render(); }
@@ -2123,13 +2166,79 @@ async function deletePurchase(id){
   }, 5000);
 }
 const pendingPurchaseDeleteTimers = {};
+function openPurchaseEditor(id){
+  const p = state.purchases.find(x => x.id === id);
+  if(!p) return;
+  state.purchaseEditor = { id, title:p.title, price: p.price != null ? String(p.price) : '', priority:p.priority || null };
+  render();
+}
+function closePurchaseEditor(){ state.purchaseEditor = null; render(); }
+function purchaseEditorSetPriority(level){
+  const ed = state.purchaseEditor;
+  if(!ed) return;
+  // keep what's typed — re-rendering rebuilds the inputs from state
+  const titleEl = document.getElementById('purchase-editor-title');
+  const priceEl = document.getElementById('purchase-editor-price');
+  if(titleEl) ed.title = titleEl.value;
+  if(priceEl) ed.price = priceEl.value;
+  ed.priority = ed.priority === level ? null : level;
+  render();
+}
+function renderPurchaseEditorModal(){
+  const ed = state.purchaseEditor;
+  return `
+    <div class="modal-overlay" onclick="if(event.target===this)closePurchaseEditor()">
+      <div class="modal-box">
+        <input class="modal-title-input" id="purchase-editor-title" placeholder="چی باید بخری؟" value="${escapeHtml(ed.title)}" oninput="state.purchaseEditor.title=this.value" />
+        <div class="modal-section">
+          <span class="modal-section-label">قیمت</span>
+          <input type="text" id="purchase-editor-price" inputmode="numeric" class="num-text" value="${escapeHtml(ed.price ? toFaDigits(ed.price) : '')}"
+            oninput="normalizeNumericInput(this); state.purchaseEditor.price=this.value" />
+        </div>
+        <div class="modal-section">
+          <span class="modal-section-label">اهمیت</span>
+          <div class="add-purchase-row">
+            <span class="priority-chip high ${ed.priority==='high'?'active':''}" onclick="purchaseEditorSetPriority('high')">بالا</span>
+            <span class="priority-chip medium ${ed.priority==='medium'?'active':''}" onclick="purchaseEditorSetPriority('medium')">متوسط</span>
+            <span class="priority-chip low ${ed.priority==='low'?'active':''}" onclick="purchaseEditorSetPriority('low')">پایین</span>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button class="confirm" onclick="confirmPurchaseEditor()">ذخیره</button>
+          <button class="cancel" onclick="closePurchaseEditor()">انصراف</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+async function confirmPurchaseEditor(){
+  const ed = state.purchaseEditor;
+  if(!ed) return;
+  const title = (ed.title || '').trim();
+  if(!title) return;
+  const p = state.purchases.find(x => x.id === ed.id);
+  if(!p){ closePurchaseEditor(); return; }
+  const priceRaw = toEnDigits(ed.price || '').replace(/[^0-9]/g, '');
+  const price = priceRaw ? parseInt(priceRaw) : null;
+  Object.assign(p, { title, price, priority: ed.priority || null });
+  state.purchaseEditor = null;
+  render();
+  const { error } = await sb.from('purchases').update({ title, price, priority: p.priority }).eq('id', p.id);
+  if(error) writeFailed('editPurchase', error);
+}
 function setPurchaseSort(mode){
   state.purchaseSort = state.purchaseSort === mode ? 'default' : mode;
   render();
 }
+const PURCHASE_PRIORITY_RANK = { high:0, medium:1, low:2 };
 function sortPurchases(list){
   const arr = [...list];
   if(state.purchaseSort === 'default') return arr;
+  if(state.purchaseSort === 'priority'){
+    // most important first; items with no priority sink; ties keep newest-first
+    const rank = p => p.priority in PURCHASE_PRIORITY_RANK ? PURCHASE_PRIORITY_RANK[p.priority] : 3;
+    return arr.sort((a,b) => rank(a) - rank(b));
+  }
   return arr.sort((a,b) => {
     /* items without a price always sink to the bottom in either direction —
        "unknown price" is neither cheap nor expensive, so ranking it as either would mislead */
@@ -2777,12 +2886,25 @@ async function toggleSubtask(taskId, subId, evt){
     }
   }
 }
-async function deleteSubtask(taskId, subId){
+const pendingSubtaskDeleteTimers = {}; // subId -> timeoutId, while the undo window is open
+function deleteSubtask(taskId, subId){
   const t = state.tasks.find(t => t.id === taskId);
-  t.subtasks = t.subtasks.filter(s => s.id !== subId);
+  if(!t) return;
+  const idx = t.subtasks.findIndex(s => s.id === subId);
+  if(idx === -1) return;
+  const [removed] = t.subtasks.splice(idx, 1);
+  showUndoToast(`ریزکار «${removed.title}» حذف شد`, () => {
+    clearTimeout(pendingSubtaskDeleteTimers[subId]);
+    delete pendingSubtaskDeleteTimers[subId];
+    t.subtasks.splice(Math.min(idx, t.subtasks.length), 0, removed);
+    render();
+  });
   render();
-  const { error } = await sb.from('subtasks').delete().eq('id', subId);
-  if(error) writeFailed('deleteSubtask', error);
+  pendingSubtaskDeleteTimers[subId] = setTimeout(async () => {
+    delete pendingSubtaskDeleteTimers[subId];
+    const { error } = await sb.from('subtasks').delete().eq('id', subId);
+    if(error) writeFailed('deleteSubtask', error);
+  }, 5000);
 }
 function subtaskKeydown(e, taskId){ if(e.key === 'Enter') addSubtask(taskId); }
 function toggleTodayExpand(taskId){ state.todayExpanded[taskId] = !state.todayExpanded[taskId]; render(); }
@@ -3699,12 +3821,26 @@ async function toggleRecurringActive(templateId){
   }
   if(tpl.active) await maybeGenerateTodayForTemplate(tpl);
 }
-async function deleteRecurringTemplate(templateId){
-  state.recurringTemplates = state.recurringTemplates.filter(t => t.id !== templateId);
-  state.tasks.forEach(t => { if(t.recurringTemplateId === templateId) t.recurringTemplateId = null; });
+const pendingRecurringDeleteTimers = {}; // templateId -> timeoutId, while the undo window is open
+function deleteRecurringTemplate(templateId){
+  const idx = state.recurringTemplates.findIndex(t => t.id === templateId);
+  if(idx === -1) return;
+  const [removed] = state.recurringTemplates.splice(idx, 1);
+  const linked = state.tasks.filter(t => t.recurringTemplateId === templateId);
+  linked.forEach(t => { t.recurringTemplateId = null; });
+  showUndoToast(`تکرارِ «${removed.title}» حذف شد`, () => {
+    clearTimeout(pendingRecurringDeleteTimers[templateId]);
+    delete pendingRecurringDeleteTimers[templateId];
+    state.recurringTemplates.splice(Math.min(idx, state.recurringTemplates.length), 0, removed);
+    linked.forEach(t => { t.recurringTemplateId = templateId; });
+    render();
+  });
   render();
-  const { error } = await sb.from('recurring_templates').delete().eq('id', templateId);
-  if(error) writeFailed('deleteRecurringTemplate', error);
+  pendingRecurringDeleteTimers[templateId] = setTimeout(async () => {
+    delete pendingRecurringDeleteTimers[templateId];
+    const { error } = await sb.from('recurring_templates').delete().eq('id', templateId);
+    if(error) writeFailed('deleteRecurringTemplate', error);
+  }, 5000);
 }
 /* Stops a series from generating any FUTURE occurrences. Past instances and
    today's (already-generated) one are real tasks and stay untouched — deleting
@@ -4220,7 +4356,8 @@ function renderPurchaseRow(p){
           ${p.price != null ? `<div class="ti-meta-row"><span class="dur">${fmtPrice(p.price)}</span></div>` : ''}
         </div>
         <div class="ti-actions">
-          <button class="item-del" onclick="deletePurchase('${p.id}')">✕</button>
+          <button class="item-edit" onclick="openPurchaseEditor('${p.id}')" title="ویرایش">${icon('pencil',14)}</button>
+          <button class="item-del" onclick="deletePurchase('${p.id}')" title="حذف">✕</button>
         </div>
       </div>
     </div>
@@ -4244,6 +4381,7 @@ function renderPurchasesPage(){
     <div class="filter-panel">
       <div class="filter-group">
         <span class="filter-group-label">مرتب‌سازی:</span>
+        <span class="filter-chip ${state.purchaseSort==='priority'?'active':''}" onclick="setPurchaseSort('priority')">مهم‌ترین اول</span>
         <span class="filter-chip ${state.purchaseSort==='cheapest'?'active':''}" onclick="setPurchaseSort('cheapest')">ارزان‌ترین اول</span>
         <span class="filter-chip ${state.purchaseSort==='priciest'?'active':''}" onclick="setPurchaseSort('priciest')">گران‌ترین اول</span>
       </div>
@@ -4314,8 +4452,9 @@ function renderIdeasPage(){
             ${i.tagIds.map(tid => { const tag = state.tags.find(x=>x.id===tid); return tag ? `<span class="mini-tag" style="--chip-color:${tag.color}">${escapeHtml(tag.name)}</span>` : ''; }).join('')}
           </div>
           <div class="idea-actions">
-            <button class="item-edit" onclick="openIdeaEditor('${i.id}')" title="ویرایش">${icon('pencil',13)}</button>
-            <button class="item-del" onclick="deleteIdea('${i.id}')">✕</button>
+            ${i.body ? `<button class="item-edit" onclick="copyIdea('${i.id}', this)" title="کپی متن">${icon('copy',15)}</button>` : ''}
+            <button class="item-edit" onclick="openIdeaEditor('${i.id}')" title="ویرایش">${icon('pencil',15)}</button>
+            <button class="item-del" onclick="deleteIdea('${i.id}')" title="حذف">✕</button>
           </div>
         </div>
       </div>
@@ -4365,10 +4504,22 @@ function daysUntil(dateStr){
   const b = new Date(dateStr + 'T00:00:00');
   return Math.round((b - a) / 86400000);
 }
+const SUB_CYCLES = [
+  { id:'monthly',    label:'ماهانه',   months:1 },
+  { id:'bimonthly',  label:'دوماهه',   months:2 },
+  { id:'quarterly',  label:'سه‌ماهه',  months:3 },
+  { id:'semiannual', label:'شش‌ماهه',  months:6 },
+  { id:'yearly',     label:'سالانه',   months:12 },
+];
+function subCycle(id){ return SUB_CYCLES.find(c => c.id === id) || SUB_CYCLES[0]; }
 function advanceRenewal(dateStr, cycle){
   const d = new Date(dateStr + 'T00:00:00');
-  if(cycle === 'yearly') d.setFullYear(d.getFullYear() + 1);
-  else d.setMonth(d.getMonth() + 1);
+  const day = d.getDate();
+  d.setDate(1);
+  d.setMonth(d.getMonth() + subCycle(cycle).months);
+  // clamp: renewing on Jan 31 lands on the last day of the target month, not spills into the next
+  const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+  d.setDate(Math.min(day, lastDay));
   return dateKey(d);
 }
 function subDueLabel(sub){
@@ -4421,7 +4572,7 @@ function renderSubRow(sub){
       <div class="sub-main">
         <div class="sub-name">${escapeHtml(sub.name)}</div>
         <div class="sub-meta">
-          <span>${sub.cycle === 'yearly' ? 'سالانه' : 'ماهانه'}</span>
+          <span>${subCycle(sub.cycle).label}</span>
           ${sub.nextRenewal ? `<span>${formatDateShort(sub.nextRenewal)}</span>` : ''}
           ${sub.active ? `<span class="sub-due ${due.cls}">${due.text}</span>` : `<span>غیرفعال</span>`}
           ${sub.note ? `<span>${escapeHtml(sub.note)}</span>` : ''}
@@ -4457,8 +4608,7 @@ function renderSubscriptionEditorModal(){
         <input class="modal-title-input" placeholder="نام اشتراک" value="${escapeHtml(ed.name)}" oninput="subEditorSet('name',this.value)" />
         <div class="modal-section">
           <span class="modal-section-label">دوره</span>
-          <span class="pick-chip ${ed.cycle==='monthly'?'on':''}" style="--chip-color:var(--accent)" onclick="subEditorSet('cycle','monthly')">ماهانه</span>
-          <span class="pick-chip ${ed.cycle==='yearly'?'on':''}" style="--chip-color:var(--accent)" onclick="subEditorSet('cycle','yearly')">سالانه</span>
+          ${SUB_CYCLES.map(c => `<span class="pick-chip ${ed.cycle===c.id?'on':''}" style="--chip-color:var(--accent)" onclick="subEditorSet('cycle','${c.id}')">${c.label}</span>`).join('')}
         </div>
         <div class="modal-section">
           <span class="modal-section-label">تاریخ تمدید بعدی</span>
@@ -4531,15 +4681,25 @@ async function markSubRenewed(subId){
     rollback: () => { sub.nextRenewal = before; },
   });
 }
-async function deleteSubscription(subId){
+const pendingSubDeleteTimers = {}; // subId -> timeoutId, while the undo window is open
+function deleteSubscription(subId){
   const idx = state.subscriptions.findIndex(s => s.id === subId);
   if(idx === -1) return;
   const [removed] = state.subscriptions.splice(idx, 1);
-  render();
-  await persist(sb.from('subscriptions').delete().eq('id', subId), {
-    message: `حذف «${removed.name}» ذخیره نشد — اینترنتت رو چک کن.`,
-    rollback: () => { state.subscriptions.splice(idx, 0, removed); },
+  showUndoToast(`«${removed.name}» حذف شد`, () => {
+    clearTimeout(pendingSubDeleteTimers[subId]);
+    delete pendingSubDeleteTimers[subId];
+    state.subscriptions.splice(Math.min(idx, state.subscriptions.length), 0, removed);
+    render();
   });
+  render();
+  pendingSubDeleteTimers[subId] = setTimeout(async () => {
+    delete pendingSubDeleteTimers[subId];
+    await persist(sb.from('subscriptions').delete().eq('id', subId), {
+      message: `حذف «${removed.name}» ذخیره نشد — اینترنتت رو چک کن.`,
+      rollback: () => { state.subscriptions.splice(Math.min(idx, state.subscriptions.length), 0, removed); },
+    });
+  }, 5000);
 }
 
 /* ---------- prompts ----------
@@ -4617,20 +4777,35 @@ function setPromptSearch(v){
   if(el) el.innerHTML = renderPromptList();
 }
 function setPromptFilter(v){ state.promptFilter = v; render(); }
-async function copyPrompt(id, btn){
-  const p = state.prompts.find(x => x.id === id);
-  if(!p) return;
+/* true on success; shows the error toast itself on failure */
+async function copyText(text){
   try{
-    await navigator.clipboard.writeText(p.body);
+    await navigator.clipboard.writeText(text);
   } catch(e){
     // older iOS Safari / non-secure origins: fall back to a hidden textarea
     const ta = document.createElement('textarea');
-    ta.value = p.body; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.opacity = '0';
+    ta.value = text; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.opacity = '0';
     document.body.appendChild(ta); ta.select();
     const ok = document.execCommand('copy');
     ta.remove();
-    if(!ok){ showSaveError('کپی نشد — متن رو دستی انتخاب و کپی کن.'); render(); return; }
+    if(!ok){ showSaveError('کپی نشد — متن رو دستی انتخاب و کپی کن.'); render(); return false; }
   }
+  return true;
+}
+async function copyIdea(id, btn){
+  const idea = state.ideas.find(x => x.id === id);
+  if(!idea || !idea.body) return;
+  if(!(await copyText(idea.body))) return;
+  if(btn){
+    btn.classList.add('copied');
+    btn.innerHTML = icon('check',15);
+    setTimeout(() => { btn.classList.remove('copied'); btn.innerHTML = icon('copy',15); }, 1500);
+  }
+}
+async function copyPrompt(id, btn){
+  const p = state.prompts.find(x => x.id === id);
+  if(!p) return;
+  if(!(await copyText(p.body))) return;
   if(btn){
     btn.classList.add('copied');
     btn.innerHTML = `${icon('check',14)}<span>کپی شد</span>`;
@@ -5744,6 +5919,7 @@ function render(){
     ${state.saveError ? renderSaveErrorToast() : ''}
     ${state.recurringEditor ? renderRecurringEditorModal() : ''}
     ${state.subscriptionEditor ? renderSubscriptionEditorModal() : ''}
+    ${state.purchaseEditor ? renderPurchaseEditorModal() : ''}
     ${state.reminderEditor ? renderReminderEditorModal() : ''}
     ${state.promptEditor ? renderPromptEditorModal() : ''}
     ${state.winEditor ? renderWinEditorModal() : ''}
