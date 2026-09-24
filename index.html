@@ -1266,6 +1266,21 @@ global.jalaali = {
   }
   .ai-report-card.open .ai-report-text{display:block;}
   .ai-report-more{font-size:12px; color:var(--accent); font-weight:700; margin-top:8px;}
+  .replan-box{margin-top:12px; padding:12px; border-radius:10px; background:var(--surface-2); border:1px solid var(--accent); cursor:default;}
+  .replan-box.reverted{border-color:var(--line); opacity:.75;}
+  .replan-head{font-size:13px; font-weight:700; color:var(--accent); display:flex; align-items:center; gap:6px;}
+  .replan-box.reverted .replan-head{color:var(--text-muted);}
+  .replan-reason{font-size:12.5px; color:var(--text-muted); line-height:1.8; margin-top:6px;}
+  .replan-list{list-style:none; margin:10px 0 0; padding:0; display:flex; flex-direction:column; gap:8px;}
+  .replan-list li{display:flex; flex-direction:column; gap:2px; font-size:12.5px; padding-top:8px; border-top:1px solid var(--line);}
+  .replan-title{font-weight:700; color:var(--text);}
+  .replan-diff{color:var(--accent2); font-size:12px;}
+  .replan-why{color:var(--text-muted); line-height:1.7;}
+  .replan-revert-btn{
+    margin-top:12px; min-height:40px; width:100%; background:transparent; color:var(--text); border:1px solid var(--line);
+    border-radius:8px; padding:8px 12px; font-family:inherit; font-size:13px; font-weight:700; cursor:pointer;
+  }
+  .replan-revert-btn:hover{border-color:var(--accent); color:var(--accent);}
   .ai-report-filter{margin-top:14px;}
   .ai-report-filter input[type="date"]{font-family:inherit;}
   .report-notice{align-items:center;}
@@ -1871,6 +1886,7 @@ function startRealtimeSync(){
       const r = state.aiReports.find(r => r.id === row.id);
       if(!r) return;
       r.seenAt = row.seen_at;
+      r.replanRevertedAt = row.replan_reverted_at || null;
       render();
     },
     onDelete(old){
@@ -4191,7 +4207,68 @@ async function generateAIReportNow(){
   render();
 }
 function mapAIReport(r){
-  return { id:r.id, periodStart:r.period_start, periodEnd:r.period_end, text:r.report_text, createdAt:r.created_at, seenAt:r.seen_at };
+  return {
+    id:r.id, periodStart:r.period_start, periodEnd:r.period_end, text:r.report_text, createdAt:r.created_at, seenAt:r.seen_at,
+    replan:r.replan || null, replanRevertedAt:r.replan_reverted_at || null,
+  };
+}
+/* A report whose stretch was really bad carries the reshuffle هوشواره already
+   applied (generate-ai-report → maybeReplan). «برگردون همه‌چی» puts each task's
+   date/priority/duration back — but only fields still holding the AI's value,
+   so anything the user has changed by hand since is left alone. */
+async function revertReplan(reportId){
+  const r = state.aiReports.find(r => r.id === reportId);
+  if(!r || !r.replan || r.replanRevertedAt) return;
+  const keys = { date:'date', priority:'priority', duration_min:'durationMin' };
+  const writes = [];
+  r.replan.changes.forEach(c => {
+    const t = state.tasks.find(t => t.id === c.task_id);
+    if(!t || t.done) return;
+    const patch = {};
+    Object.entries(keys).forEach(([col, prop]) => {
+      const now = col === 'date' ? (t.date || null) : (t[prop] ?? null);
+      if(c.after[col] !== c.before[col] && now === c.after[col]) patch[col] = c.before[col];
+    });
+    if(!Object.keys(patch).length) return;
+    Object.entries(patch).forEach(([col, v]) => { t[keys[col]] = col === 'date' ? (v || '') : v; });
+    writes.push(sb.from('tasks').update(patch).eq('id', t.id));
+  });
+  r.replanRevertedAt = new Date().toISOString();
+  render();
+  const results = await Promise.all(writes);
+  const failed = results.find(res => res.error);
+  if(failed) return writeFailed('revertReplan', failed.error);
+  const { error } = await sb.from('ai_reports').update({ replan_reverted_at: r.replanRevertedAt }).eq('id', r.id);
+  if(error) writeFailed('revertReplan mark', error);
+}
+function renderReplanBox(r){
+  const rp = r.replan;
+  if(!rp || !rp.changes || !rp.changes.length) return '';
+  const day = d => d ? formatDateShort(d) : 'بعداً';
+  const parts = c => {
+    const out = [];
+    if(c.before.date !== c.after.date) out.push(`${day(c.before.date)} ← ${day(c.after.date)}`);
+    if(c.before.priority !== c.after.priority) out.push(`اولویت ${PRIORITY_LABEL[c.before.priority] || '—'} ← ${PRIORITY_LABEL[c.after.priority] || '—'}`);
+    if(c.before.duration_min !== c.after.duration_min) out.push(`${c.before.duration_min ? toFaDigits(c.before.duration_min) : '—'} ← ${toFaDigits(c.after.duration_min)} دقیقه`);
+    return out.join('، ');
+  };
+  const reverted = !!r.replanRevertedAt;
+  return `
+    <div class="replan-box ${reverted ? 'reverted' : ''}" onclick="event.stopPropagation()">
+      <div class="replan-head">${icon('sparkle',14)} ${reverted ? 'برنامه‌ی قبلی‌ت برگردونده شد' : 'این چند روز سخت گذشت؛ برنامه‌ت رو از نو چیدم'}</div>
+      ${rp.reason ? `<div class="replan-reason">${escapeHtml(rp.reason)}</div>` : ''}
+      <div class="replan-reason">ظرفیت روزانه‌ای که در نظر گرفتم: ${formatDuration(rp.capacity_min)}</div>
+      <ul class="replan-list">
+        ${rp.changes.map(c => `
+          <li>
+            <span class="replan-title">${escapeHtml(c.title)}</span>
+            <span class="replan-diff">${parts(c)}</span>
+            ${c.why ? `<span class="replan-why">${escapeHtml(c.why)}</span>` : ''}
+          </li>`).join('')}
+      </ul>
+      ${reverted ? '' : `<button type="button" class="replan-revert-btn" onclick="revertReplan('${r.id}')">برگردون همه‌چی</button>`}
+    </div>
+  `;
 }
 /* Opening the reports page reads everything on it. The ids are remembered for
    this visit so the cards can still say "تازه" after seen_at is written. */
@@ -4233,7 +4310,7 @@ function renderUnseenReportNotice(){
   return `
     <div class="encourage report-notice">
       <span style="color:var(--accent); flex-shrink:0; margin-top:2px;">${icon('sparkle',16)}</span>
-      <span class="encourage-text">${unseen.length > 1 ? `${toFaDigits(unseen.length)} گزارش هوشمند تازه آماده‌ست` : 'گزارش هوشمند تازه‌ت آماده‌ست'}</span>
+      <span class="encourage-text">${unseen.some(r => r.replan && !r.replanRevertedAt) ? 'هوشواره این چند روز رو سخت دید و برنامه‌ت رو از نو چید — یه نگاه بنداز' : unseen.length > 1 ? `${toFaDigits(unseen.length)} گزارش هوشمند تازه آماده‌ست` : 'گزارش هوشمند تازه‌ت آماده‌ست'}</span>
       <button type="button" class="report-notice-btn" onclick="navigateTo('ai-reports')">دیدن گزارش</button>
     </div>
   `;
@@ -4277,6 +4354,7 @@ function renderAIReportsPage(){
           </div>
           <div class="ai-report-text">${escapeHtml(r.text)}</div>
           <div class="ai-report-more">${open ? 'بستن' : 'ادامه‌ی گزارش'}</div>
+          ${renderReplanBox(r)}
         </div>`;
       }).join('')}
     `}
