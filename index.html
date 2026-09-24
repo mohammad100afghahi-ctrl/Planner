@@ -1092,6 +1092,16 @@ global.jalaali = {
     padding:11px 14px; border-radius:9px; outline:none; margin-bottom:18px;
   }
   .modal-title-input:focus{border-color:var(--accent);}
+  /* sits right under the title, so the title loses its gap when followed by it */
+  .modal-title-input:has(+ .task-notes-input){margin-bottom:8px;}
+  .task-notes-input{
+    width:100%; min-height:56px; max-height:240px; resize:vertical; background:var(--surface-2); border:1px solid var(--line); color:var(--text);
+    font-family:inherit; font-size:13px; line-height:1.8; padding:9px 14px; border-radius:9px; outline:none; margin-bottom:18px;
+  }
+  .task-notes-input:focus{border-color:var(--accent);}
+  .task-notes{font-size:12.5px; line-height:1.8; color:var(--text-muted); white-space:pre-wrap; overflow-wrap:anywhere; margin-top:4px;}
+  .today-subtasks .task-notes{margin:0 0 8px;}
+  .today-item .ti-notes-mark{color:var(--text-muted); display:inline-flex; flex-shrink:0;}
   .modal-section{margin-bottom:16px;}
   .modal-section-label{font-size:11.5px; color:var(--text-muted); font-weight:700; margin-bottom:8px; display:block;}
   .pick-chip{
@@ -1535,7 +1545,7 @@ let state = {
   archiveFilters: { search:'', tagIds:[], dateFrom:null, dateTo:null },
   todayExpanded: {},
   today: new Date(),
-  taskEditor: null, // { mode:'create'|'edit', taskId, draft:{title,tagIds,priority,date,durationMin,subtasks} }
+  taskEditor: null, // { mode:'create'|'edit', taskId, draft:{title,notes,tagIds,priority,date,durationMin,subtasks} }
   calendarPage: (function(){
     const j = window.jalaali.toJalaali(new Date());
     return { jy: j.jy, jm: j.jm, panel: 'grid', selectedDayKey: null };
@@ -1605,7 +1615,7 @@ async function loadAll(){
       .order('position', { foreignTable:'subtasks', ascending:true });
     if(tasksErr) throw tasksErr;
     state.tasks = tasks.map(t => ({
-      id: t.id, title: t.title, done: !!t.done, completedAt: t.completed_at,
+      id: t.id, title: t.title, notes: t.notes || '', done: !!t.done, completedAt: t.completed_at,
       tagIds: (t.task_tags||[]).map(tt => tt.tag_id),
       priority: t.priority,
       subtasks: (t.subtasks||[]).map(s => ({ id:s.id, title:s.title, done:!!s.done })),
@@ -1622,7 +1632,7 @@ async function loadAll(){
       .order('created_at');
     if(recurringErr) throw recurringErr;
     state.recurringTemplates = recurring.map(r => ({
-      id: r.id, title: r.title, priority: r.priority, durationMin: r.duration_min,
+      id: r.id, title: r.title, notes: r.notes || '', priority: r.priority, durationMin: r.duration_min,
       weekdays: r.weekdays || [], active: !!r.active,
       tagIds: (r.recurring_template_tags||[]).map(tt => tt.tag_id),
     }));
@@ -1776,7 +1786,7 @@ function startRealtimeSync(){
     onInsert(row){
       if(state.tasks.some(t => t.id === row.id)) return;
       state.tasks.unshift({
-        id:row.id, title:row.title, done:!!row.done, completedAt:row.completed_at,
+        id:row.id, title:row.title, notes:row.notes || '', done:!!row.done, completedAt:row.completed_at,
         tagIds:[], priority:row.priority, subtasks:[], date:row.date || '', durationMin:row.duration_min, actualMin:row.actual_min, difficulty:row.difficulty,
         recurringTemplateId:row.recurring_template_id,
       });
@@ -1786,7 +1796,7 @@ function startRealtimeSync(){
       const t = state.tasks.find(t => t.id === row.id);
       if(!t) return;
       const doneChanged = t.done !== !!row.done;
-      t.title = row.title; t.done = !!row.done; t.completedAt = row.completed_at;
+      t.title = row.title; t.notes = row.notes || ''; t.done = !!row.done; t.completedAt = row.completed_at;
       t.priority = row.priority; t.date = row.date || ''; t.durationMin = row.duration_min; t.actualMin = row.actual_min; t.difficulty = row.difficulty;
       // only cascade to subtasks when the completion state itself flipped — a plain
       // title/date edit from another device must not wipe in-progress subtask ticks
@@ -1802,13 +1812,13 @@ function startRealtimeSync(){
   registerRealtimeSync(channel, 'recurring_templates', {
     onInsert(row){
       if(state.recurringTemplates.some(t => t.id === row.id)) return;
-      state.recurringTemplates.push({ id:row.id, title:row.title, priority:row.priority, durationMin:row.duration_min, weekdays:row.weekdays||[], active:!!row.active, tagIds:[] });
+      state.recurringTemplates.push({ id:row.id, title:row.title, notes:row.notes || '', priority:row.priority, durationMin:row.duration_min, weekdays:row.weekdays||[], active:!!row.active, tagIds:[] });
       render();
     },
     onUpdate(row){
       const t = state.recurringTemplates.find(t => t.id === row.id);
       if(!t) return;
-      t.title = row.title; t.priority = row.priority; t.durationMin = row.duration_min; t.weekdays = row.weekdays||[]; t.active = !!row.active;
+      t.title = row.title; t.notes = row.notes || ''; t.priority = row.priority; t.durationMin = row.duration_min; t.weekdays = row.weekdays||[]; t.active = !!row.active;
       render();
     },
     onDelete(old){
@@ -2949,7 +2959,7 @@ function toggleTodayExpand(taskId){ state.todayExpanded[taskId] = !state.todayEx
 /* ---------- task editor modal (create / edit — all settings first, applied on confirm) ---------- */
 function openTaskEditorNew(){
   state.taskEditor = {
-    mode:'create', taskId:null, draft:{ title:'', tagIds:[], priority:null, date:'', durationMin:null, subtasks:[], recurring:{ enabled:false, weekdays:[] } },
+    mode:'create', taskId:null, draft:{ title:'', notes:'', tagIds:[], priority:null, date:'', durationMin:null, subtasks:[], recurring:{ enabled:false, weekdays:[] } },
     calendarOpen:false, calendarPanel:'grid', calendarViewJY:null, calendarViewJM:null, calendarSelectedDayKey:null,
     isRecurringInstance:false, applyToFutureRecurring:false,
   };
@@ -2957,7 +2967,7 @@ function openTaskEditorNew(){
 }
 function openTaskEditorNewForDate(dateStr){
   state.taskEditor = {
-    mode:'create', taskId:null, draft:{ title:'', tagIds:[], priority:null, date:dateStr, durationMin:null, subtasks:[], recurring:{ enabled:false, weekdays:[] } },
+    mode:'create', taskId:null, draft:{ title:'', notes:'', tagIds:[], priority:null, date:dateStr, durationMin:null, subtasks:[], recurring:{ enabled:false, weekdays:[] } },
     calendarOpen:false, calendarPanel:'grid', calendarViewJY:null, calendarViewJM:null, calendarSelectedDayKey:null,
     isRecurringInstance:false, applyToFutureRecurring:false,
   };
@@ -2969,7 +2979,7 @@ function openTaskEditorEdit(taskId){
   state.taskEditor = {
     mode:'edit', taskId,
     draft: {
-      title: t.title, tagIds: [...t.tagIds], priority: t.priority, date: t.date, durationMin: t.durationMin,
+      title: t.title, notes: t.notes || '', tagIds: [...t.tagIds], priority: t.priority, date: t.date, durationMin: t.durationMin,
       subtasks: t.subtasks.map(s => ({ id:s.id, title:s.title, done:s.done })),
       recurring:{ enabled:false, weekdays:[] },
     },
@@ -2985,7 +2995,7 @@ function copyTaskToEditor(taskId){
   state.taskEditor = {
     mode:'create', taskId:null,
     draft: {
-      title: t.title, tagIds: [...t.tagIds], priority: t.priority, date: t.date, durationMin: t.durationMin,
+      title: t.title, notes: t.notes || '', tagIds: [...t.tagIds], priority: t.priority, date: t.date, durationMin: t.durationMin,
       subtasks: t.subtasks.map(s => ({ id:uid(), title:s.title, done:false })),
       recurring:{ enabled:false, weekdays:[] },
     },
@@ -2993,6 +3003,10 @@ function copyTaskToEditor(taskId){
     isRecurringInstance:false, applyToFutureRecurring:false,
   };
   render();
+}
+function autoGrowTextarea(el){
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight + 2, 240) + 'px';
 }
 function closeTaskEditor(){ state.taskEditor = null; render(); }
 function editorToggleRecurring(){
@@ -3241,6 +3255,7 @@ async function confirmTaskEditor(){
   if(!title){ titleInput.focus(); return; }
   const ed = state.taskEditor;
   ed.draft.title = title;
+  ed.draft.notes = (ed.draft.notes || '').trim();
 
   if(ed.mode === 'create' && ed.draft.recurring.enabled){
     if(ed.draft.recurring.weekdays.length === 0){ return; } // need at least one day picked
@@ -3249,13 +3264,13 @@ async function confirmTaskEditor(){
   }
 
   const taskRow = {
-    title: ed.draft.title, priority: ed.draft.priority,
+    title: ed.draft.title, notes: ed.draft.notes || null, priority: ed.draft.priority,
     date: ed.draft.date || null, duration_min: ed.draft.durationMin,
   };
 
   if(ed.mode === 'create'){
     const newTask = {
-      id: uid(), title: ed.draft.title, done:false, completedAt:null,
+      id: uid(), title: ed.draft.title, notes: ed.draft.notes, done:false, completedAt:null,
       tagIds: ed.draft.tagIds, priority: ed.draft.priority,
       subtasks: ed.draft.subtasks, date: ed.draft.date, durationMin: ed.draft.durationMin, actualMin: null,
       recurringTemplateId: null,
@@ -3279,7 +3294,7 @@ async function confirmTaskEditor(){
     if(!t){ state.taskEditor = null; render(); return; }
     const prevSubtasks = t.subtasks;
     const prevDate = t.date;
-    t.title = ed.draft.title; t.tagIds = ed.draft.tagIds; t.priority = ed.draft.priority;
+    t.title = ed.draft.title; t.notes = ed.draft.notes; t.tagIds = ed.draft.tagIds; t.priority = ed.draft.priority;
     t.date = ed.draft.date; t.durationMin = ed.draft.durationMin; t.subtasks = ed.draft.subtasks;
     const applyToFuture = ed.isRecurringInstance && ed.applyToFutureRecurring && ed.recurringTemplateId;
     state.taskEditor = null;
@@ -3329,7 +3344,7 @@ async function createRecurringTemplate(){
   const ed = state.taskEditor;
   const d = ed.draft;
   const tpl = {
-    id: uid(), title: d.title, priority: d.priority, durationMin: d.durationMin,
+    id: uid(), title: d.title, notes: d.notes, priority: d.priority, durationMin: d.durationMin,
     weekdays: [...d.recurring.weekdays], active:true, tagIds: [...d.tagIds],
   };
   state.recurringTemplates.push(tpl);
@@ -3337,7 +3352,7 @@ async function createRecurringTemplate(){
   render();
 
   const { error: tplErr } = await sb.from('recurring_templates').insert({
-    id: tpl.id, title: tpl.title, priority: tpl.priority, duration_min: tpl.durationMin,
+    id: tpl.id, title: tpl.title, notes: tpl.notes || null, priority: tpl.priority, duration_min: tpl.durationMin,
     weekdays: tpl.weekdays, active: true,
   });
   if(tplErr){ writeFailed('create recurring template', tplErr); return; }
@@ -3350,11 +3365,11 @@ async function createRecurringTemplate(){
 async function updateRecurringTemplateFromInstance(templateId, instance){
   const tpl = state.recurringTemplates.find(t => t.id === templateId);
   if(!tpl) return;
-  tpl.title = instance.title; tpl.priority = instance.priority; tpl.durationMin = instance.durationMin; tpl.tagIds = [...instance.tagIds];
+  tpl.title = instance.title; tpl.notes = instance.notes || ''; tpl.priority = instance.priority; tpl.durationMin = instance.durationMin; tpl.tagIds = [...instance.tagIds];
   render();
 
   const { error: tplErr } = await sb.from('recurring_templates')
-    .update({ title: tpl.title, priority: tpl.priority, duration_min: tpl.durationMin })
+    .update({ title: tpl.title, notes: tpl.notes || null, priority: tpl.priority, duration_min: tpl.durationMin })
     .eq('id', templateId);
   if(tplErr) writeFailed('update recurring template', tplErr);
 
@@ -3388,7 +3403,7 @@ async function maybeGenerateTodayForTemplate(tpl){
   await dropStaleRecurringInstances(tpl.id, todayStr);
 
   const newTask = {
-    id: uid(), title: tpl.title, done:false, completedAt:null,
+    id: uid(), title: tpl.title, notes: tpl.notes || '', done:false, completedAt:null,
     tagIds: [...tpl.tagIds], priority: tpl.priority, subtasks:[], date: todayStr,
     durationMin: tpl.durationMin, actualMin: null, recurringTemplateId: tpl.id,
   };
@@ -3396,7 +3411,7 @@ async function maybeGenerateTodayForTemplate(tpl){
   render();
 
   const { error: taskErr } = await sb.from('tasks').insert({
-    id:newTask.id, title:newTask.title, priority:newTask.priority, date:newTask.date,
+    id:newTask.id, title:newTask.title, notes:newTask.notes || null, priority:newTask.priority, date:newTask.date,
     duration_min:newTask.durationMin, done:false, recurring_template_id:tpl.id,
   });
   if(taskErr){ writeFailed('generate recurring instance', taskErr); return; }
@@ -3492,6 +3507,7 @@ function renderCalendarDayPanel(){
       ${dayTasks.length === 0 ? `<div class="empty-state" style="padding:16px 0;">کاری برای این روز ثبت نشده</div>` : dayTasks.map(t => `
         <div class="cal-day-task ${t.done ? 'done' : ''}">
           <div class="cal-day-task-title ${t.done ? 'done-text' : ''}">${t.done ? '✓ ' : ''}${escapeHtml(t.title)}</div>
+          ${t.notes ? `<div class="task-notes">${escapeHtml(t.notes)}</div>` : ''}
           <div class="task-meta-row">
             ${t.priority ? `<span class="priority-dot ${t.priority}"></span><span class="summary-text">${PRIORITY_LABEL[t.priority]}</span>` : ''}
             ${t.durationMin ? `<span class="summary-text">· ${toFaDigits(t.durationMin)} دقیقه</span>` : ''}
@@ -3658,6 +3674,7 @@ function renderCalendarPageDayPanel(){
       ${dayTasks.map(t => `
         <div class="cal-day-task ${t.done ? 'done' : ''}">
           <div class="cal-day-task-title ${t.done ? 'done-text' : ''}">${t.done ? '✓ ' : ''}${escapeHtml(t.title)}</div>
+          ${t.notes ? `<div class="task-notes">${escapeHtml(t.notes)}</div>` : ''}
           <div class="task-meta-row">
             ${t.priority ? `<span class="priority-dot ${t.priority}"></span><span class="summary-text">${PRIORITY_LABEL[t.priority]}</span>` : ''}
             ${t.durationMin ? `<span class="summary-text">· ${toFaDigits(t.durationMin)} دقیقه</span>` : ''}
@@ -4044,6 +4061,8 @@ function renderTaskEditorModal(){
         <h3>${ed.mode === 'create' ? 'کار جدید' : 'ویرایش کار'}</h3>
         <input type="text" id="editor-title" class="modal-title-input" placeholder="اسم کار…"
           value="${escapeHtml(d.title)}" oninput="state.taskEditor.draft.title=this.value; updateDurationSuggestionLive();" />
+        <textarea id="editor-notes" class="task-notes-input" rows="${Math.min(8, Math.max(2, (d.notes || '').split('\n').length))}" placeholder="توضیحات (اختیاری)…"
+          oninput="state.taskEditor.draft.notes=this.value; autoGrowTextarea(this);">${escapeHtml(d.notes || '')}</textarea>
 
         <div class="modal-section">
           <span class="modal-section-label">تگ‌ها</span>
@@ -4150,6 +4169,7 @@ function renderTaskCard(task){
         <div class="task-body">
           <input class="task-title ${task.done ? 'done-text' : ''}" type="text" value="${escapeHtml(task.title)}"
             onblur="commitTaskTitle('${task.id}', this.value)" onkeydown="if(event.key==='Enter')this.blur()" />
+          ${task.notes ? `<div class="task-notes">${escapeHtml(task.notes)}</div>` : ''}
 
           <div class="task-meta-row">
             ${task.priority ? `<span class="priority-dot ${task.priority}"></span><span class="summary-text">${PRIORITY_LABEL[task.priority]}</span>` : ''}
@@ -5797,7 +5817,7 @@ function renderTimeBadge(todayTasks){
 /* ---------- rendering: today view ---------- */
 function renderTodayItem(t, todayStr){
   const expanded = !!state.todayExpanded[t.id];
-  const hasSub = t.subtasks.length > 0;
+  const hasSub = t.subtasks.length > 0 || !!t.notes;
   const isOverdue = t.date !== todayStr;
   return `
     <div class="today-item ${t.done ? 'done' : ''} ${isOverdue ? 'overdue' : ''}">
@@ -5807,6 +5827,7 @@ function renderTodayItem(t, todayStr){
         <div class="ti-main">
           <div class="ti-title-row">
             <span class="ti-title ${t.done ? 'done-text' : ''}">${escapeHtml(t.title)}</span>
+            ${t.notes ? `<span class="ti-notes-mark" title="توضیحات دارد">${icon('pencil',12)}</span>` : ''}
             ${hasSub ? `<span class="expand-arrow ${expanded ? 'open' : ''}">▾</span>` : ''}
           </div>
           <div class="ti-meta-row">
@@ -5823,6 +5844,7 @@ function renderTodayItem(t, todayStr){
       </div>
       ${expanded ? `
         <div class="today-subtasks">
+          ${t.notes ? `<div class="task-notes">${escapeHtml(t.notes)}</div>` : ''}
           ${t.subtasks.map(s => `
             <div class="subtask-row">
               <button class="subtask-check ${s.done ? 'checked' : ''}" onclick="toggleSubtask('${t.id}','${s.id}', event)">${s.done ? '✓' : ''}</button>
