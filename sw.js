@@ -1,7 +1,7 @@
 /* App-shell cache for مدار.
    Bump CACHE_NAME (e.g. medar-shell-v2) whenever index.html/manifest/icons change,
    so returning visitors pick up the new version instead of a stale cached copy. */
-const CACHE_NAME = 'medar-shell-v26';
+const CACHE_NAME = 'medar-shell-v27';
 const APP_SHELL = [
   './',
   './index.html',
@@ -13,9 +13,22 @@ const APP_SHELL = [
   './apple-touch-icon.png',
 ];
 
+/* Third-party files the page can't start without. Offline, a missing
+   supabase-js means window.supabase is undefined and nothing boots at all,
+   so these are cached too. Fetched with CORS in install (jsDelivr and Google
+   send the headers) because Cache.add refuses the opaque no-cors copy. */
+const SUPABASE_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
+const VENDOR_HOSTS = ['cdn.jsdelivr.net', 'fonts.googleapis.com', 'fonts.gstatic.com'];
+
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL))
+    caches.open(CACHE_NAME).then((cache) => Promise.all([
+      cache.addAll(APP_SHELL),
+      // best effort — a CDN hiccup must not block installing the app shell
+      fetch(SUPABASE_JS, { mode: 'cors' })
+        .then((res) => { if (res.ok) return cache.put(SUPABASE_JS, res); })
+        .catch(() => {}),
+    ]))
   );
   self.skipWaiting();
 });
@@ -31,17 +44,18 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   const req = event.request;
-  // Only handle same-origin GET requests for the app shell. Supabase API calls,
-  // Google Fonts, and the supabase-js CDN script are left untouched and always
-  // go straight to the network, so live task data is never served stale.
-  if (req.method !== 'GET' || new URL(req.url).origin !== self.location.origin) {
-    return;
-  }
+  // Only the app shell and the vendor files above. Supabase API calls are left
+  // untouched and always go straight to the network — offline data is the
+  // page's job (IndexedDB snapshot + outbox), never a stale cached response.
+  if (req.method !== 'GET') return;
+  const url = new URL(req.url);
+  if (url.origin !== self.location.origin && !VENDOR_HOSTS.includes(url.hostname)) return;
   event.respondWith(
     caches.match(req).then((cached) => {
       const network = fetch(req)
         .then((res) => {
-          if (res && res.ok) {
+          // opaque (status 0) covers no-cors font/script loads — still worth keeping
+          if (res && (res.ok || res.type === 'opaque')) {
             const copy = res.clone();
             caches.open(CACHE_NAME).then((cache) => cache.put(req, copy));
           }
