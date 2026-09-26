@@ -1187,6 +1187,17 @@ global.jalaali = {
   .push-menu button.primary{background:var(--accent); color:#12161C; border-color:var(--accent);}
   .push-menu button.danger:hover{border-color:var(--danger); color:var(--danger);}
   .push-menu button:disabled{opacity:.6; cursor:default;}
+  .date-block .push-toggle.warn .dot{background:var(--danger);}
+  .backup-list{margin:0 0 12px; border-top:1px solid var(--line);}
+  .backup-row{display:flex; align-items:center; gap:8px; padding:8px 0; border-bottom:1px solid var(--line); font-size:12.5px;}
+  .backup-row .backup-when{flex:1; min-width:0;}
+  .backup-row .backup-kind{color:var(--text-muted); font-size:11.5px;}
+  .push-menu .backup-row button{padding:5px 10px; font-size:11.5px;}
+  .restore-counts{display:grid; grid-template-columns:1fr auto auto; gap:4px 14px; font-size:12.5px; margin:0 0 4px;}
+  .restore-counts .head{color:var(--text-muted); font-size:11px; font-weight:700;}
+  .restore-counts .num{text-align:left; font-variant-numeric:tabular-nums;}
+  .restore-note{font-size:12px; color:var(--text-muted); line-height:1.9; margin:6px 0 0;}
+  .restore-note.danger{color:var(--danger);}
 
   /* today-item extra action buttons */
   .today-item .item-edit{background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:13px; padding:2px 4px; flex-shrink:0;}
@@ -1804,6 +1815,10 @@ let state = {
   infoToast: null, // { message } — a plain confirmation, nothing to undo
   pushStatus: 'checking', // 'checking'|'unsupported'|'ios-install'|'denied'|'off'|'on'|'busy'
   pushMenuOpen: false,
+  backupMenuOpen: false,
+  backups: null, // [{ id, kind:'auto'|'download'|'pre-restore', createdAt, counts }] — server copies, newest first
+  backupBusy: false,
+  restorePreview: null, // { payload, backupId, label, counts, mode:'merge'|'replace' } while confirming a restore
   taskCompletionModal: null, // { taskId, minutes, difficulty } shown right after checking a task done
   aiReports: [], // [{ id, periodStart, periodEnd, text, createdAt, seenAt }]
   aiReportGenerating: false,
@@ -6330,11 +6345,13 @@ function render(){
         <div class="gregorian">${gregorian}</div>
         <div class="header-links">
           ${state.pushStatus === 'unsupported' ? '' : `<button class="push-toggle ${state.pushStatus === 'on' ? 'on' : ''}" onclick="togglePushMenu()"><span class="dot"></span>اعلان‌ها</button>`}
+          <button class="push-toggle ${backupOverdue() ? 'warn' : ''}" onclick="toggleBackupMenu()" title="${backupOverdue() ? 'مدتیه پشتیبان دانلود نکردی' : ''}"><span class="dot"></span>پشتیبان</button>
           <button class="sign-out" onclick="signOut()">خروج</button>
         </div>
       </div>
     </header>
     ${state.pushMenuOpen ? renderPushMenu() : ''}
+    ${state.backupMenuOpen ? renderBackupMenu() : ''}
 
     ${renderNav()}
     ${renderSubnav()}
@@ -6362,6 +6379,7 @@ function render(){
     ${state.infoToast && !state.saveError && !state.undoToast ? renderInfoToast() : ''}
     ${state.recurringEditor ? renderRecurringEditorModal() : ''}
     ${state.subscriptionEditor ? renderSubscriptionEditorModal() : ''}
+    ${state.restorePreview ? renderRestoreModal() : ''}
     ${state.purchaseEditor ? renderPurchaseEditorModal() : ''}
     ${state.reminderEditor ? renderReminderEditorModal() : ''}
     ${state.promptEditor ? renderPromptEditorModal() : ''}
@@ -6604,6 +6622,7 @@ async function refreshPushStatus(){
 }
 function togglePushMenu(){
   state.pushMenuOpen = !state.pushMenuOpen;
+  if(state.pushMenuOpen) state.backupMenuOpen = false;
   render();
 }
 async function enablePush(){
@@ -6696,6 +6715,244 @@ function renderPushMenu(){
   `;
 }
 
+/* ---------- پشتیبان‌گیری ----------
+   Everything the account owns is dumped by backup_now() (SQL, see backups.sql)
+   into one JSON file. The server also keeps copies: 4 weekly automatic ones,
+   the last 3 downloads and the last 3 "before restore" snapshots. Those sit in
+   the same Supabase project, so they cover mistakes — the downloaded file is
+   the only thing that survives losing the project, hence the red dot after 30
+   days without a download. A restore runs as a single transaction on the server
+   and snapshots the current data first, which is what its واگرد restores. */
+const BACKUP_TABLE_LABELS = {
+  tasks:'کارها', subtasks:'زیرکارها', tags:'تگ‌ها', recurring_templates:'کارهای تکراری',
+  ideas:'ایده‌ها', idea_images:'عکس‌های ایده', wins:'دستاوردها', prompts:'پرامپت‌ها',
+  reminders:'یادآورها', subscriptions:'اشتراک‌ها', purchases:'خریدها', ai_reports:'گزارش‌های هوش مصنوعی',
+  tag_goals:'اهداف هفتگی',
+};
+const BACKUP_KIND_LABELS = { auto:'خودکار هفتگی', download:'دانلود دستی', 'pre-restore':'قبل از بازیابی' };
+const BACKUP_OVERDUE_DAYS = 30;
+
+function backupDaysAgo(iso){
+  return Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
+}
+function backupWhen(iso){
+  const n = backupDaysAgo(iso);
+  const rel = n <= 0 ? 'امروز' : n === 1 ? 'دیروز' : `${toFaDigits(n)} روز پیش`;
+  const d = new Date(iso);
+  return `${fmtWinDate(dateKey(d))} — ${rel}`;
+}
+function lastBackupDownload(){
+  return (state.backups || []).find(b => b.kind === 'download') || null;
+}
+function backupOverdue(){
+  if(!state.backups) return false; // not loaded yet — don't flash a warning
+  const last = lastBackupDownload();
+  return !last || backupDaysAgo(last.createdAt) >= BACKUP_OVERDUE_DAYS;
+}
+async function loadBackups(){
+  const { data, error } = await sb.from('backups').select('id, kind, created_at, counts').order('created_at', { ascending:false });
+  if(error){ console.error('load backups failed', error); return; }
+  state.backups = data.map(b => ({ id:b.id, kind:b.kind, createdAt:b.created_at, counts:b.counts || {} }));
+  render();
+}
+function toggleBackupMenu(){
+  state.backupMenuOpen = !state.backupMenuOpen;
+  if(state.backupMenuOpen){ state.pushMenuOpen = false; loadBackups(); }
+  render();
+}
+function backupOnlineOrWarn(){
+  if(!isOfflineNow()) return true;
+  showSaveError('برای پشتیبان‌گیری و بازیابی باید آنلاین باشی.');
+  return false;
+}
+function saveJsonFile(payload, filename){
+  const blob = new Blob([JSON.stringify(payload)], { type:'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+}
+function backupFilename(iso){
+  return `madar-backup-${dateKey(new Date(iso))}.json`;
+}
+async function downloadBackup(){
+  if(state.backupBusy || !backupOnlineOrWarn()) return;
+  state.backupBusy = true; render();
+  try{
+    const { data, error } = await sb.rpc('backup_now');
+    if(error) throw error;
+    saveJsonFile(data, backupFilename(data.created_at));
+    showInfoToast('فایل پشتیبان دانلود شد — یه جای امن غیر از همین گوشی هم نگهش دار (مثلاً Google Drive).');
+    await loadBackups();
+  }catch(e){
+    console.error('backup failed', e);
+    showSaveError('ساختن فایل پشتیبان انجام نشد — اینترنتت رو چک کن و دوباره امتحان کن.');
+  }finally{
+    state.backupBusy = false; render();
+  }
+}
+async function downloadStoredBackup(id){
+  if(state.backupBusy || !backupOnlineOrWarn()) return;
+  state.backupBusy = true; render();
+  try{
+    const { data, error } = await sb.from('backups').select('data, created_at').eq('id', id).single();
+    if(error) throw error;
+    saveJsonFile(data.data, backupFilename(data.created_at));
+  }catch(e){
+    console.error('stored backup download failed', e);
+    showSaveError('دانلود این نسخه انجام نشد — دوباره امتحان کن.');
+  }finally{
+    state.backupBusy = false; render();
+  }
+}
+function pickRestoreFile(){
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.json,application/json';
+  input.onchange = () => { if(input.files[0]) readRestoreFile(input.files[0]); };
+  input.click();
+}
+async function readRestoreFile(file){
+  let payload;
+  try{ payload = JSON.parse(await file.text()); }catch(_e){ payload = null; }
+  if(!payload || payload.app !== 'madar' || !payload.tables || typeof payload.tables !== 'object'){
+    showSaveError('این فایل، پشتیبان مدار نیست.');
+    return;
+  }
+  if(payload.version > 1){
+    showSaveError('این پشتیبان با نسخهٔ جدیدتری از مدار ساخته شده — اول صفحه رو رفرش کن.');
+    return;
+  }
+  const counts = {};
+  for(const [t, rows] of Object.entries(payload.tables)) if(Array.isArray(rows)) counts[t] = rows.length;
+  state.restorePreview = { payload, backupId:null, label:`فایل ${file.name}`, createdAt:payload.created_at, counts, mode:'merge' };
+  state.backupMenuOpen = false;
+  render();
+}
+function openStoredRestore(id){
+  const b = (state.backups || []).find(x => x.id === id);
+  if(!b) return;
+  state.restorePreview = { payload:null, backupId:id, label:`نسخهٔ ${BACKUP_KIND_LABELS[b.kind]}`, createdAt:b.createdAt, counts:b.counts, mode:'merge' };
+  state.backupMenuOpen = false;
+  render();
+}
+function setRestoreMode(mode){
+  if(state.restorePreview){ state.restorePreview.mode = mode; render(); }
+}
+function cancelRestore(){ state.restorePreview = null; render(); }
+function currentBackupCounts(){
+  const n = arr => (arr || []).length;
+  let subtasks = 0, images = 0;
+  (state.tasks || []).forEach(t => subtasks += n(t.subtasks));
+  (state.ideas || []).forEach(i => images += n(i.images));
+  return {
+    tasks: n(state.tasks), subtasks, tags: n(state.tags), recurring_templates: n(state.recurringTemplates),
+    ideas: n(state.ideas), idea_images: images, wins: n(state.wins), prompts: n(state.prompts),
+    reminders: n(state.reminders), subscriptions: n(state.subscriptions), purchases: n(state.purchases),
+    ai_reports: n(state.aiReports), tag_goals: n(state.tagGoals),
+  };
+}
+async function confirmRestore(){
+  const rp = state.restorePreview;
+  if(!rp || state.backupBusy || !backupOnlineOrWarn()) return;
+  if(outbox.length){
+    showSaveError('چند تغییر هنوز روی سرور ذخیره نشده — صبر کن آنلاین بشی و ذخیره بشن، بعد بازیابی کن.');
+    return;
+  }
+  state.backupBusy = true; render();
+  try{
+    const { data: preId, error } = rp.backupId
+      ? await sb.rpc('restore_backup_id', { p_id: rp.backupId, p_mode: rp.mode })
+      : await sb.rpc('restore_backup', { p_data: rp.payload, p_mode: rp.mode });
+    if(error) throw error;
+    state.restorePreview = null;
+    await loadAll();
+    loadBackups();
+    showUndoToast('بازیابی انجام شد.', () => undoRestore(preId));
+  }catch(e){
+    console.error('restore failed', e);
+    showSaveError('بازیابی انجام نشد و چیزی تغییر نکرد — اینترنتت رو چک کن و دوباره امتحان کن.');
+  }finally{
+    state.backupBusy = false; render();
+  }
+}
+/* The server saved everything as it was just before the restore; putting that
+   back in 'replace' mode lands exactly where we started. After the toast is
+   gone, the same copy is still in the menu as «قبل از بازیابی». */
+async function undoRestore(preId){
+  const { error } = await sb.rpc('restore_backup_id', { p_id: preId, p_mode: 'replace' });
+  if(error){
+    console.error('undo restore failed', error);
+    showSaveError('واگرد بازیابی انجام نشد — از منوی پشتیبان، نسخهٔ «قبل از بازیابی» رو برگردون.');
+    return;
+  }
+  await loadAll();
+  loadBackups();
+  showInfoToast('اطلاعات به حالت قبل از بازیابی برگشت.');
+}
+function renderBackupMenu(){
+  const busy = state.backupBusy ? 'disabled' : '';
+  const last = lastBackupDownload();
+  const status = !state.backups ? 'در حال بررسی…'
+    : last ? `آخرین دانلود: ${backupWhen(last.createdAt)}.`
+    : 'هنوز هیچ فایل پشتیبانی دانلود نکردی.';
+  const warn = backupOverdue()
+    ? ` <span style="color:var(--danger)">وقتشه یه نسخهٔ تازه دانلود کنی.</span>` : '';
+  const rows = (state.backups || []).map(b => `
+    <div class="backup-row">
+      <div class="backup-when">${backupWhen(b.createdAt)}<div class="backup-kind">${BACKUP_KIND_LABELS[b.kind] || b.kind} · ${toFaDigits(b.counts.tasks || 0)} کار</div></div>
+      <button ${busy} onclick="downloadStoredBackup('${b.id}')">دانلود</button>
+      <button ${busy} onclick="openStoredRestore('${b.id}')">برگرداندن</button>
+    </div>`).join('');
+  return `
+    <div class="push-menu">
+      <p>${status}${warn}<br>فایل پشتیبان همهٔ کارها، ایده‌ها (با عکس)، دستاوردها، پرامپت‌ها، یادآورها، اشتراک‌ها، خریدها و گزارش‌هاست. نسخهٔ دانلودشده رو جایی غیر از همین گوشی نگه دار — اگه خود سرور از دست بره، فقط همین فایل می‌مونه.</p>
+      ${rows ? `<p style="margin-bottom:4px">نسخه‌های روی سرور (هر جمعه خودکار):</p><div class="backup-list">${rows}</div>` : ''}
+      <div class="push-actions">
+        <button class="primary" ${busy} onclick="downloadBackup()">${state.backupBusy ? 'صبر کن…' : 'دانلود پشتیبان'}</button>
+        <button ${busy} onclick="pickRestoreFile()">بازیابی از فایل</button>
+        <button ${busy} onclick="toggleBackupMenu()">بستن</button>
+      </div>
+    </div>
+  `;
+}
+function renderRestoreModal(){
+  const rp = state.restorePreview;
+  const cur = currentBackupCounts();
+  const busy = state.backupBusy ? 'disabled' : '';
+  const rows = Object.keys(BACKUP_TABLE_LABELS)
+    .filter(t => (rp.counts[t] || 0) || (cur[t] || 0))
+    .map(t => `<span>${BACKUP_TABLE_LABELS[t]}</span><span class="num">${toFaDigits(cur[t] || 0)}</span><span class="num">${toFaDigits(rp.counts[t] || 0)}</span>`)
+    .join('');
+  return `
+    <div class="modal-overlay" onclick="if(event.target===this && !state.backupBusy)cancelRestore()">
+      <div class="modal-box">
+        <div class="modal-section">
+          <span class="modal-section-label">بازیابی از ${escapeHtml(rp.label)}${rp.createdAt ? ` — ${backupWhen(rp.createdAt)}` : ''}</span>
+          <div class="restore-counts">
+            <span class="head"></span><span class="head num">الان</span><span class="head num">پشتیبان</span>
+            ${rows}
+          </div>
+        </div>
+        <div class="modal-section">
+          <span class="modal-section-label">چطور برگردونم؟</span>
+          <span class="pick-chip ${rp.mode==='merge'?'on':''}" style="--chip-color:var(--accent)" onclick="setRestoreMode('merge')">ادغام</span>
+          <span class="pick-chip ${rp.mode==='replace'?'on':''}" style="--chip-color:var(--danger)" onclick="setRestoreMode('replace')">جایگزینی کامل</span>
+          <p class="restore-note ${rp.mode==='replace'?'danger':''}">${rp.mode === 'merge'
+            ? 'چیزهایی که پاک شدن برمی‌گردن و چیزهایی که عوض شدن به نسخهٔ پشتیبان برمی‌گردن. هر چیزی که بعد از پشتیبان اضافه کردی سر جاش می‌مونه.'
+            : 'همهٔ اطلاعات فعلی پاک می‌شه و دقیقاً همون چیزی می‌شه که توی پشتیبانه. هر چیزی که بعد از پشتیبان اضافه کردی از بین می‌ره.'}
+            قبل از بازیابی از وضع فعلی یه نسخه نگه می‌دارم و می‌تونی واگردش کنی.</p>
+        </div>
+        <div class="modal-actions">
+          <button class="confirm" ${busy} onclick="confirmRestore()">${state.backupBusy ? 'در حال بازیابی…' : 'بازیابی'}</button>
+          <button class="cancel" ${busy} onclick="cancelRestore()">انصراف</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
 /* ---------- auth gate ----------
    Every table is locked to its owner by RLS (user_id = auth.uid()), so nothing
    loads until there's a session. The account is created in the Supabase
@@ -6708,6 +6965,7 @@ function bootApp(){
   loadAll();
   loadEncouragement();
   refreshPushStatus();
+  loadBackups();
 }
 function renderLogin(){
   document.body.classList.add('signed-out');
