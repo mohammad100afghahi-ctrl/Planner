@@ -1159,6 +1159,21 @@ global.jalaali = {
   .login .login-error{color:var(--danger); font-size:13px; text-align:center; min-height:18px;}
   .date-block .sign-out{background:none; border:none; color:var(--text-muted); font-size:11px; cursor:pointer; padding:4px 0 0;}
   .date-block .sign-out:hover{color:var(--danger);}
+  .date-block .header-links{display:flex; gap:12px; justify-content:flex-end; align-items:center;}
+  .date-block .push-toggle{background:none; border:none; color:var(--text-muted); font-size:11px; cursor:pointer; padding:4px 0 0; display:inline-flex; align-items:center; gap:4px;}
+  .date-block .push-toggle:hover{color:var(--accent);}
+  .date-block .push-toggle .dot{width:6px; height:6px; border-radius:50%; background:var(--line-strong);}
+  .date-block .push-toggle.on .dot{background:var(--accent);}
+  .push-menu{
+    position:relative; margin:0 auto 16px 0; max-width:360px;
+    background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:14px 16px;
+  }
+  .push-menu p{font-size:12.5px; color:var(--text-muted); line-height:1.9; margin:0 0 12px;}
+  .push-menu .push-actions{display:flex; flex-wrap:wrap; gap:8px;}
+  .push-menu button{padding:8px 14px; border-radius:9px; font-size:12.5px; font-weight:700; cursor:pointer; border:1px solid var(--line); background:var(--surface-2); color:var(--text);}
+  .push-menu button.primary{background:var(--accent); color:#12161C; border-color:var(--accent);}
+  .push-menu button.danger:hover{border-color:var(--danger); color:var(--danger);}
+  .push-menu button:disabled{opacity:.6; cursor:default;}
 
   /* today-item extra action buttons */
   .today-item .item-edit{background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:13px; padding:2px 4px; flex-shrink:0;}
@@ -1556,6 +1571,9 @@ let state = {
   tagGoals: [], // [{ tagId, weeklyMinutes }] — standing weekly time targets per tag
   undoToast: null, // { message, undo } while a delete's undo window is open
   saveError: null, // { message } while a failed-write warning is on screen
+  infoToast: null, // { message } — a plain confirmation, nothing to undo
+  pushStatus: 'checking', // 'checking'|'unsupported'|'ios-install'|'denied'|'off'|'on'|'busy'
+  pushMenuOpen: false,
   taskCompletionModal: null, // { taskId, minutes, difficulty } shown right after checking a task done
   aiReports: [], // [{ id, periodStart, periodEnd, text, createdAt, seenAt }]
   aiReportGenerating: false,
@@ -6052,9 +6070,13 @@ function render(){
       <div class="date-block">
         <div class="jalali">${jalali}</div>
         <div class="gregorian">${gregorian}</div>
-        <button class="sign-out" onclick="signOut()">خروج</button>
+        <div class="header-links">
+          ${state.pushStatus === 'unsupported' ? '' : `<button class="push-toggle ${state.pushStatus === 'on' ? 'on' : ''}" onclick="togglePushMenu()"><span class="dot"></span>اعلان‌ها</button>`}
+          <button class="sign-out" onclick="signOut()">خروج</button>
+        </div>
       </div>
     </header>
+    ${state.pushMenuOpen ? renderPushMenu() : ''}
 
     ${renderNav()}
     ${renderSubnav()}
@@ -6078,6 +6100,7 @@ function render(){
     ${state.taskCompletionModal ? renderTaskCompletionModal() : ''}
     ${state.undoToast ? renderUndoToast() : ''}
     ${state.saveError ? renderSaveErrorToast() : ''}
+    ${state.infoToast && !state.saveError && !state.undoToast ? renderInfoToast() : ''}
     ${state.recurringEditor ? renderRecurringEditorModal() : ''}
     ${state.subscriptionEditor ? renderSubscriptionEditorModal() : ''}
     ${state.purchaseEditor ? renderPurchaseEditorModal() : ''}
@@ -6242,6 +6265,177 @@ function renderSaveErrorToast(){
     </div>
   `;
 }
+let infoToastTimer = null;
+function showInfoToast(message){
+  state.infoToast = { message };
+  render();
+  if(infoToastTimer) clearTimeout(infoToastTimer);
+  infoToastTimer = setTimeout(() => { state.infoToast = null; render(); }, 5000);
+}
+function dismissInfoToast(){
+  state.infoToast = null;
+  if(infoToastTimer) clearTimeout(infoToastTimer);
+  render();
+}
+function renderInfoToast(){
+  return `
+    <div class="undo-toast">
+      <span>${escapeHtml(state.infoToast.message)}</span>
+      <button class="undo-close" onclick="dismissInfoToast()" title="بستن">✕</button>
+    </div>
+  `;
+}
+
+/* ---------- push notifications ----------
+   The browser hands us a subscription (endpoint + keys) once the user says yes;
+   we store it in push_subscriptions and the send-push edge function uses it
+   every morning at 08:00 to send the day's reminders, renewals and task count.
+   iPhone only allows this for the app added to the home screen (iOS 16.4+). */
+function pushSupported(){
+  return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+}
+function isIOS(){
+  return /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+}
+function isStandalone(){
+  return window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+}
+function b64urlToBytes(s){
+  const b64 = (s + '='.repeat((4 - s.length % 4) % 4)).replace(/-/g, '+').replace(/_/g, '/');
+  return Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+}
+async function callSendPush(action){
+  const { data:{ session } } = await sb.auth.getSession();
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/send-push`, {
+    method:'POST',
+    headers:{ 'Content-Type':'application/json', 'Authorization':`Bearer ${session?.access_token}` },
+    body: JSON.stringify({ action }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if(!res.ok) throw new Error(data.error || 'send-push ' + res.status);
+  return data;
+}
+async function savePushSubscription(sub){
+  const j = sub.toJSON();
+  const { error } = await sb.from('push_subscriptions').upsert({
+    endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth,
+    user_agent: navigator.userAgent.slice(0, 200),
+  }, { onConflict:'endpoint' });
+  if(error) throw error;
+}
+/* On every boot: work out the state, and re-save an existing subscription so a
+   row the server pruned (or a browser that rotated its endpoint) heals itself. */
+async function refreshPushStatus(){
+  if(!pushSupported()){
+    state.pushStatus = isIOS() && !isStandalone() ? 'ios-install' : 'unsupported';
+    render();
+    return;
+  }
+  if(Notification.permission === 'denied'){ state.pushStatus = 'denied'; render(); return; }
+  try{
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.getSubscription();
+    state.pushStatus = sub && Notification.permission === 'granted' ? 'on' : 'off';
+    render();
+    if(state.pushStatus === 'on') await savePushSubscription(sub);
+  }catch(e){
+    console.error('push status check failed', e);
+    if(state.pushStatus === 'checking'){ state.pushStatus = 'off'; render(); }
+  }
+}
+function togglePushMenu(){
+  state.pushMenuOpen = !state.pushMenuOpen;
+  render();
+}
+async function enablePush(){
+  state.pushStatus = 'busy';
+  render();
+  try{
+    const permission = await Notification.requestPermission();
+    if(permission !== 'granted'){
+      state.pushStatus = permission === 'denied' ? 'denied' : 'off';
+      render();
+      return;
+    }
+    const { publicKey } = await callSendPush('publicKey');
+    const reg = await navigator.serviceWorker.ready;
+    let sub = await reg.pushManager.getSubscription();
+    // a subscription made with another key can't be reused — replace it
+    if(sub && sub.options && sub.options.applicationServerKey){
+      const cur = new Uint8Array(sub.options.applicationServerKey);
+      const want = b64urlToBytes(publicKey);
+      if(cur.length !== want.length || cur.some((b, i) => b !== want[i])){ await sub.unsubscribe(); sub = null; }
+    }
+    if(!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey: b64urlToBytes(publicKey) });
+    await savePushSubscription(sub);
+    state.pushStatus = 'on';
+    showInfoToast('اعلان‌ها روشن شد — هر روز ساعت ۸ صبح خبرت می‌کنم.');
+  }catch(e){
+    console.error('enable push failed', e);
+    state.pushStatus = 'off';
+    showSaveError('روشن کردن اعلان‌ها انجام نشد — اینترنتت رو چک کن و دوباره امتحان کن.');
+  }
+}
+async function disablePush(){
+  state.pushStatus = 'busy';
+  render();
+  try{
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.getSubscription();
+    if(sub){
+      const { error } = await sb.from('push_subscriptions').delete().eq('endpoint', sub.endpoint);
+      if(error) throw error;
+      await sub.unsubscribe();
+    }
+    state.pushStatus = 'off';
+    showInfoToast('اعلان‌ها روی این دستگاه خاموش شد.');
+  }catch(e){
+    console.error('disable push failed', e);
+    state.pushStatus = 'on';
+    showSaveError('خاموش کردن اعلان‌ها انجام نشد — دوباره امتحان کن.');
+  }
+}
+async function sendTestPush(){
+  state.pushStatus = 'busy';
+  render();
+  try{
+    const r = await callSendPush('test');
+    state.pushStatus = 'on';
+    if(r.sent) showInfoToast('اعلان آزمایشی فرستاده شد — تا چند ثانیه دیگه می‌رسه.');
+    else showSaveError('اعلان به این دستگاه نرسید — یک بار خاموش و دوباره روشنش کن.');
+  }catch(e){
+    console.error('test push failed', e);
+    state.pushStatus = 'on';
+    showSaveError('ارسال اعلان آزمایشی انجام نشد — اینترنتت رو چک کن.');
+  }
+}
+function renderPushMenu(){
+  const s = state.pushStatus;
+  const busy = s === 'busy' ? 'disabled' : '';
+  let text, actions = '';
+  if(s === 'ios-install'){
+    text = 'روی آیفون، اعلان فقط برای نسخهٔ نصب‌شده کار می‌کنه: توی Safari دکمهٔ اشتراک‌گذاری ← «Add to Home Screen» رو بزن، مدار رو از صفحهٔ اصلی باز کن و دوباره همین‌جا بیا.';
+  } else if(s === 'denied'){
+    text = 'اجازهٔ اعلان برای این سایت بسته شده. از تنظیمات مرورگر (یا تنظیمات گوشی ← مدار ← Notifications) اجازه بده و صفحه رو دوباره باز کن.';
+  } else if(s === 'on' || (s === 'busy' && Notification.permission === 'granted')){
+    text = 'اعلان‌ها روی این دستگاه روشنه. هر روز ساعت ۸ صبح یادآوری‌های سررسیده، تمدید اشتراک‌ها و تعداد کارهای امروز برات فرستاده می‌شه.';
+    actions = `
+      <button class="primary" ${busy} onclick="sendTestPush()">ارسال اعلان آزمایشی</button>
+      <button class="danger" ${busy} onclick="disablePush()">خاموش کردن</button>`;
+  } else {
+    text = 'با روشن کردن اعلان، هر روز ساعت ۸ صبح بدون باز کردن اپ خبردار می‌شی: یادآوری‌هایی که وقتشون رسیده، اشتراک‌هایی که تمدید می‌شن و کارهای امروز.';
+    actions = `<button class="primary" ${busy} onclick="enablePush()">روشن کردن اعلان‌ها</button>`;
+  }
+  return `
+    <div class="push-menu">
+      <p>${text}</p>
+      <div class="push-actions">
+        ${actions}
+        <button ${busy} onclick="togglePushMenu()">بستن</button>
+      </div>
+    </div>
+  `;
+}
 
 /* ---------- auth gate ----------
    Every table is locked to its owner by RLS (user_id = auth.uid()), so nothing
@@ -6254,6 +6448,7 @@ function bootApp(){
   document.body.classList.remove('signed-out');
   loadAll();
   loadEncouragement();
+  refreshPushStatus();
 }
 function renderLogin(){
   document.body.classList.add('signed-out');

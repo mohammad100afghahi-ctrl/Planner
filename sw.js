@@ -1,7 +1,7 @@
 /* App-shell cache for مدار.
    Bump CACHE_NAME (e.g. medar-shell-v2) whenever index.html/manifest/icons change,
    so returning visitors pick up the new version instead of a stale cached copy. */
-const CACHE_NAME = 'medar-shell-v25';
+const CACHE_NAME = 'medar-shell-v26';
 const APP_SHELL = [
   './',
   './index.html',
@@ -51,6 +51,36 @@ self.addEventListener('fetch', (event) => {
       // Instant load from cache when available; cache is refreshed in the
       // background on every visit so the next open picks up new changes.
       return cached || network;
+    })
+  );
+});
+
+/* Push notifications — the morning digest sent by the send-push edge function.
+   The payload is JSON { title, body, tag }; a same-tag notification replaces
+   yesterday's instead of piling up. */
+self.addEventListener('push', (event) => {
+  let data = {};
+  try { data = event.data ? event.data.json() : {}; } catch (_e) { data = { body: event.data && event.data.text() }; }
+  event.waitUntil(
+    self.registration.showNotification(data.title || 'مدار', {
+      body: data.body || '',
+      tag: data.tag || 'medar',
+      renotify: true,
+      dir: 'rtl',
+      lang: 'fa',
+      icon: './icon-192.png',
+      badge: './icon-192.png',
+    })
+  );
+});
+
+// Tapping the notification brings an open مدار tab forward, or opens one.
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
+      const open = list.find((c) => new URL(c.url).origin === self.location.origin);
+      return open ? open.focus() : self.clients.openWindow('./');
     })
   );
 });
