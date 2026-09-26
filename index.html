@@ -1336,6 +1336,33 @@ global.jalaali = {
     border-radius:8px; padding:8px 12px; font-family:inherit; font-size:13px; font-weight:700; cursor:pointer;
   }
   .replan-revert-btn:hover{border-color:var(--accent); color:var(--accent);}
+  /* مرور هفتگی: per-proposal decisions and the priority picker */
+  .replan-list li.decided{opacity:.7;}
+  .review-status{font-size:11.5px; color:var(--text-muted); font-weight:700;}
+  .review-deadline{color:var(--accent2);}
+  .review-actions{display:flex; flex-wrap:wrap; gap:6px; margin-top:6px;}
+  .review-actions button, .review-date{
+    min-height:36px; background:transparent; color:var(--text); border:1px solid var(--line); border-radius:8px;
+    padding:4px 12px; font-family:inherit; font-size:12.5px; font-weight:700; cursor:pointer;
+    display:inline-flex; align-items:center; gap:6px;
+  }
+  .review-actions button:hover, .review-date:hover{border-color:var(--accent); color:var(--accent);}
+  .review-actions .review-accept, .review-accept-all{background:var(--accent); color:#16120A; border-color:var(--accent);}
+  .review-actions .review-accept:hover, .review-accept-all:hover{color:#16120A; filter:brightness(1.08);}
+  .review-actions .review-del{margin-inline-start:auto; min-width:36px; justify-content:center; color:var(--text-muted);}
+  .review-actions .review-del:hover{border-color:var(--danger); color:var(--danger);}
+  .review-date{position:relative; overflow:hidden;}
+  .review-date input{position:absolute; inset:0; opacity:0; cursor:pointer; width:100%; height:100%;}
+  .review-focus{margin-top:14px; padding-top:12px; border-top:1px solid var(--line);}
+  .replan-box > .review-focus:first-child{margin-top:0; padding-top:0; border-top:none;}
+  .focus-pick{cursor:pointer; border-radius:8px; padding:8px !important;}
+  .focus-pick.on{background:color-mix(in srgb, var(--accent) 12%, transparent);}
+  .focus-pick.on .replan-title{color:var(--accent);}
+  .weekly-focus .focus-row{display:flex; align-items:center; gap:10px; padding:8px 0; border-top:1px solid var(--line); font-size:13.5px; cursor:pointer;}
+  .weekly-focus .focus-row:first-of-type{border-top:none;}
+  .weekly-focus .focus-row.done span:first-of-type{text-decoration:line-through; color:var(--text-muted);}
+  .weekly-focus .focus-row input{width:18px; height:18px; accent-color:var(--accent); flex-shrink:0;}
+  .weekly-focus .focus-date{margin-inline-start:auto; font-size:11.5px; color:var(--text-muted);}
   .ai-report-filter{margin-top:14px;}
   .ai-report-filter input[type="date"]{font-family:inherit;}
   .report-notice{align-items:center;}
@@ -2203,6 +2230,9 @@ function startRealtimeSync(){
       if(!r) return;
       r.seenAt = row.seen_at;
       r.replanRevertedAt = row.replan_reverted_at || null;
+      r.replan = row.replan || null;
+      r.focus = row.focus || null;
+      r.applyAfter = row.replan_apply_after || null;
       render();
     },
     onDelete(old){
@@ -4523,7 +4553,7 @@ async function generateAIReportNow(){
     const data = await res.json();
     if(!res.ok) throw new Error(data.error || 'خطای ناشناخته');
     if(data.skipped){
-      state.aiReportError = 'هنوز وقتش نشده — هر ۴ روز یه گزارش تازه ساخته می‌شه.';
+      state.aiReportError = 'هنوز وقتش نشده — مرور هفتگی هر جمعه عصر ساخته می‌شه.';
     } else {
       const { data: rows, error } = await sb.from('ai_reports').select('*').order('period_end', { ascending:false });
       if(error) throw error;
@@ -4541,18 +4571,86 @@ function mapAIReport(r){
   return {
     id:r.id, periodStart:r.period_start, periodEnd:r.period_end, text:r.report_text, createdAt:r.created_at, seenAt:r.seen_at,
     replan:r.replan || null, replanRevertedAt:r.replan_reverted_at || null,
+    applyAfter:r.replan_apply_after || null, focus:r.focus || null,
   };
 }
-/* A report whose stretch was really bad carries the reshuffle هوشواره already
-   applied (generate-ai-report → maybeReplan). «برگردون همه‌چی» puts each task's
-   date/priority/duration back — but only fields still holding the AI's value,
-   so anything the user has changed by hand since is left alone. */
+/* ---------- مرور هفتگی ----------
+   The weekly report (generate-ai-report → proposeWeek) no longer reshuffles
+   anything by itself. Each change it proposes waits here as 'pending' until the
+   user accepts it, picks another date, or rejects it; whatever is still pending
+   at replan_apply_after the cron applies on its own ('auto'). Reports from
+   before this have no status — they were applied at once, so they count as
+   'auto' and keep «برگردون همه‌چی». Deleting the task from a card needs no
+   status: a task that's gone simply counts as decided. */
+const REVIEW_MAX_FOCUS = 3;
+const changeStatus = c => c.status || 'auto';
+function reviewPending(r){
+  if(!r || !r.replan || !r.replan.changes) return [];
+  return r.replan.changes.filter(c => changeStatus(c) === 'pending' && state.tasks.some(t => t.id === c.task_id && !t.done));
+}
+async function saveReview(r, label){
+  const { error } = await sb.from('ai_reports').update({ replan:r.replan, focus:r.focus }).eq('id', r.id);
+  if(error) writeFailed(label, error);
+}
+function applyChangeToTask(c, after){
+  const t = state.tasks.find(t => t.id === c.task_id);
+  if(!t || t.done) return null;
+  t.date = after.date || '';
+  t.priority = after.priority;
+  t.durationMin = after.duration_min;
+  return sb.from('tasks').update({ date:after.date, priority:after.priority, duration_min:after.duration_min }).eq('id', t.id);
+}
+async function decideChange(reportId, taskId, decision, customDate){
+  const r = state.aiReports.find(r => r.id === reportId);
+  const c = r && r.replan && r.replan.changes.find(c => c.task_id === taskId);
+  if(!c || changeStatus(c) !== 'pending') return;
+  let write = null;
+  if(decision === 'accept'){
+    c.status = 'accepted';
+    write = applyChangeToTask(c, c.after);
+  } else if(decision === 'date'){
+    if(!customDate) return;
+    c.status = 'edited';
+    c.after = { ...c.after, date:customDate };
+    write = applyChangeToTask(c, c.after);
+  } else {
+    c.status = 'rejected';
+  }
+  render();
+  if(write){
+    const { error } = await write;
+    if(error) return writeFailed('decideChange', error);
+  }
+  await saveReview(r, 'decideChange save');
+}
+async function acceptAllChanges(reportId){
+  const r = state.aiReports.find(r => r.id === reportId);
+  if(!r) return;
+  const writes = reviewPending(r).map(c => { c.status = 'accepted'; return applyChangeToTask(c, c.after); }).filter(Boolean);
+  render();
+  const failed = (await Promise.all(writes)).find(res => res.error);
+  if(failed) return writeFailed('acceptAllChanges', failed.error);
+  await saveReview(r, 'acceptAllChanges save');
+}
+async function toggleFocus(reportId, taskId){
+  const r = state.aiReports.find(r => r.id === reportId);
+  if(!r || !r.focus) return;
+  const chosen = r.focus.chosen || [];
+  if(chosen.includes(taskId)) r.focus.chosen = chosen.filter(id => id !== taskId);
+  else if(chosen.length < REVIEW_MAX_FOCUS) r.focus.chosen = [...chosen, taskId];
+  else return showSaveError(`حداکثر ${toFaDigits(REVIEW_MAX_FOCUS)} اولویت — اول یکی رو بردار.`);
+  render();
+  await saveReview(r, 'toggleFocus');
+}
+/* «برگردون همه‌چی» — only for changes هوشواره applied by itself ('auto'). It
+   puts each task's date/priority/duration back, but only fields still holding
+   the AI's value, so anything the user has changed by hand since is left alone. */
 async function revertReplan(reportId){
   const r = state.aiReports.find(r => r.id === reportId);
   if(!r || !r.replan || r.replanRevertedAt) return;
   const keys = { date:'date', priority:'priority', duration_min:'durationMin' };
   const writes = [];
-  r.replan.changes.forEach(c => {
+  r.replan.changes.filter(c => changeStatus(c) === 'auto').forEach(c => {
     const t = state.tasks.find(t => t.id === c.task_id);
     if(!t || t.done) return;
     const patch = {};
@@ -4572,32 +4670,120 @@ async function revertReplan(reportId){
   const { error } = await sb.from('ai_reports').update({ replan_reverted_at: r.replanRevertedAt }).eq('id', r.id);
   if(error) writeFailed('revertReplan mark', error);
 }
+function applyAfterLabel(iso){
+  const hours = (new Date(iso).getTime() - Date.now()) / 3600000;
+  if(hours <= 0) return 'به‌زودی';
+  if(hours < 24) return `${toFaDigits(Math.ceil(hours))} ساعت دیگه`;
+  return `${toFaDigits(Math.ceil(hours / 24))} روز دیگه`;
+}
+const REVIEW_STATUS_LABEL = {
+  accepted:'قبول کردی', edited:'با تاریخ خودت', rejected:'دست نخورد', auto:'خودکار اعمال شد',
+  skipped:'چون خودت تغییرش داده بودی، دست نخورد', expired:'مرور بعدی جاشو گرفت',
+};
 function renderReplanBox(r){
   const rp = r.replan;
-  if(!rp || !rp.changes || !rp.changes.length) return '';
+  const hasChanges = !!(rp && rp.changes && rp.changes.length);
+  const suggested = (r.focus && r.focus.suggested) || [];
+  if(!hasChanges && !suggested.length) return '';
   const day = d => d ? formatDateShort(d) : 'بعداً';
-  const parts = c => {
+  const parts = (c, after) => {
     const out = [];
-    if(c.before.date !== c.after.date) out.push(`${day(c.before.date)} ← ${day(c.after.date)}`);
-    if(c.before.priority !== c.after.priority) out.push(`اولویت ${PRIORITY_LABEL[c.before.priority] || '—'} ← ${PRIORITY_LABEL[c.after.priority] || '—'}`);
-    if(c.before.duration_min !== c.after.duration_min) out.push(`${c.before.duration_min ? toFaDigits(c.before.duration_min) : '—'} ← ${toFaDigits(c.after.duration_min)} دقیقه`);
+    if(c.before.date !== after.date) out.push(`${day(c.before.date)} ← ${day(after.date)}`);
+    if(c.before.priority !== after.priority) out.push(`اولویت ${PRIORITY_LABEL[c.before.priority] || '—'} ← ${PRIORITY_LABEL[after.priority] || '—'}`);
+    if(c.before.duration_min !== after.duration_min) out.push(`${c.before.duration_min ? toFaDigits(c.before.duration_min) : '—'} ← ${toFaDigits(after.duration_min)} دقیقه`);
     return out.join('، ');
   };
+  const todayStr = dateKey(state.today);
+  const pending = reviewPending(r);
+  const legacy = hasChanges && rp.changes.every(c => !c.status);
   const reverted = !!r.replanRevertedAt;
+  const canRevert = hasChanges && !reverted && rp.changes.some(c => changeStatus(c) === 'auto');
+  const head = legacy
+    ? (reverted ? 'برنامه‌ی قبلی‌ت برگردونده شد' : 'این چند روز سخت گذشت؛ برنامه‌ت رو از نو چیدم')
+    : pending.length ? `مرور هفتگی — ${toFaDigits(pending.length)} پیشنهاد منتظر تصمیم توئه` : 'مرور هفتگی';
+
+  const changeRow = c => {
+    const task = state.tasks.find(t => t.id === c.task_id);
+    const st = changeStatus(c);
+    const isPending = st === 'pending' && task && !task.done;
+    let note = '';
+    if(st === 'pending' && !task) note = 'این کار حذف شد';
+    else if(st === 'pending' && task.done) note = 'انجامش دادی ✓';
+    else if(!legacy && st !== 'pending') note = REVIEW_STATUS_LABEL[st] || '';
+    return `
+      <li class="${isPending ? 'pending' : 'decided'}">
+        <span class="replan-title">${escapeHtml(c.title)}</span>
+        <span class="replan-diff">${parts(c, c.after)}</span>
+        ${c.why ? `<span class="replan-why">${escapeHtml(c.why)}</span>` : ''}
+        ${note ? `<span class="review-status">${note}</span>` : ''}
+        ${isPending ? `
+          <div class="review-actions">
+            <button type="button" class="review-accept" onclick="decideChange('${r.id}','${c.task_id}','accept')">قبول</button>
+            <button type="button" onclick="decideChange('${r.id}','${c.task_id}','reject')">نه، بمونه</button>
+            <label class="review-date" title="یه تاریخ دیگه">
+              تاریخ دیگه
+              <input type="date" min="${todayStr}" onchange="decideChange('${r.id}','${c.task_id}','date', this.value)" />
+            </label>
+            <button type="button" class="review-del" onclick="deleteTask('${c.task_id}')" title="حذف این کار">✕</button>
+          </div>` : ''}
+      </li>`;
+  };
+
+  const chosen = (r.focus && r.focus.chosen) || [];
+  const focusBlock = suggested.length ? `
+    <div class="review-focus">
+      <div class="replan-head">${icon('target',14)} سه اولویت هفته‌ی بعد</div>
+      <div class="replan-reason">تا ${toFaDigits(REVIEW_MAX_FOCUS)} تا انتخاب کن؛ تا مرور بعدی بالای صفحه‌ی امروز می‌مونن.</div>
+      <ul class="replan-list">
+        ${suggested.map(f => {
+          const task = state.tasks.find(t => t.id === f.task_id);
+          if(!task) return '';
+          const on = chosen.includes(f.task_id);
+          return `
+            <li class="focus-pick ${on ? 'on' : ''}" onclick="toggleFocus('${r.id}','${f.task_id}')" role="checkbox" aria-checked="${on}">
+              <span class="replan-title">${on ? '★ ' : '☆ '}${escapeHtml(task.title)}${task.done ? ' ✓' : ''}</span>
+              ${f.why ? `<span class="replan-why">${escapeHtml(f.why)}</span>` : ''}
+            </li>`;
+        }).join('')}
+      </ul>
+    </div>` : '';
+
   return `
     <div class="replan-box ${reverted ? 'reverted' : ''}" onclick="event.stopPropagation()">
-      <div class="replan-head">${icon('sparkle',14)} ${reverted ? 'برنامه‌ی قبلی‌ت برگردونده شد' : 'این چند روز سخت گذشت؛ برنامه‌ت رو از نو چیدم'}</div>
-      ${rp.reason ? `<div class="replan-reason">${escapeHtml(rp.reason)}</div>` : ''}
-      <div class="replan-reason">ظرفیت روزانه‌ای که در نظر گرفتم: ${formatDuration(rp.capacity_min)}</div>
-      <ul class="replan-list">
-        ${rp.changes.map(c => `
-          <li>
-            <span class="replan-title">${escapeHtml(c.title)}</span>
-            <span class="replan-diff">${parts(c)}</span>
-            ${c.why ? `<span class="replan-why">${escapeHtml(c.why)}</span>` : ''}
-          </li>`).join('')}
-      </ul>
-      ${reverted ? '' : `<button type="button" class="replan-revert-btn" onclick="revertReplan('${r.id}')">برگردون همه‌چی</button>`}
+      ${hasChanges ? `
+        <div class="replan-head">${icon('sparkle',14)} ${head}</div>
+        ${rp.reason ? `<div class="replan-reason">${escapeHtml(rp.reason)}</div>` : ''}
+        <div class="replan-reason">ظرفیت روزانه‌ای که در نظر گرفتم: ${formatDuration(rp.capacity_min)}</div>
+        ${pending.length && r.applyAfter ? `<div class="replan-reason review-deadline">اگه تا ${applyAfterLabel(r.applyAfter)} تصمیم نگیری، باقی‌مونده‌ها رو خودم اعمال می‌کنم.</div>` : ''}
+        <ul class="replan-list">${rp.changes.map(changeRow).join('')}</ul>
+        ${pending.length > 1 ? `<button type="button" class="replan-revert-btn review-accept-all" onclick="acceptAllChanges('${r.id}')">قبول همه (${toFaDigits(pending.length)})</button>` : ''}
+        ${canRevert ? `<button type="button" class="replan-revert-btn" onclick="revertReplan('${r.id}')">برگردون همه‌چی</button>` : ''}
+      ` : ''}
+      ${focusBlock}
+    </div>
+  `;
+}
+/* The priorities picked in the latest review, pinned on امروز until the next
+   review replaces them (or a week and a bit has passed). */
+function renderWeeklyFocus(){
+  const r = state.aiReports.find(r => r.focus && (r.focus.chosen || []).length);
+  if(!r || r !== state.aiReports.find(x => x.focus)) return '';
+  if(Date.now() - new Date(r.createdAt).getTime() > 9 * 86400000) return '';
+  const tasks = r.focus.chosen.map(id => state.tasks.find(t => t.id === id)).filter(Boolean);
+  if(!tasks.length) return '';
+  const done = tasks.filter(t => t.done).length;
+  return `
+    <div class="progress-box weekly-focus">
+      <div class="progress-header">
+        <h2 class="section-title">اولویت‌های این هفته</h2>
+        <span class="progress-count ${done === tasks.length ? 'reached' : ''}">${toFaDigits(done)} از ${toFaDigits(tasks.length)}</span>
+      </div>
+      ${tasks.map(t => `
+        <label class="focus-row ${t.done ? 'done' : ''}">
+          <input type="checkbox" ${t.done ? 'checked' : ''} onchange="toggleTaskDone('${t.id}', event)" />
+          <span>${escapeHtml(t.title)}</span>
+          <span class="focus-date">${t.date ? formatDateShort(t.date) : 'بعداً'}</span>
+        </label>`).join('')}
     </div>
   `;
 }
@@ -4668,18 +4854,23 @@ function renderAIHealthBanner({ dismissible = true } = {}){
   return `
     <div class="encourage ai-health" role="alert">
       <span style="color:var(--danger); flex-shrink:0;">${icon('sparkle',16)}</span>
-      <span class="encourage-text"><b>هوشواره متوقف شده</b><br>${escapeHtml(h.errorMessage || '')}<br><span class="summary-text">گزارش‌های ۴روزه، بازبرنامه‌ریزی خودکار و جمله‌ی روزانه تا اون موقع متوقفن.</span></span>
+      <span class="encourage-text"><b>هوشواره متوقف شده</b><br>${escapeHtml(h.errorMessage || '')}<br><span class="summary-text">مرور هفتگی و جمله‌ی روزانه تا اون موقع متوقفن.</span></span>
       ${dismissible ? `<button type="button" class="ai-health-close" onclick="dismissAIHealth()" title="بستن">${icon('close',15)}</button>` : ''}
     </div>
   `;
 }
 function renderUnseenReportNotice(){
   const unseen = state.aiReports.filter(r => !r.seenAt);
-  if(!unseen.length) return '';
+  // a review with undecided proposals keeps asking, even after it's been read
+  const waiting = state.aiReports.reduce((n, r) => n + reviewPending(r).length, 0);
+  if(!unseen.length && !waiting) return '';
+  const text = waiting
+    ? `مرور هفتگی آماده‌ست — ${toFaDigits(waiting)} پیشنهاد منتظر تصمیم توئه`
+    : unseen.length > 1 ? `${toFaDigits(unseen.length)} گزارش هوشمند تازه آماده‌ست` : 'گزارش هوشمند تازه‌ت آماده‌ست';
   return `
     <div class="encourage report-notice">
       <span style="color:var(--accent); flex-shrink:0; margin-top:2px;">${icon('sparkle',16)}</span>
-      <span class="encourage-text">${unseen.some(r => r.replan && !r.replanRevertedAt) ? 'هوشواره این چند روز رو سخت دید و برنامه‌ت رو از نو چید — یه نگاه بنداز' : unseen.length > 1 ? `${toFaDigits(unseen.length)} گزارش هوشمند تازه آماده‌ست` : 'گزارش هوشمند تازه‌ت آماده‌ست'}</span>
+      <span class="encourage-text">${text}</span>
       <button type="button" class="report-notice-btn" onclick="navigateTo('ai-reports')">دیدن گزارش</button>
     </div>
   `;
@@ -4688,7 +4879,7 @@ function renderAIReportsPage(){
   const reports = filteredAIReports();
   const range = state.aiReportRange;
   return `
-    <h2 class="section-title">گزارش هوشمند</h2>
+    <h2 class="section-title">گزارش هوشمند و مرور هفتگی</h2>
     ${renderAIHealthBanner({ dismissible:false })}
     <button type="button" class="add-task-for-day-btn" onclick="generateAIReportNow()" ${state.aiReportGenerating ? 'disabled' : ''}>
       ${state.aiReportGenerating ? 'در حال تولید…' : `${icon('sparkle',14)} تولید گزارش الان`}
@@ -4696,7 +4887,7 @@ function renderAIReportsPage(){
     ${state.aiReportError && state.aiReportError !== aiHealthProblem()?.errorMessage ? `<div class="empty-state" style="background:var(--surface);border:1px solid var(--danger);border-radius:10px;color:var(--danger);margin-top:12px;padding:12px;">${escapeHtml(state.aiReportError)}</div>` : ''}
     ${state.aiReports.length === 0 ? `
       <div class="empty-state" style="margin-top:16px;">
-        هنوز گزارشی ساخته نشده. یه گزارش خودکار هر ۴ روز ساخته می‌شه، یا همین الان با دکمه‌ی بالا بساز.
+        هنوز گزارشی ساخته نشده. مرور هفتگی هر جمعه عصر خودکار ساخته می‌شه، یا همین الان با دکمه‌ی بالا بساز.
       </div>
     ` : `
       <div class="filter-panel ai-report-filter">
@@ -6207,6 +6398,7 @@ function renderToday(){
     </div>
     ${renderAIHealthBanner()}
     ${renderUnseenReportNotice()}
+    ${renderWeeklyFocus()}
     ${renderWeeklyGoals()}
     ${renderEncouragement()}
     <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
