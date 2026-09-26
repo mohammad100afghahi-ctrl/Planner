@@ -765,6 +765,19 @@ global.jalaali = {
      change was never persisted; the message only tells you it did not stick. */
   .undo-toast.failed{border-color:var(--danger);}
   .undo-toast.failed span{color:var(--danger); white-space:normal;}
+
+  /* offline / sync status — sits above the page while the server is out of
+     reach or queued edits are still on their way */
+  .offline-bar{
+    display:flex; align-items:center; gap:9px; margin-bottom:14px; padding:9px 13px;
+    background:var(--surface); border:1px solid var(--line); border-radius:10px;
+    font-size:12.5px; line-height:1.7; color:var(--text-muted);
+  }
+  .offline-bar .dot{width:8px; height:8px; border-radius:50%; flex-shrink:0; background:var(--text-muted);}
+  .offline-bar.is-offline{border-color:var(--accent);}
+  .offline-bar.is-offline .dot{background:var(--accent);}
+  .offline-bar.is-syncing .dot{background:var(--freelance); animation:offline-pulse 1.2s ease-in-out infinite;}
+  @keyframes offline-pulse{50%{opacity:.35;}}
   .recurring-tpl-row{
     display:flex; align-items:center; justify-content:space-between; gap:10px; padding:9px 12px;
     background:var(--surface-2); border:1px solid var(--line); border-radius:9px; margin-bottom:8px;
@@ -1414,7 +1427,224 @@ global.jalaali = {
 /* ---------- storage keys ---------- */
 const SUPABASE_URL = 'https://byqowlvyupcusjjyxwaf.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ5cW93bHZ5dXBjdXNqanl4d2FmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc4MzAwMDUsImV4cCI6MjEwMzQwNjAwNX0.T2miyC7NU5u0bkyxA4JKtXML9RSiqeTzk-OAqvx59QM';
-const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { global: { fetch: offlineFetch } });
+
+/* ---------- offline mode ----------
+   Every write in this file goes through supabase-js, and supabase-js goes
+   through offlineFetch — so offline support lives here, at the network edge,
+   instead of at ~80 call sites.
+
+   Writes (POST/PATCH/DELETE on /rest/v1) that can't reach the server — the
+   phone says it's offline, or the request dies with a network error — are
+   stored in an IndexedDB outbox and answered with a fake 204. The caller sees
+   success, so its optimistic state stays put instead of rolling back. While
+   the outbox holds anything, new writes queue behind it too, so the server
+   always sees them in the order they were made. flushOutbox() replays the
+   queue on reconnect with a fresh access token.
+
+   Replay rules: 2xx → done. 409 duplicate key on an insert → it already landed
+   (the response was lost, not the request), done. 401 → refresh the session
+   once and retry. 5xx / 429 / network → stop, try again later. Any other 4xx
+   is a real rejection (RLS, bad row): dropped, and the user is told.
+
+   Reads: the loaded data (plus local, not-yet-synced edits) is snapshotted to
+   IndexedDB after renders, and loadAll() falls back to it when the server
+   can't be reached — so the app opens with your data even with no internet. */
+const offlineDB = (function(){
+  let dbp = null;
+  function open(){
+    if(dbp) return dbp;
+    dbp = new Promise((resolve, reject) => {
+      const req = indexedDB.open('medar-offline', 1);
+      req.onupgradeneeded = () => {
+        const db = req.result;
+        db.createObjectStore('outbox', { keyPath:'seq' });
+        db.createObjectStore('kv');
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+    return dbp;
+  }
+  async function run(store, mode, fn){
+    const db = await open();
+    return new Promise((resolve, reject) => {
+      const t = db.transaction(store, mode);
+      const r = fn(t.objectStore(store));
+      t.oncomplete = () => resolve(r ? r.result : undefined);
+      t.onerror = () => reject(t.error);
+      t.onabort = () => reject(t.error);
+    });
+  }
+  return {
+    getAll: store => run(store, 'readonly', s => s.getAll()),
+    get: (store, key) => run(store, 'readonly', s => s.get(key)),
+    put: (store, val, key) => run(store, 'readwrite', s => key === undefined ? s.put(val) : s.put(val, key)),
+    del: (store, key) => run(store, 'readwrite', s => s.delete(key)),
+    clear: store => run(store, 'readwrite', s => s.clear()),
+  };
+})();
+
+let outbox = []; // [{ seq, url, method, headers, body, label }] — oldest first
+let outboxSeq = Date.now();
+let outboxFlushing = null; // the in-flight flush promise, shared by every caller
+let lastSyncNetworkFailed = false; // the last flush attempt couldn't reach the server
+let usingLocalCopy = false; // state came from the on-device snapshot, not the server
+const outboxReady = offlineDB.getAll('outbox')
+  .then(items => {
+    outbox = (items || []).sort((a, b) => a.seq - b.seq);
+    if(outbox.length) outboxSeq = Math.max(outboxSeq, outbox[outbox.length - 1].seq);
+  })
+  .catch(e => console.error('outbox load failed', e));
+
+function isRestWrite(url, method){
+  return method !== 'GET' && method !== 'HEAD'
+    && url.startsWith(SUPABASE_URL + '/rest/v1/')
+    && !url.startsWith(SUPABASE_URL + '/rest/v1/rpc/');
+}
+function outboxLabel(url, method){
+  const table = url.slice((SUPABASE_URL + '/rest/v1/').length).split('?')[0];
+  return method + ' ' + table;
+}
+async function enqueueWrite(url, init){
+  const headers = {};
+  new Headers(init.headers || {}).forEach((v, k) => { if(k !== 'authorization') headers[k] = v; });
+  const item = { seq: ++outboxSeq, url, method: init.method.toUpperCase(), headers, body: init.body == null ? null : String(init.body), label: outboxLabel(url, init.method.toUpperCase()) };
+  outbox.push(item);
+  try{ await offlineDB.put('outbox', item); }catch(e){ console.error('outbox persist failed', e); }
+  renderSoon();
+  return new Response(null, { status:204, statusText:'Queued offline' });
+}
+
+async function offlineFetch(input, init){
+  const url = typeof input === 'string' ? input : input.url;
+  const method = ((init && init.method) || 'GET').toUpperCase();
+  if(!isRestWrite(url, method)) return fetch(input, init);
+  await outboxReady;
+  if(outbox.length || !navigator.onLine){
+    const res = await enqueueWrite(url, init);
+    flushOutbox();
+    return res;
+  }
+  try{
+    return await fetch(input, init);
+  } catch(e){
+    if(e && e.name === 'AbortError') throw e;
+    lastSyncNetworkFailed = true;
+    return enqueueWrite(url, init);
+  }
+}
+
+async function replayWrite(item, token){
+  return fetch(item.url, {
+    method: item.method,
+    headers: Object.assign({}, item.headers, { apikey: SUPABASE_ANON_KEY, authorization: 'Bearer ' + token }),
+    body: item.body,
+  });
+}
+function flushOutbox(){
+  if(outboxFlushing) return outboxFlushing;
+  outboxFlushing = (async () => {
+    await outboxReady;
+    let synced = 0, rejected = 0;
+    while(outbox.length){
+      if(!navigator.onLine){ lastSyncNetworkFailed = true; break; }
+      const item = outbox[0];
+      const { data: { session } } = await sb.auth.getSession();
+      if(!session) break;
+      let res;
+      try{
+        res = await replayWrite(item, session.access_token);
+        if(res.status === 401){
+          const { data: refreshed } = await sb.auth.refreshSession();
+          if(refreshed && refreshed.session) res = await replayWrite(item, refreshed.session.access_token);
+        }
+      } catch(e){
+        lastSyncNetworkFailed = true;
+        break;
+      }
+      lastSyncNetworkFailed = false;
+      let done = res.ok;
+      if(!done && res.status === 409 && item.method === 'POST'){
+        const body = await res.json().catch(() => ({}));
+        done = body && body.code === '23505';
+        if(!done) rejected++;
+      } else if(!done){
+        if(res.status === 401 || res.status === 429 || res.status >= 500) break;
+        console.error('queued write rejected', item.label, res.status, await res.text().catch(() => ''));
+        rejected++;
+      }
+      outbox.shift();
+      try{ await offlineDB.del('outbox', item.seq); }catch(e){ console.error('outbox delete failed', e); }
+      if(done) synced++;
+    }
+    if(rejected) writeFailed('queued write', new Error(rejected + ' rejected'), 'بعضی از تغییراتی که آفلاین زدی رو سرور قبول نکرد — صفحه با نسخه‌ی سرور هماهنگ شد.');
+    else if(synced && !outbox.length){
+      showInfoToast(`${toFaDigits(synced)} تغییرِ آفلاین روی سرور ذخیره شد`);
+    }
+    renderSoon();
+  })().finally(() => { outboxFlushing = null; });
+  return outboxFlushing;
+}
+
+/* A render outside a user event is deferred while a text field has focus, so
+   status changes (offline pill, queue count) go through here rather than
+   poking render() directly from network callbacks. */
+let renderSoonTimer = null;
+function renderSoon(){
+  if(renderSoonTimer) return;
+  renderSoonTimer = setTimeout(() => { renderSoonTimer = null; if(appStarted) render(); }, 50);
+}
+
+async function goOnline(){
+  lastSyncNetworkFailed = false;
+  renderSoon();
+  await flushOutbox();
+  // booted from the local copy: now that the server answers, load the real data
+  if(usingLocalCopy && !outbox.length && !lastSyncNetworkFailed) loadAll();
+}
+window.addEventListener('online', goOnline);
+window.addEventListener('offline', () => { lastSyncNetworkFailed = true; renderSoon(); });
+// flaky links often never fire 'online' — keep nudging a non-empty queue
+setInterval(() => { if(outbox.length && navigator.onLine) goOnline(); }, 30000);
+
+/* ---------- offline snapshot of loaded data ---------- */
+const SNAPSHOT_KEYS = ['tags','tasks','recurringTemplates','tagGoals','aiReports','purchases','ideas','subscriptions','reminders','prompts','wins','aiHealth'];
+let dataLoaded = false; // state holds real data (server or snapshot), safe to snapshot
+let snapshotTimer = null;
+function scheduleSnapshot(){
+  if(!dataLoaded || snapshotTimer) return;
+  snapshotTimer = setTimeout(() => {
+    snapshotTimer = null;
+    const snap = { savedAt: Date.now() };
+    SNAPSHOT_KEYS.forEach(k => { snap[k] = state[k]; });
+    offlineDB.put('kv', snap, 'snapshot').catch(e => console.error('snapshot save failed', e));
+  }, 1500);
+}
+async function restoreSnapshot(){
+  try{
+    const snap = await offlineDB.get('kv', 'snapshot');
+    if(!snap) return false;
+    SNAPSHOT_KEYS.forEach(k => { if(snap[k] !== undefined) state[k] = snap[k]; });
+    state.localCopySavedAt = snap.savedAt;
+    return true;
+  } catch(e){
+    console.error('snapshot restore failed', e);
+    return false;
+  }
+}
+function isOfflineNow(){ return !navigator.onLine || lastSyncNetworkFailed; }
+function renderOfflineBar(){
+  const pending = outbox.length;
+  const offline = isOfflineNow();
+  if(!offline && !pending && !usingLocalCopy) return '';
+  const count = pending ? ` · ${toFaDigits(pending)} تغییر در صف` : '';
+  let text;
+  if(offline) text = `آفلاینی — تغییراتت روی گوشی نگه داشته می‌شن و با وصل شدن اینترنت ذخیره می‌شن${count}`;
+  else if(pending) text = `در حال همگام‌سازی${count}…`;
+  else text = 'داری نسخه‌ی ذخیره‌شده روی گوشی رو می‌بینی — در حال گرفتن تازه‌ترین داده‌ها…';
+  return `<div class="offline-bar ${offline ? 'is-offline' : 'is-syncing'}"><span class="dot"></span><span>${text}</span></div>`;
+}
 
 const DEFAULT_TAGS = [
   { id:'t-python',    name:'پایتون',   color:'#5EC8D8' },
@@ -1619,8 +1849,33 @@ let promptsTableReady = false; // same reason as remindersTableReady
 let winsTableReady = false; // same reason as remindersTableReady
 let aiHealthTableReady = false; // same reason as remindersTableReady
 
+/* No server to load from (offline, or edits still queued that the server
+   hasn't seen — fetching now would paint over them). Keep what's on screen,
+   or on a cold start fall back to the on-device snapshot. */
+async function loadFromLocalCopy(){
+  if(!dataLoaded){
+    if(await restoreSnapshot()){ dataLoaded = true; usingLocalCopy = true; }
+    else { loadError = true; applyEmptyDefaults(); }
+  }
+  if(!realtimeStarted){ realtimeStarted = true; startRealtimeSync(); }
+  render();
+}
+function applyEmptyDefaults(){
+  if(!state.tags) state.tags = DEFAULT_TAGS;
+  if(!state.tasks) state.tasks = [];
+  if(!state.recurringTemplates) state.recurringTemplates = [];
+  if(!state.tagGoals) state.tagGoals = [];
+  if(!state.aiReports) state.aiReports = [];
+  if(!state.purchases) state.purchases = [];
+  if(!state.ideas) state.ideas = [];
+  if(!state.subscriptions) state.subscriptions = [];
+}
+
 async function loadAll(){
   loadError = false;
+  await flushOutbox();
+  if(outbox.length || !navigator.onLine) return loadFromLocalCopy();
+  let fromServer = true;
   try{
     const { data: tags, error: tagsErr } = await sb.from('tags').select('*').order('created_at');
     if(tagsErr) throw tagsErr;
@@ -1693,15 +1948,10 @@ async function loadAll(){
     }));
   } catch(e){
     console.error('load failed', e);
-    loadError = true;
-    if(!state.tags) state.tags = DEFAULT_TAGS;
-    if(!state.tasks) state.tasks = [];
-    if(!state.recurringTemplates) state.recurringTemplates = [];
-    if(!state.tagGoals) state.tagGoals = [];
-    if(!state.aiReports) state.aiReports = [];
-    if(!state.purchases) state.purchases = [];
-    if(!state.ideas) state.ideas = [];
-    if(!state.subscriptions) state.subscriptions = [];
+    fromServer = false;
+    lastSyncNetworkFailed = true;
+    if(!dataLoaded && await restoreSnapshot()){ dataLoaded = true; usingLocalCopy = true; }
+    else if(!dataLoaded){ loadError = true; applyEmptyDefaults(); }
   }
   /* Reminders load on their own so a failure on any other table can't swallow
      them — they're the first thing you see when the app opens. */
@@ -1754,8 +2004,15 @@ async function loadAll(){
   } catch(e){
     console.error('load ai_health failed', e);
   }
-  rolloverYearlyReminders();
-  generateRecurringInstances();
+  if(fromServer){
+    dataLoaded = true;
+    usingLocalCopy = false;
+    lastSyncNetworkFailed = false;
+    rolloverYearlyReminders();
+    // only against server truth — generating from a stale local copy could
+    // mint a second instance another device already created
+    generateRecurringInstances();
+  }
   if(!realtimeStarted){ realtimeStarted = true; startRealtimeSync(); }
   render();
 }
@@ -6057,6 +6314,7 @@ function render(){
   const ev = window.event;
   if(preservedFieldFocused() && !(ev && USER_EVENT_TYPES.has(ev.type))){ renderDeferred = true; return; }
   renderDeferred = false;
+  scheduleSnapshot();
   const { jalali, gregorian } = fmtHeaderDate(state.today);
   const app = document.getElementById('app');
   const prevStrip = document.querySelector('.subnav-scroll');
@@ -6081,6 +6339,7 @@ function render(){
     ${renderNav()}
     ${renderSubnav()}
 
+    ${renderOfflineBar()}
     ${loadError ? `<div class="empty-state" style="background:var(--surface);border:1px solid var(--danger);border-radius:10px;color:var(--danger);margin-bottom:16px;">اتصال به دیتابیس برقرار نشد — اینترنتت رو چک کن و صفحه رو رفرش کن.</div>` : ''}
 
     <main>
@@ -6482,8 +6741,16 @@ async function submitLogin(e){
   // on success onAuthStateChange boots the app
 }
 async function signOut(){
-  if(!confirm('از حسابت خارج بشی؟')) return;
+  const unsynced = outbox.length
+    ? `\n\n${toFaDigits(outbox.length)} تغییر هنوز روی سرور ذخیره نشده و با خروج از بین می‌ره.`
+    : '';
+  if(!confirm('از حسابت خارج بشی؟' + unsynced)) return;
   try{ localStorage.removeItem('medar-encouragement-v2'); }catch(_e){}
+  // the outbox and the snapshot belong to this account — don't leave them for the next one
+  dataLoaded = false;
+  clearTimeout(snapshotTimer); snapshotTimer = null;
+  outbox = [];
+  try{ await offlineDB.clear('outbox'); await offlineDB.del('kv', 'snapshot'); }catch(_e){}
   await sb.auth.signOut();
 }
 sb.auth.onAuthStateChange((event, session) => {
