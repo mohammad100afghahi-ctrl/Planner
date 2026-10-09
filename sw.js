@@ -72,12 +72,18 @@ self.addEventListener('fetch', (event) => {
 /* Push notifications — the morning digest sent by the send-push edge function.
    The payload is JSON { title, body, tag }; a same-tag notification replaces
    yesterday's instead of piling up. */
+/* Android lays notification text out left-to-right regardless of `dir`, so a
+   Persian line with a Latin name in it (تمدید Claude Pro — ۲ روز…) comes out
+   scrambled. Wrapping each line in an explicit RTL embedding (RLE … PDF) makes
+   the bidi algorithm order it right-to-left on every platform. */
+const rtl = (text) => String(text || '').split('\n').map((l) => l ? '\u202B' + l + '\u202C' : l).join('\n');
+
 self.addEventListener('push', (event) => {
   let data = {};
   try { data = event.data ? event.data.json() : {}; } catch (_e) { data = { body: event.data && event.data.text() }; }
   event.waitUntil(
-    self.registration.showNotification(data.title || 'مدار', {
-      body: data.body || '',
+    self.registration.showNotification(rtl(data.title || 'مدار'), {
+      body: rtl(data.body),
       tag: data.tag || 'medar',
       renotify: true,
       dir: 'rtl',
