@@ -37,7 +37,8 @@ returns text[] language sql immutable as $$
   select array['tags','recurring_templates','tasks','subtasks','task_tags','task_date_changes',
     'tag_goals','recurring_template_tags','ideas','idea_tags','idea_images','ai_reports',
     'purchases','subscriptions','reminders','prompts','wins',
-    'mother_care','mother_care_items'];
+    'mother_care','mother_care_items',
+    'home_repairs','home_repair_parts','home_maintenance'];
 $$;
 
 create or replace function private.backup_payload(uid uuid)

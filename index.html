@@ -989,6 +989,50 @@ global.jalaali = {
   }
   .mother-footnote{font-size:11.5px; color:var(--text-muted); margin-top:6px; line-height:1.8;}
 
+  /* «تعمیرات خونه» */
+  .repair-stats{display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; margin-bottom:14px;}
+  .repair-stat{background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:10px 8px; text-align:center; min-width:0;}
+  .repair-stat b{display:block; font-size:18px; font-weight:700; color:var(--text); font-variant-numeric:tabular-nums; overflow-wrap:anywhere;}
+  .repair-stat span{display:block; font-size:11px; color:var(--text-muted); margin-top:2px;}
+  .repair-stat.hot b{color:var(--danger);}
+  .repair-tabs button{font-size:12.5px; padding:9px 4px; white-space:nowrap;}
+  .repair-tab-n{display:inline-block; min-width:18px; padding:0 5px; border-radius:9px; font-size:11px; background:color-mix(in srgb, var(--accent) 22%, transparent); color:var(--accent);}
+  .repair-add-label{font-size:11.5px; font-weight:700; color:var(--text-muted); margin-bottom:6px;}
+  .repair-item.u-urgent{border-inline-start:3px solid var(--danger);}
+  .repair-item.u-soon{border-inline-start:3px solid var(--accent);}
+  .repair-item.u-whenever{border-inline-start:3px solid var(--freelance);}
+  .repair-item.maint-late{border-inline-start:3px solid var(--danger);}
+  .repair-item.maint-soon{border-inline-start:3px solid var(--accent);}
+  .repair-urg{font-size:11px; font-weight:700; padding:1px 8px; border-radius:10px;}
+  .repair-urg.urgent{color:var(--danger); background:color-mix(in srgb, var(--danger) 16%, transparent);}
+  .repair-urg.soon{color:var(--accent); background:color-mix(in srgb, var(--accent) 16%, transparent);}
+  .repair-urg.whenever{color:var(--freelance); background:color-mix(in srgb, var(--freelance) 16%, transparent);}
+  .repair-wait{font-size:11px; font-weight:700; color:var(--english);}
+  .repair-today-tag{display:inline-flex; align-items:center; gap:3px; font-size:11px; font-weight:700; color:var(--accent);}
+  .maint-due{font-size:11.5px; font-weight:700; color:var(--text-muted);}
+  .maint-due.soon{color:var(--accent);}
+  .maint-due.late{color:var(--danger);}
+  .repair-hint{font-size:12px; color:var(--text-muted); margin:-4px 0 10px;}
+  .repair-presets{margin-top:18px;}
+  .repair-presets .quick-chip{padding:6px 11px;}
+  .repair-part-group{margin-bottom:16px;}
+  .repair-part-head{font-size:13px; font-weight:700; color:var(--text); margin-bottom:6px; cursor:pointer;}
+  .repair-part-head span{font-weight:500; color:var(--text-muted); font-size:12px;}
+  .repair-part-select{flex:1 1 160px; min-width:0; max-width:100%;}
+  .repair-cost-row{display:flex; gap:10px; flex-wrap:wrap;}
+  .repair-cost-row label{flex:1 1 120px; display:flex; flex-direction:column; gap:5px; font-size:11.5px; color:var(--text-muted);}
+  .repair-cost-input{width:100%; font-size:14px !important; padding:8px 10px !important;}
+  .repair-ed-part{display:flex; align-items:center; gap:8px; padding:6px 0; font-size:13.5px; color:var(--text); border-bottom:1px solid var(--line);}
+  .repair-ed-part span{flex:1; min-width:0; overflow-wrap:anywhere;}
+  .repair-ed-part.bought span{text-decoration:line-through; color:var(--text-muted);}
+  .repair-ed-part-x{background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:14px; min-width:36px; min-height:36px;}
+  .repair-ed-part-x:hover{color:var(--danger);}
+  .repair-ed-part-add{display:flex; gap:6px; margin-top:8px;}
+  .repair-ed-part-add input{flex:1; min-width:0;}
+  .repair-ed-part-add button{background:var(--surface-2); border:1px solid var(--line); color:var(--text); font-family:inherit; font-size:16px; font-weight:700; width:40px; border-radius:8px; cursor:pointer;}
+  .repair-every-custom{display:inline-flex; align-items:center; gap:5px; font-size:11.5px; color:var(--text-muted);}
+  .repair-every-custom .num-text{width:52px;}
+
   /* wins («تونستم») — a wall of evidence */
   .wins-hero{
     display:flex; align-items:flex-end; justify-content:space-between; gap:14px; flex-wrap:wrap;
@@ -1707,7 +1751,7 @@ window.addEventListener('offline', () => { lastSyncNetworkFailed = true; renderS
 setInterval(() => { if(outbox.length && navigator.onLine) goOnline(); }, 30000);
 
 /* ---------- offline snapshot of loaded data ---------- */
-const SNAPSHOT_KEYS = ['tags','tasks','recurringTemplates','tagGoals','aiReports','purchases','ideas','subscriptions','reminders','prompts','wins','motherItems','motherSettings','aiHealth'];
+const SNAPSHOT_KEYS = ['tags','tasks','recurringTemplates','tagGoals','aiReports','purchases','ideas','subscriptions','reminders','prompts','wins','motherItems','motherSettings','homeRepairs','homeParts','homeMaint','aiHealth'];
 let dataLoaded = false; // state holds real data (server or snapshot), safe to snapshot
 let snapshotTimer = null;
 function scheduleSnapshot(){
@@ -1793,6 +1837,7 @@ function icon(name, size){
     pencil:   `<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/>`,
     bell:     `<path d="M18 9a6 6 0 1 0-12 0c0 5-2 6-2 6h16s-2-1-2-6"/><path d="M10.3 20a2 2 0 0 0 3.4 0"/>`,
     star:     `<path d="M12 3l2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3 6.4 20.2l1.1-6.2L3 9.6l6.2-.9z"/>`,
+    wrench:   `<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>`,
     heart:    `<path d="M12 20s-7-4.4-9.2-9A5 5 0 0 1 12 6a5 5 0 0 1 9.2 5c-2.2 4.6-9.2 9-9.2 9z"/>`,
     trophy:   `<path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4z"/><path d="M7 6H4v1a3 3 0 0 0 3 3M17 6h3v1a3 3 0 0 1-3 3"/>`,
     starFill: `<path fill="currentColor" d="M12 3l2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3 6.4 20.2l1.1-6.2L3 9.6l6.2-.9z"/>`,
@@ -1943,6 +1988,16 @@ let state = {
   motherSettings: null, // { why, remindDays:[getDay()…], showOnToday, push } — null until saved once (defaults apply)
   motherEditor: null, // { itemId, kind, category, body }
   motherWhyDraft: null, // the «چرا یادم باشه» text while it's being edited
+  homeRepairs: [], // [{ id, title, room, urgency, who, trade, status, estCost, actualCost, note, taskId, createdAt, doneAt }]
+  homeParts: [], // [{ id, repairId, name, bought, createdAt }]
+  homeMaint: [], // [{ id, title, room, everyMonths, nextDue, lastDone, who, trade, note, taskId, createdAt }]
+  repairsTab: 'list', // 'list' | 'parts' | 'maint' | 'done'
+  repairsFilter: { room:'', trade:'' },
+  newRepair: { title:'', room:'', urgency:'soon' },
+  newPart: { repairId:null, name:'' },
+  repairEditor: null,
+  repairDoneModal: null, // { id, cost } — "what did it cost?" right after ticking a repair off
+  maintEditor: null,
   aiHealth: null, // { errorKind, errorMessage, errorAt, okAt } — did هوشواره's last AI call work?
 };
 
@@ -1955,6 +2010,7 @@ let remindersTableReady = false;
 let promptsTableReady = false; // same reason as remindersTableReady
 let winsTableReady = false; // same reason as remindersTableReady
 let motherTableReady = false; // same reason as remindersTableReady
+let homeTableReady = false; // same reason as remindersTableReady
 let aiHealthTableReady = false; // same reason as remindersTableReady
 
 /* No server to load from (offline, or edits still queued that the server
@@ -2117,6 +2173,23 @@ async function loadAll(){
   } catch(e){
     console.error('load mother_care failed', e);
     if(!state.motherItems) state.motherItems = [];
+  }
+  try{
+    const [repairs, parts, maint] = await Promise.all([
+      sb.from('home_repairs').select('*').order('created_at', { ascending:true }),
+      sb.from('home_repair_parts').select('*').order('created_at', { ascending:true }),
+      sb.from('home_maintenance').select('*').order('next_due', { ascending:true }),
+    ]);
+    for(const r of [repairs, parts, maint]) if(r.error) throw r.error;
+    state.homeRepairs = repairs.data.map(repairFromRow);
+    state.homeParts = parts.data.map(repairPartFromRow);
+    state.homeMaint = maint.data.map(maintFromRow);
+    homeTableReady = true;
+  } catch(e){
+    console.error('load home repairs failed', e);
+    if(!state.homeRepairs) state.homeRepairs = [];
+    if(!state.homeParts) state.homeParts = [];
+    if(!state.homeMaint) state.homeMaint = [];
   }
   try{
     const { data: health, error: healthErr } = await sb.from('ai_health').select('*').maybeSingle();
@@ -2510,6 +2583,29 @@ function startRealtimeSync(){
       onInsert(row){ state.motherSettings = motherSettingsFromRow(row); render(); },
       onUpdate(row){ state.motherSettings = motherSettingsFromRow(row); render(); },
     });
+  }
+
+  if(homeTableReady){
+    const homeSync = (table, key, fromRow) => registerRealtimeSync(channel, table, {
+      onInsert(row){
+        if(state[key].some(x => x.id === row.id)) return;
+        state[key].push(fromRow(row));
+        render();
+      },
+      onUpdate(row){
+        const x = state[key].find(y => y.id === row.id);
+        if(!x) return;
+        Object.assign(x, fromRow(row));
+        render();
+      },
+      onDelete(old){
+        state[key] = state[key].filter(x => x.id !== old.id);
+        render();
+      },
+    });
+    homeSync('home_repairs', 'homeRepairs', repairFromRow);
+    homeSync('home_repair_parts', 'homeParts', repairPartFromRow);
+    homeSync('home_maintenance', 'homeMaint', maintFromRow);
   }
 
   let hasSubscribedBefore = false;
@@ -3269,6 +3365,7 @@ async function toggleTaskDone(taskId, evt){
   if(!t) return;
   const turningDone = !t.done;
   markDone(t, turningDone);
+  syncHomeJobsFromTask(t); // a repair / upkeep sent to امروز is finished with its task
   render();
   const { error } = await sb.from('tasks').update({ done:t.done, completed_at:t.completedAt }).eq('id', taskId);
   if(error) writeFailed('toggleTaskDone', error);
@@ -6752,6 +6849,816 @@ function deleteMotherItem(id){
   }, 5000);
 }
 
+/* ---------- تعمیرات خونه ----------
+   Everything in the house that needs fixing (home_repairs), the parts to buy
+   for them (home_repair_parts) and the upkeep that comes round on its own
+   (home_maintenance: done → next_due moves on by every_months). Any of them
+   can go to امروز as a task; ticking that task off there finishes the repair /
+   the upkeep here too. Urgent repairs and upkeep that's due are in the 08:00
+   push (send-push digestFor) and in the weekly AI report. */
+const REPAIR_ROOMS = ['آشپزخونه','حموم و دستشویی','اتاق خواب','پذیرایی','راهرو','حیاط و پشت‌بوم','پارکینگ و انباری','کل خونه'];
+const REPAIR_TRADES = ['لوله‌کش','برق‌کار','تأسیسات و پکیج','کولرساز','نقاش','کاشی‌کار','کابینت‌ساز','نجار','شیشه‌بر','قفل‌ساز','بنا','ایزوگام‌کار'];
+const REPAIR_URGENCY = { urgent:'فوری', soon:'به‌زودی', whenever:'هر وقت شد' };
+const REPAIR_URGENCY_RANK = { urgent:0, soon:1, whenever:2 };
+const REPAIR_URGENCY_CHIP = { urgent:'high', soon:'medium', whenever:'low' }; // priority-chip colours, and the task priority
+const MAINT_DUE_SOON_DAYS = 14; // upkeep this close is flagged here; the push starts a week before
+const MAINT_EVERY_CHOICES = [[1,'هر ماه'],[3,'هر ۳ ماه'],[6,'هر ۶ ماه'],[12,'سالی یه بار'],[24,'هر ۲ سال']];
+// month = the Jalali month it belongs to (seasonal jobs); without one the first due date is today
+const MAINT_PRESETS = [
+  { title:'سرویس پکیج',                          every:12, month:7, who:'pro',  trade:'تأسیسات و پکیج', room:'کل خونه' },
+  { title:'سرویس و راه‌اندازی کولر آبی',          every:12, month:2, who:'pro',  trade:'کولرساز',        room:'حیاط و پشت‌بوم' },
+  { title:'جمع‌کردن و پوشوندن کولر آبی',          every:12, month:7, who:'self', trade:'',               room:'حیاط و پشت‌بوم' },
+  { title:'تعویض فیلترهای دستگاه تصفیه آب',       every:6,  month:0, who:'self', trade:'',               room:'آشپزخونه' },
+  { title:'تمیز کردن فیلتر کولر گازی',            every:3,  month:0, who:'self', trade:'',               room:'کل خونه' },
+  { title:'تمیز کردن فیلتر هود',                  every:3,  month:0, who:'self', trade:'',               room:'آشپزخونه' },
+  { title:'شارژ کپسول آتش‌نشانی',                 every:12, month:0, who:'pro',  trade:'',               room:'کل خونه' },
+  { title:'بازدید ایزوگام و ناودون قبل از بارون', every:12, month:8, who:'self', trade:'',               room:'حیاط و پشت‌بوم' },
+  { title:'بازدید شیلنگ و اتصالات گاز',           every:12, month:0, who:'self', trade:'',               room:'آشپزخونه' },
+  { title:'رسوب‌گیری آبگرمکن',                     every:12, month:0, who:'pro',  trade:'تأسیسات و پکیج', room:'کل خونه' },
+];
+
+function repairFromRow(r){
+  return {
+    id:r.id, title:r.title || '', room:r.room || '', urgency:REPAIR_URGENCY[r.urgency] ? r.urgency : 'soon',
+    who:r.who === 'pro' ? 'pro' : 'self', trade:r.trade || '', status:r.status || 'open',
+    estCost:r.est_cost == null ? null : Number(r.est_cost), actualCost:r.actual_cost == null ? null : Number(r.actual_cost),
+    note:r.note || '', taskId:r.task_id || null, createdAt:r.created_at, doneAt:r.done_at || null,
+  };
+}
+function repairPartFromRow(r){
+  return { id:r.id, repairId:r.repair_id, name:r.name || '', bought:!!r.bought, createdAt:r.created_at };
+}
+function maintFromRow(r){
+  return {
+    id:r.id, title:r.title || '', room:r.room || '', everyMonths:Number(r.every_months) || 12,
+    nextDue:r.next_due, lastDone:r.last_done || null, who:r.who === 'pro' ? 'pro' : 'self',
+    trade:r.trade || '', note:r.note || '', taskId:r.task_id || null, createdAt:r.created_at,
+  };
+}
+const fmtToman = n => `${fmtPrice(n)} تومان`;
+// «۳٫۸ میلیون» / «۸۰۰ هزار» — for the narrow stat tile
+function fmtTomanShort(n){
+  const short = (v, unit) => `${toFaDigits(String(Math.round(v * 10) / 10)).replace('.', '٫')} ${unit}`;
+  if(n >= 1e9) return short(n / 1e9, 'میلیارد');
+  if(n >= 1e6) return short(n / 1e6, 'میلیون');
+  if(n >= 1e3) return short(n / 1e3, 'هزار');
+  return toFaDigits(n);
+}
+function parseCost(v){
+  const raw = toEnDigits(String(v ?? '')).replace(/[^0-9]/g, '');
+  return raw ? parseInt(raw, 10) : null;
+}
+// same day-of-month n months on, clamped to the month's end (31 فروردین… / 31 Jan + 1 → 28 Feb)
+function addMonthsKey(key, n){
+  const [y, m, d] = key.split('-').map(Number);
+  const last = new Date(y, m - 1 + n + 1, 0).getDate();
+  return dateKey(new Date(y, m - 1 + n, Math.min(d, last)));
+}
+// first day of a Jalali month, this year or next — today if we're already in it
+function nextJalaliMonthStart(month){
+  const now = new Date();
+  const j = window.jalaali.toJalaali(now);
+  if(j.jm === month) return dateKey(now);
+  const g = window.jalaali.toGregorian(j.jm < month ? j.jy : j.jy + 1, month, 1);
+  return dateKey(new Date(g.gy, g.gm - 1, g.gd));
+}
+function maintDueLabel(m){
+  const n = daysUntil(m.nextDue);
+  if(n < 0) return `${toFaDigits(-n)} روز از موعدش گذشته`;
+  if(n === 0) return 'موعدش امروزه';
+  if(n === 1) return 'موعدش فرداست';
+  if(n <= 45) return `${toFaDigits(n)} روز دیگه`;
+  return `موعد: ${formatDateShort(m.nextDue + 'T00:00:00')}`;
+}
+const repairPartsOf = id => (state.homeParts || []).filter(p => p.repairId === id);
+// the امروز task an item was sent to, while it's still open
+const linkedOpenTask = taskId => taskId ? state.tasks.find(t => t.id === taskId && !t.done) : null;
+const whoLabel = x => x.who === 'pro' ? (x.trade || 'استادکار') : 'خودم';
+function sortRepairs(list){
+  return [...list].sort((a, b) =>
+    REPAIR_URGENCY_RANK[a.urgency] - REPAIR_URGENCY_RANK[b.urgency]
+    || (a.createdAt || '').localeCompare(b.createdAt || ''));
+}
+function homePartsToBuy(){
+  const open = new Set((state.homeRepairs || []).filter(r => r.status !== 'done').map(r => r.id));
+  return (state.homeParts || []).filter(p => !p.bought && open.has(p.repairId));
+}
+
+function renderRepairsPage(){
+  const repairs = state.homeRepairs || [];
+  const open = repairs.filter(r => r.status !== 'done');
+  const urgent = open.filter(r => r.urgency === 'urgent').length;
+  const estLeft = open.reduce((s, r) => s + (r.estCost || 0), 0);
+  const partsToBuy = homePartsToBuy().length;
+  const maintDue = (state.homeMaint || []).filter(m => daysUntil(m.nextDue) <= MAINT_DUE_SOON_DAYS).length;
+  const tab = state.repairsTab;
+  const tabBtn = (id, label, n) =>
+    `<button class="${tab===id?'active':''}" onclick="state.repairsTab='${id}'; render()">${label}${n ? ` <span class="repair-tab-n">${toFaDigits(n)}</span>` : ''}</button>`;
+  return `
+    <h2 class="section-title">تعمیرات خونه</h2>
+    <div class="repair-stats">
+      <div class="repair-stat"><b>${toFaDigits(open.length)}</b><span>کار مونده</span></div>
+      <div class="repair-stat ${urgent ? 'hot' : ''}"><b>${toFaDigits(urgent)}</b><span>فوری</span></div>
+      <div class="repair-stat"><b>${estLeft ? fmtTomanShort(estLeft) : '—'}</b><span>هزینه‌ی تخمینی (تومان)</span></div>
+    </div>
+    <div class="archive-tabs repair-tabs">
+      ${tabBtn('list', 'کارها', open.length)}
+      ${tabBtn('parts', 'خرید قطعه', partsToBuy)}
+      ${tabBtn('maint', 'دوره‌ای', maintDue)}
+      ${tabBtn('done', 'انجام‌شده', 0)}
+    </div>
+    ${tab === 'parts' ? renderRepairPartsTab() : tab === 'maint' ? renderMaintTab() : tab === 'done' ? renderRepairsDoneTab() : renderRepairsListTab()}
+  `;
+}
+
+function renderRepairsListTab(){
+  const all = (state.homeRepairs || []).filter(r => r.status !== 'done');
+  const f = state.repairsFilter;
+  const rooms = [...new Set(all.map(r => r.room).filter(Boolean))];
+  const trades = [...new Set(all.filter(r => r.who === 'pro').map(r => r.trade || 'استادکار'))];
+  const roomOn = rooms.includes(f.room) ? f.room : '';
+  const tradeOn = trades.includes(f.trade) ? f.trade : '';
+  let list = all;
+  if(roomOn) list = list.filter(r => r.room === roomOn);
+  if(tradeOn) list = list.filter(r => r.who === 'pro' && (r.trade || 'استادکار') === tradeOn);
+  const nr = state.newRepair;
+  return `
+    <div class="add-purchase-box">
+      <input type="text" id="new-repair-title" dir="auto" placeholder="چی باید درست بشه؟"
+        value="${escapeAttr(nr.title)}" oninput="state.newRepair.title=this.value"
+        onkeydown="if(event.key==='Enter'){event.preventDefault(); addRepair();}" />
+      <div class="repair-add-label">کجای خونه؟</div>
+      <div class="quick-group" style="margin-bottom:10px">
+        ${REPAIR_ROOMS.map(r => `<span class="quick-chip ${nr.room===r?'active':''}" data-v="${escapeAttr(r)}" onclick="state.newRepair.room = state.newRepair.room===this.dataset.v ? '' : this.dataset.v; render()">${escapeHtml(r)}</span>`).join('')}
+      </div>
+      <div class="add-purchase-row">
+        ${Object.keys(REPAIR_URGENCY).map(u => `<span class="priority-chip ${REPAIR_URGENCY_CHIP[u]} ${nr.urgency===u?'active':''}" onclick="state.newRepair.urgency='${u}'; render()">${REPAIR_URGENCY[u]}</span>`).join('')}
+        <button onclick="addRepair()">افزودن</button>
+      </div>
+    </div>
+    ${rooms.length > 1 || trades.length ? `
+      <div class="filter-panel">
+        ${rooms.length > 1 ? `
+          <div class="filter-group">
+            <span class="filter-group-label">جا:</span>
+            ${rooms.map(r => `<span class="filter-chip ${roomOn===r?'active':''}" data-v="${escapeAttr(r)}" onclick="setRepairsFilter('room', this.dataset.v)">${escapeHtml(r)}</span>`).join('')}
+          </div>` : ''}
+        ${trades.length ? `
+          <div class="filter-group">
+            <span class="filter-group-label">استادکار:</span>
+            ${trades.map(t => `<span class="filter-chip ${tradeOn===t?'active':''}" data-v="${escapeAttr(t)}" onclick="setRepairsFilter('trade', this.dataset.v)">${escapeHtml(t)} (${toFaDigits(all.filter(r => r.who === 'pro' && (r.trade || 'استادکار') === t).length)})</span>`).join('')}
+          </div>` : ''}
+      </div>
+    ` : ''}
+    ${tradeOn ? `<div class="repair-hint">وقتی ${escapeHtml(tradeOn)} اومد، همه‌ی این‌ها رو یه‌جا بهش بگو.</div>` : ''}
+    ${!all.length ? `<div class="empty-state">چیزی برای تعمیر نمونده</div>`
+      : !list.length ? `<div class="empty-state">با این فیلتر چیزی نیست</div>`
+      : sortRepairs(list).map(renderRepairRow).join('')}
+  `;
+}
+function setRepairsFilter(key, v){
+  state.repairsFilter[key] = state.repairsFilter[key] === v ? '' : v;
+  render();
+}
+
+function renderRepairRow(r){
+  const parts = repairPartsOf(r.id);
+  const bought = parts.filter(p => p.bought).length;
+  const done = r.status === 'done';
+  const inToday = !done && linkedOpenTask(r.taskId);
+  const cost = done ? (r.actualCost ?? r.estCost) : r.estCost;
+  return `
+    <div class="today-item repair-item ${done ? 'done' : 'u-' + r.urgency}">
+      <div class="today-item-row" onclick="openRepairEditor('${r.id}')">
+        <button class="task-check ${done ? 'checked' : ''}" onclick="event.stopPropagation(); toggleRepairDone('${r.id}')" title="${done ? 'برگردون به کارها' : 'انجام شد'}">${done ? '✓' : ''}</button>
+        <div class="ti-main">
+          <div class="ti-title-row"><span class="ti-title ${done ? 'done-text' : ''}" dir="auto">${escapeHtml(r.title)}</span></div>
+          <div class="ti-meta-row">
+            ${done ? `<span class="dur">${r.doneAt ? `انجام شد ${formatDateShort(r.doneAt)}` : 'انجام شد'}</span>` : `<span class="repair-urg ${r.urgency}">${REPAIR_URGENCY[r.urgency]}</span>`}
+            ${r.room ? `<span class="dur">${escapeHtml(r.room)}</span>` : ''}
+            <span class="dur">${escapeHtml(whoLabel(r))}</span>
+            ${r.status === 'waiting' ? `<span class="repair-wait">منتظر استادکار/قطعه</span>` : ''}
+            ${parts.length && !done ? `<span class="dur">قطعه ${toFaDigits(bought)} از ${toFaDigits(parts.length)}</span>` : ''}
+            ${cost != null ? `<span class="dur">${done && r.actualCost != null ? '' : '≈ '}${fmtToman(cost)}</span>` : ''}
+            ${inToday ? `<span class="repair-today-tag">${icon('sun',12)} توی امروز</span>` : ''}
+          </div>
+          ${r.note ? `<div class="task-notes" dir="auto">${escapeHtml(r.note)}</div>` : ''}
+        </div>
+        <div class="ti-actions" onclick="event.stopPropagation()">
+          ${!done && !inToday ? `<button class="item-edit" onclick="sendHomeJobToToday('repair', '${r.id}')" title="بفرست به امروز">${icon('sun',15)}</button>` : ''}
+          <button class="item-del" onclick="deleteRepair('${r.id}')" title="حذف">✕</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderRepairsDoneTab(){
+  const done = (state.homeRepairs || []).filter(r => r.status === 'done')
+    .sort((a, b) => (b.doneAt || '').localeCompare(a.doneAt || ''));
+  const jy = window.jalaali.toJalaali(new Date()).jy;
+  const spentYear = done.filter(r => r.doneAt && window.jalaali.toJalaali(new Date(r.doneAt)).jy === jy)
+    .reduce((s, r) => s + (r.actualCost || 0), 0);
+  const spentAll = done.reduce((s, r) => s + (r.actualCost || 0), 0);
+  return `
+    ${spentAll ? `<div class="purchases-total">خرج تعمیرات امسال: ${fmtToman(spentYear)}${spentAll !== spentYear ? ` · از اول: ${fmtToman(spentAll)}` : ''}</div>` : ''}
+    ${done.length ? done.map(renderRepairRow).join('') : `<div class="empty-state">هنوز تعمیری تموم نشده</div>`}
+  `;
+}
+
+function renderRepairPartsTab(){
+  const open = sortRepairs((state.homeRepairs || []).filter(r => r.status !== 'done'));
+  const withParts = open.filter(r => repairPartsOf(r.id).length);
+  const np = state.newPart;
+  const pickId = open.some(r => r.id === np.repairId) ? np.repairId : (open[0] && open[0].id);
+  return `
+    ${open.length ? `
+      <div class="add-purchase-box">
+        <input type="text" id="new-part-name" dir="auto" placeholder="چه قطعه‌ای باید بخری؟"
+          value="${escapeAttr(np.name)}" oninput="state.newPart.name=this.value"
+          onkeydown="if(event.key==='Enter'){event.preventDefault(); addRepairPart();}" />
+        <div class="add-purchase-row">
+          <select class="repair-part-select" onchange="state.newPart.repairId=this.value">
+            ${open.map(r => `<option value="${r.id}" ${r.id === pickId ? 'selected' : ''}>برای: ${escapeHtml(r.title)}</option>`).join('')}
+          </select>
+          <button onclick="addRepairPart()">افزودن</button>
+        </div>
+      </div>
+    ` : ''}
+    ${!withParts.length ? `<div class="empty-state">${open.length ? 'قطعه‌ای برای خرید نیست' : 'وقتی کار تعمیری داشته باشی، قطعه‌هاش این‌جا جمع می‌شن'}</div>` : withParts.map(r => {
+      const parts = repairPartsOf(r.id).sort((a, b) => (a.bought - b.bought) || (a.createdAt || '').localeCompare(b.createdAt || ''));
+      return `
+        <div class="repair-part-group">
+          <div class="repair-part-head" onclick="openRepairEditor('${r.id}')" dir="auto">${escapeHtml(r.title)}${r.room ? ` <span>· ${escapeHtml(r.room)}</span>` : ''}</div>
+          ${parts.map(p => `
+            <div class="today-item ${p.bought ? 'done' : ''}">
+              <div class="today-item-row" onclick="toggleRepairPart('${p.id}')">
+                <button class="task-check ${p.bought ? 'checked' : ''}">${p.bought ? '✓' : ''}</button>
+                <div class="ti-main"><span class="ti-title ${p.bought ? 'done-text' : ''}" dir="auto">${escapeHtml(p.name)}</span></div>
+                <div class="ti-actions" onclick="event.stopPropagation()">
+                  <button class="item-del" onclick="deleteRepairPart('${p.id}')" title="حذف">✕</button>
+                </div>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    }).join('')}
+  `;
+}
+
+function renderMaintTab(){
+  const list = [...(state.homeMaint || [])].sort((a, b) => a.nextDue.localeCompare(b.nextDue));
+  const have = new Set(list.map(m => m.title));
+  const presets = MAINT_PRESETS.map((p, i) => ({ p, i })).filter(({ p }) => !have.has(p.title));
+  return `
+    <button class="add-task-btn" onclick="openMaintEditor(null)" style="margin-bottom:14px;">+ کار دوره‌ای تازه</button>
+    ${list.length ? list.map(renderMaintRow).join('') : `
+      <div class="wins-empty">
+        <b>هنوز کار دوره‌ای ثبت نکردی.</b><br>
+        کارهایی که هر چند ماه یه بار باید انجام بشن (سرویس پکیج، فیلتر تصفیه آب…). موعدشون که نزدیک بشه، از یه هفته قبل توی اعلان صبح یادت می‌ندازم.
+      </div>
+    `}
+    ${presets.length ? `
+      <div class="repair-presets">
+        <span class="modal-section-label">پیشنهادها — بزن تا اضافه‌ش کنی</span>
+        <div class="quick-group">
+          ${presets.map(({ p, i }) => `<span class="quick-chip" onclick="openMaintEditor(null, ${i})">+ ${escapeHtml(p.title)}</span>`).join('')}
+        </div>
+      </div>
+    ` : ''}
+  `;
+}
+function renderMaintRow(m){
+  const n = daysUntil(m.nextDue);
+  const cls = n < 0 ? 'late' : n <= MAINT_DUE_SOON_DAYS ? 'soon' : '';
+  const inToday = linkedOpenTask(m.taskId);
+  const every = (MAINT_EVERY_CHOICES.find(([k]) => k === m.everyMonths) || [0, `هر ${toFaDigits(m.everyMonths)} ماه`])[1];
+  return `
+    <div class="today-item repair-item maint-${cls || 'later'}">
+      <div class="today-item-row" onclick="openMaintEditor('${m.id}')">
+        <div class="ti-main">
+          <div class="ti-title-row"><span class="ti-title" dir="auto">${escapeHtml(m.title)}</span></div>
+          <div class="ti-meta-row">
+            <span class="maint-due ${cls}">${maintDueLabel(m)}</span>
+            <span class="dur">${every}</span>
+            ${m.room ? `<span class="dur">${escapeHtml(m.room)}</span>` : ''}
+            <span class="dur">${escapeHtml(whoLabel(m))}</span>
+            ${m.lastDone ? `<span class="dur">آخرین بار ${formatDateShort(m.lastDone + 'T00:00:00')}</span>` : ''}
+            ${inToday ? `<span class="repair-today-tag">${icon('sun',12)} توی امروز</span>` : ''}
+          </div>
+          ${m.note ? `<div class="task-notes" dir="auto">${escapeHtml(m.note)}</div>` : ''}
+        </div>
+        <div class="ti-actions" onclick="event.stopPropagation()">
+          ${cls && !inToday ? `<button class="item-edit" onclick="sendHomeJobToToday('maint', '${m.id}')" title="بفرست به امروز">${icon('sun',15)}</button>` : ''}
+          <button class="item-edit" onclick="markMaintDone('${m.id}')" title="انجامش دادم">${icon('check',15)}</button>
+          <button class="item-del" onclick="deleteMaint('${m.id}')" title="حذف">✕</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+/* ---------- تعمیرات: writes ---------- */
+async function addRepair(){
+  const nr = state.newRepair;
+  const el = document.getElementById('new-repair-title');
+  const title = ((el && el.value) || nr.title || '').trim();
+  if(!title) return;
+  const r = {
+    id: uid(), title, room: nr.room, urgency: nr.urgency, who:'self', trade:'', status:'open',
+    estCost:null, actualCost:null, note:'', taskId:null, createdAt:new Date().toISOString(), doneAt:null,
+  };
+  state.homeRepairs.push(r);
+  state.newRepair = { title:'', room:'', urgency:'soon' };
+  render();
+  await persist(sb.from('home_repairs').insert({ id:r.id, title:r.title, room:r.room, urgency:r.urgency, created_at:r.createdAt }), {
+    message: 'تعمیر ذخیره نشد — اینترنتت رو چک کن و دوباره اضافه‌ش کن.',
+    rollback: () => { state.homeRepairs = state.homeRepairs.filter(x => x.id !== r.id); },
+  });
+}
+
+async function setRepairDone(r, val){
+  if((r.status === 'done') === val) return;
+  r.status = val ? 'done' : 'open';
+  r.doneAt = val ? new Date().toISOString() : null;
+  render();
+  const { error } = await sb.from('home_repairs').update({ status:r.status, done_at:r.doneAt }).eq('id', r.id);
+  if(error) writeFailed('setRepairDone', error);
+}
+async function toggleRepairDone(id){
+  const r = state.homeRepairs.find(x => x.id === id);
+  if(!r) return;
+  const val = r.status !== 'done';
+  await completeLinkedTask(r.taskId, val);
+  // ask what it cost while it's fresh — the done tab and the weekly report add these up
+  if(val && r.actualCost == null) state.repairDoneModal = { id, cost: r.estCost != null ? String(r.estCost) : '' };
+  await setRepairDone(r, val);
+}
+// finishing the job here finishes its امروز task too (and un-finishing re-opens it)
+async function completeLinkedTask(taskId, val){
+  const t = taskId && state.tasks.find(x => x.id === taskId);
+  if(!t || t.done === val) return;
+  markDone(t, val);
+  const { error } = await sb.from('tasks').update({ done:t.done, completed_at:t.completedAt }).eq('id', t.id);
+  if(error) writeFailed('complete linked task', error);
+}
+function renderRepairDoneModal(){
+  const m = state.repairDoneModal;
+  const r = state.homeRepairs.find(x => x.id === m.id);
+  if(!r) return '';
+  return `
+    <div class="modal-overlay" onclick="if(event.target===this) closeRepairDoneModal()">
+      <div class="modal-box">
+        <h3>درست شد</h3>
+        <div class="modal-section">
+          <span class="modal-section-label">«${escapeHtml(r.title)}» در کل چقدر خرج داشت؟ (تومان)</span>
+          <input type="text" inputmode="numeric" class="repair-cost-input" value="${escapeAttr(m.cost)}"
+            oninput="state.repairDoneModal.cost=normalizeNumericInput(this)"
+            onkeydown="if(event.key==='Enter'){event.preventDefault(); saveRepairDoneCost();}" />
+        </div>
+        <div class="modal-actions">
+          <button class="confirm" onclick="saveRepairDoneCost()">ذخیره</button>
+          <button class="cancel" onclick="closeRepairDoneModal()">بعداً</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+function closeRepairDoneModal(){ state.repairDoneModal = null; render(); }
+async function saveRepairDoneCost(){
+  const m = state.repairDoneModal;
+  state.repairDoneModal = null;
+  const r = m && state.homeRepairs.find(x => x.id === m.id);
+  const cost = m && parseCost(m.cost);
+  if(!r || cost == null){ render(); return; }
+  const before = r.actualCost;
+  r.actualCost = cost;
+  render();
+  await persist(sb.from('home_repairs').update({ actual_cost:cost }).eq('id', r.id), {
+    rollback: () => { r.actualCost = before; },
+  });
+}
+
+const pendingRepairDeleteTimers = {}; // repairId -> timeoutId, while the undo window is open
+function deleteRepair(id){
+  const idx = state.homeRepairs.findIndex(x => x.id === id);
+  if(idx === -1) return;
+  const [removed] = state.homeRepairs.splice(idx, 1);
+  const parts = repairPartsOf(id);
+  state.homeParts = state.homeParts.filter(p => p.repairId !== id);
+  showUndoToast('تعمیر حذف شد', () => {
+    clearTimeout(pendingRepairDeleteTimers[id]);
+    delete pendingRepairDeleteTimers[id];
+    state.homeRepairs.splice(idx, 0, removed);
+    state.homeParts.push(...parts);
+    render();
+  });
+  render();
+  pendingRepairDeleteTimers[id] = setTimeout(async () => {
+    delete pendingRepairDeleteTimers[id];
+    const { error } = await sb.from('home_repairs').delete().eq('id', id); // its parts go with it (on delete cascade)
+    if(error) writeFailed('deleteRepair', error);
+  }, 5000);
+}
+
+async function addRepairPart(){
+  const np = state.newPart;
+  const el = document.getElementById('new-part-name');
+  const name = ((el && el.value) || np.name || '').trim();
+  const open = sortRepairs(state.homeRepairs.filter(r => r.status !== 'done'));
+  const repairId = open.some(r => r.id === np.repairId) ? np.repairId : (open[0] && open[0].id);
+  if(!name || !repairId) return;
+  const p = { id:uid(), repairId, name, bought:false, createdAt:new Date().toISOString() };
+  state.homeParts.push(p);
+  state.newPart = { repairId, name:'' };
+  render();
+  await persist(sb.from('home_repair_parts').insert({ id:p.id, repair_id:repairId, name, created_at:p.createdAt }), {
+    message: 'قطعه ذخیره نشد — اینترنتت رو چک کن و دوباره اضافه‌ش کن.',
+    rollback: () => { state.homeParts = state.homeParts.filter(x => x.id !== p.id); },
+  });
+}
+async function toggleRepairPart(id){
+  const p = state.homeParts.find(x => x.id === id);
+  if(!p) return;
+  p.bought = !p.bought;
+  render();
+  await persist(sb.from('home_repair_parts').update({ bought:p.bought }).eq('id', id), {
+    rollback: () => { p.bought = !p.bought; },
+  });
+}
+const pendingPartDeleteTimers = {};
+function deleteRepairPart(id){
+  const idx = state.homeParts.findIndex(x => x.id === id);
+  if(idx === -1) return;
+  const [removed] = state.homeParts.splice(idx, 1);
+  showUndoToast('قطعه حذف شد', () => {
+    clearTimeout(pendingPartDeleteTimers[id]);
+    delete pendingPartDeleteTimers[id];
+    state.homeParts.splice(idx, 0, removed);
+    render();
+  });
+  render();
+  pendingPartDeleteTimers[id] = setTimeout(async () => {
+    delete pendingPartDeleteTimers[id];
+    const { error } = await sb.from('home_repair_parts').delete().eq('id', id);
+    if(error) writeFailed('deleteRepairPart', error);
+  }, 5000);
+}
+
+/* «بفرست به امروز»: a task for today, linked back through task_id so the row
+   shows «توی امروز» and ticking the task off finishes the job here too
+   (syncHomeJobsFromTask, called from toggleTaskDone). */
+async function sendHomeJobToToday(kind, id){
+  const isRepair = kind === 'repair';
+  const list = isRepair ? state.homeRepairs : state.homeMaint;
+  const item = list.find(x => x.id === id);
+  if(!item) return;
+  if(linkedOpenTask(item.taskId)){ navigateTo('today'); return; }
+  const parts = isRepair ? repairPartsOf(id).filter(p => !p.bought).map(p => p.name) : [];
+  const notes = [
+    [item.room, item.who === 'pro' ? (item.trade || 'استادکار') : ''].filter(Boolean).join(' · '),
+    parts.length ? `قطعه‌ها: ${parts.join('، ')}` : '',
+    item.note,
+  ].filter(Boolean).join('\n');
+  const priority = isRepair ? REPAIR_URGENCY_CHIP[item.urgency] : 'medium';
+  const task = {
+    id: uid(), title: isRepair ? `تعمیر: ${item.title}` : item.title, notes, done:false, completedAt:null,
+    tagIds:[], priority, subtasks:[], date: dateKey(new Date()), durationMin:null, actualMin:null, recurringTemplateId:null,
+  };
+  state.tasks.unshift(task);
+  item.taskId = task.id;
+  render();
+  showInfoToast('به کارهای امروز اضافه شد');
+  const { error } = await sb.from('tasks').insert({ id:task.id, title:task.title, notes:notes || null, priority, date:task.date, done:false });
+  if(error){ writeFailed('send home job to today', error); return; }
+  const { error: linkErr } = await sb.from(isRepair ? 'home_repairs' : 'home_maintenance').update({ task_id:task.id }).eq('id', id);
+  if(linkErr) writeFailed('link home job task', linkErr);
+}
+// what upkeep looked like before a task finished it, so un-ticking the task puts it back
+const maintBeforeTask = {};
+function syncHomeJobsFromTask(t){
+  const r = (state.homeRepairs || []).find(x => x.taskId === t.id);
+  if(r) setRepairDone(r, t.done);
+  const m = (state.homeMaint || []).find(x => x.taskId === t.id);
+  if(!m) return;
+  if(t.done){
+    maintBeforeTask[t.id] = { nextDue:m.nextDue, lastDone:m.lastDone };
+    saveMaintDates(m, { lastDone:dateKey(new Date()), nextDue:addMonthsKey(dateKey(new Date()), m.everyMonths) });
+  } else if(maintBeforeTask[t.id]){
+    saveMaintDates(m, maintBeforeTask[t.id]);
+    delete maintBeforeTask[t.id];
+  }
+}
+
+/* ---------- نگهداری دوره‌ای ---------- */
+async function saveMaintDates(m, { nextDue, lastDone }){
+  const before = { nextDue:m.nextDue, lastDone:m.lastDone };
+  m.nextDue = nextDue; m.lastDone = lastDone;
+  render();
+  await persist(sb.from('home_maintenance').update({ next_due:nextDue, last_done:lastDone }).eq('id', m.id), {
+    rollback: () => { Object.assign(m, before); },
+  });
+}
+async function markMaintDone(id){
+  const m = state.homeMaint.find(x => x.id === id);
+  if(!m) return;
+  const before = { nextDue:m.nextDue, lastDone:m.lastDone };
+  const today = dateKey(new Date());
+  const linked = linkedOpenTask(m.taskId);
+  if(linked) await completeLinkedTask(linked.id, true);
+  saveMaintDates(m, { lastDone:today, nextDue:addMonthsKey(today, m.everyMonths) });
+  showUndoToast(`ثبت شد — دفعه‌ی بعد ${formatDateShort(m.nextDue + 'T00:00:00')}`, () => {
+    saveMaintDates(m, before);
+    if(linked) completeLinkedTask(linked.id, false);
+  });
+}
+const pendingMaintDeleteTimers = {};
+function deleteMaint(id){
+  const idx = state.homeMaint.findIndex(x => x.id === id);
+  if(idx === -1) return;
+  const [removed] = state.homeMaint.splice(idx, 1);
+  showUndoToast('حذف شد', () => {
+    clearTimeout(pendingMaintDeleteTimers[id]);
+    delete pendingMaintDeleteTimers[id];
+    state.homeMaint.splice(idx, 0, removed);
+    render();
+  });
+  render();
+  pendingMaintDeleteTimers[id] = setTimeout(async () => {
+    delete pendingMaintDeleteTimers[id];
+    const { error } = await sb.from('home_maintenance').delete().eq('id', id);
+    if(error) writeFailed('deleteMaint', error);
+  }, 5000);
+}
+
+/* ---------- تعمیرات: editors ---------- */
+function openRepairEditor(id){
+  const r = state.homeRepairs.find(x => x.id === id);
+  if(!r) return;
+  state.repairEditor = {
+    repairId:r.id, title:r.title, room:r.room, urgency:r.urgency, who:r.who, trade:r.trade, status:r.status,
+    estCost: r.estCost == null ? '' : String(r.estCost), actualCost: r.actualCost == null ? '' : String(r.actualCost),
+    note:r.note, parts: repairPartsOf(r.id).map(p => ({ ...p })), newPart:'',
+  };
+  render();
+}
+function closeRepairEditor(){ state.repairEditor = null; render(); }
+function repairEditorPick(key, v){
+  const ed = state.repairEditor;
+  ed[key] = ed[key] === v && key !== 'who' && key !== 'urgency' && key !== 'status' ? '' : v;
+  render();
+}
+function repairEditorAddPart(){
+  const ed = state.repairEditor;
+  const name = (ed.newPart || '').trim();
+  if(!name) return;
+  ed.parts.push({ id:uid(), repairId:ed.repairId, name, bought:false, createdAt:new Date().toISOString(), isNew:true });
+  ed.newPart = '';
+  render();
+  const el = document.getElementById('repair-ed-part');
+  if(el) el.focus();
+}
+function repairEditorRemovePart(i){ state.repairEditor.parts.splice(i, 1); render(); }
+function repairEditorTogglePart(i){ const p = state.repairEditor.parts[i]; p.bought = !p.bought; render(); }
+function renderChoiceChips(values, current, onclick){
+  return values.map(v => `<span class="pick-chip ${current===v?'on':''}" style="--chip-color:var(--accent)" data-v="${escapeAttr(v)}" onclick="${onclick}">${escapeHtml(v)}</span>`).join('');
+}
+function renderRepairEditorModal(){
+  const ed = state.repairEditor;
+  const rooms = [...new Set([...REPAIR_ROOMS, ...state.homeRepairs.map(r => r.room), ...state.homeMaint.map(m => m.room)].filter(Boolean))];
+  const trades = [...new Set([...REPAIR_TRADES, ...state.homeRepairs.map(r => r.trade), ...state.homeMaint.map(m => m.trade)].filter(Boolean))];
+  return `
+    <div class="modal-overlay" onclick="if(event.target===this) closeRepairEditor()">
+      <div class="modal-box">
+        <h3>ویرایش تعمیر</h3>
+        <input type="text" class="modal-title-input" dir="auto" value="${escapeAttr(ed.title)}" oninput="state.repairEditor.title=this.value" />
+        <div class="modal-section">
+          <span class="modal-section-label">کجای خونه؟</span>
+          ${renderChoiceChips(rooms, ed.room, "repairEditorPick('room', this.dataset.v)")}
+          <input type="text" class="mother-cat-input" dir="auto" placeholder="یا یه جای دیگه بنویس" value="${rooms.includes(ed.room) ? '' : escapeAttr(ed.room)}" oninput="state.repairEditor.room=this.value" />
+        </div>
+        <div class="modal-section">
+          <span class="modal-section-label">فوریت</span>
+          ${Object.keys(REPAIR_URGENCY).map(u => `<span class="priority-chip ${REPAIR_URGENCY_CHIP[u]} ${ed.urgency===u?'active':''}" onclick="repairEditorPick('urgency', '${u}')">${REPAIR_URGENCY[u]}</span>`).join('')}
+        </div>
+        <div class="modal-section">
+          <span class="modal-section-label">کی درستش می‌کنه؟</span>
+          <div class="quick-group">
+            <span class="quick-chip ${ed.who==='self'?'active':''}" onclick="repairEditorPick('who', 'self')">خودم</span>
+            <span class="quick-chip ${ed.who==='pro'?'active':''}" onclick="repairEditorPick('who', 'pro')">استادکار</span>
+          </div>
+          ${ed.who === 'pro' ? `
+            <div style="margin-top:10px">
+              ${renderChoiceChips(trades, ed.trade, "repairEditorPick('trade', this.dataset.v)")}
+              <input type="text" class="mother-cat-input" dir="auto" placeholder="یا یه استادکار دیگه بنویس" value="${trades.includes(ed.trade) ? '' : escapeAttr(ed.trade)}" oninput="state.repairEditor.trade=this.value" />
+            </div>
+          ` : ''}
+        </div>
+        ${ed.status !== 'done' ? `
+          <div class="modal-section">
+            <span class="modal-section-label">وضعیت</span>
+            <div class="quick-group">
+              <span class="quick-chip ${ed.status==='open'?'active':''}" onclick="repairEditorPick('status', 'open')">ثبت‌شده</span>
+              <span class="quick-chip ${ed.status==='waiting'?'active':''}" onclick="repairEditorPick('status', 'waiting')">منتظر استادکار/قطعه</span>
+            </div>
+          </div>
+        ` : ''}
+        <div class="modal-section">
+          <span class="modal-section-label">هزینه (تومان)</span>
+          <div class="repair-cost-row">
+            <label>تخمینی<input type="text" inputmode="numeric" class="repair-cost-input" value="${escapeAttr(ed.estCost)}" oninput="state.repairEditor.estCost=normalizeNumericInput(this)" /></label>
+            <label>واقعی<input type="text" inputmode="numeric" class="repair-cost-input" value="${escapeAttr(ed.actualCost)}" oninput="state.repairEditor.actualCost=normalizeNumericInput(this)" /></label>
+          </div>
+        </div>
+        <div class="modal-section">
+          <span class="modal-section-label">قطعه‌هایی که باید بخری</span>
+          ${ed.parts.map((p, i) => `
+            <div class="repair-ed-part ${p.bought ? 'bought' : ''}">
+              <button type="button" class="task-check ${p.bought ? 'checked' : ''}" onclick="repairEditorTogglePart(${i})">${p.bought ? '✓' : ''}</button>
+              <span dir="auto">${escapeHtml(p.name)}</span>
+              <button type="button" class="repair-ed-part-x" onclick="repairEditorRemovePart(${i})" title="حذف">✕</button>
+            </div>
+          `).join('')}
+          <div class="repair-ed-part-add">
+            <input type="text" id="repair-ed-part" dir="auto" placeholder="مثلاً: شیر مخلوط، چسب آکواریوم" value="${escapeAttr(ed.newPart)}"
+              oninput="state.repairEditor.newPart=this.value" onkeydown="if(event.key==='Enter'){event.preventDefault(); repairEditorAddPart();}" />
+            <button type="button" onclick="repairEditorAddPart()">+</button>
+          </div>
+        </div>
+        <div class="modal-section">
+          <span class="modal-section-label">یادداشت</span>
+          <textarea class="task-notes-input" dir="auto" placeholder="جزئیات، شماره‌ی استادکار، اندازه‌ها…" oninput="state.repairEditor.note=this.value">${escapeHtml(ed.note)}</textarea>
+        </div>
+        <div class="modal-actions">
+          <button class="confirm" onclick="confirmRepairEditor()">ذخیره</button>
+          <button class="cancel" onclick="closeRepairEditor()">انصراف</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+async function confirmRepairEditor(){
+  const ed = state.repairEditor;
+  if(!ed || !ed.title.trim()) return;
+  const r = state.homeRepairs.find(x => x.id === ed.repairId);
+  if(!r){ closeRepairEditor(); return; }
+  const fields = {
+    title:ed.title.trim(), room:ed.room.trim(), urgency:ed.urgency, who:ed.who,
+    trade: ed.who === 'pro' ? ed.trade.trim() : '', status:ed.status,
+    estCost:parseCost(ed.estCost), actualCost:parseCost(ed.actualCost), note:ed.note.trim(),
+  };
+  Object.assign(r, fields);
+  // parts: the editor worked on a copy — diff it against what's stored
+  const before = repairPartsOf(r.id);
+  const keep = new Set(ed.parts.map(p => p.id));
+  const removed = before.filter(p => !keep.has(p.id));
+  const added = ed.parts.filter(p => p.isNew);
+  const changed = ed.parts.filter(p => !p.isNew && before.some(b => b.id === p.id && b.bought !== p.bought));
+  state.homeParts = [
+    ...state.homeParts.filter(p => p.repairId !== r.id),
+    ...ed.parts.map(({ isNew, ...p }) => p),
+  ];
+  state.repairEditor = null;
+  render();
+  const { error } = await sb.from('home_repairs').update({
+    title:fields.title, room:fields.room, urgency:fields.urgency, who:fields.who, trade:fields.trade, status:fields.status,
+    est_cost:fields.estCost, actual_cost:fields.actualCost, note:fields.note,
+  }).eq('id', r.id);
+  if(error){ writeFailed('save repair', error); return; }
+  if(removed.length){
+    const { error: delErr } = await sb.from('home_repair_parts').delete().in('id', removed.map(p => p.id));
+    if(delErr) writeFailed('remove repair parts', delErr);
+  }
+  if(added.length){
+    const { error: insErr } = await sb.from('home_repair_parts').insert(added.map(p => ({ id:p.id, repair_id:r.id, name:p.name, bought:p.bought, created_at:p.createdAt })));
+    if(insErr) writeFailed('add repair parts', insErr);
+  }
+  for(const p of changed){
+    const { error: upErr } = await sb.from('home_repair_parts').update({ bought:p.bought }).eq('id', p.id);
+    if(upErr) writeFailed('update repair part', upErr);
+  }
+}
+
+function openMaintEditor(id, presetIdx){
+  const m = id ? state.homeMaint.find(x => x.id === id) : null;
+  const p = presetIdx != null ? MAINT_PRESETS[presetIdx] : null;
+  state.maintEditor = m
+    ? { maintId:m.id, title:m.title, room:m.room, everyMonths:m.everyMonths, nextDue:m.nextDue, who:m.who, trade:m.trade, note:m.note, calendarOpen:false }
+    : { maintId:null, title: p ? p.title : '', room: p ? p.room : '', everyMonths: p ? p.every : 12,
+        nextDue: p && p.month ? nextJalaliMonthStart(p.month) : dateKey(new Date()),
+        who: p ? p.who : 'self', trade: p ? p.trade : '', note:'', calendarOpen:false };
+  render();
+}
+function closeMaintEditor(){ state.maintEditor = null; render(); }
+function maintEditorPick(key, v){
+  const ed = state.maintEditor;
+  ed[key] = ed[key] === v && (key === 'room' || key === 'trade') ? '' : v;
+  render();
+}
+function toggleMaintCalendar(){
+  const ed = state.maintEditor;
+  ed.calendarOpen = !ed.calendarOpen;
+  if(ed.calendarOpen){
+    const j = window.jalaali.toJalaali(new Date(ed.nextDue + 'T00:00:00'));
+    ed.calJY = j.jy; ed.calJM = j.jm;
+  }
+  render();
+}
+function maintCalPrevMonth(){ const ed = state.maintEditor; ed.calJM--; if(ed.calJM < 1){ ed.calJM = 12; ed.calJY--; } render(); }
+function maintCalNextMonth(){ const ed = state.maintEditor; ed.calJM++; if(ed.calJM > 12){ ed.calJM = 1; ed.calJY++; } render(); }
+function maintCalPick(jy, jm, jd){
+  const g = window.jalaali.toGregorian(jy, jm, jd);
+  const ed = state.maintEditor;
+  ed.nextDue = dateKey(new Date(g.gy, g.gm - 1, g.gd));
+  ed.calendarOpen = false;
+  render();
+}
+function renderMaintEditorModal(){
+  const ed = state.maintEditor;
+  const rooms = [...new Set([...REPAIR_ROOMS, ...state.homeMaint.map(m => m.room)].filter(Boolean))];
+  const trades = [...new Set([...REPAIR_TRADES, ...state.homeRepairs.map(r => r.trade), ...state.homeMaint.map(m => m.trade)].filter(Boolean))];
+  const custom = !MAINT_EVERY_CHOICES.some(([k]) => k === ed.everyMonths);
+  return `
+    <div class="modal-overlay" onclick="if(event.target===this) closeMaintEditor()">
+      <div class="modal-box">
+        <h3>${ed.maintId ? 'ویرایش کار دوره‌ای' : 'کار دوره‌ای تازه'}</h3>
+        <input type="text" class="modal-title-input" dir="auto" placeholder="مثلاً: سرویس پکیج" value="${escapeAttr(ed.title)}" oninput="state.maintEditor.title=this.value" />
+        <div class="modal-section">
+          <span class="modal-section-label">هر چند وقت یه بار؟</span>
+          <div class="quick-group">
+            ${MAINT_EVERY_CHOICES.map(([k, label]) => `<span class="quick-chip ${ed.everyMonths===k?'active':''}" onclick="state.maintEditor.everyMonths=${k}; render()">${label}</span>`).join('')}
+            <span class="repair-every-custom">هر <input type="text" inputmode="numeric" class="num-text" value="${custom ? toFaDigits(ed.everyMonths) : ''}"
+              oninput="normalizeNumericInput(this)" onchange="const v=parseInt(this.value,10); if(v>=1 && v<=60){ state.maintEditor.everyMonths=v; render(); }" /> ماه</span>
+          </div>
+        </div>
+        <div class="modal-section">
+          <span class="modal-section-label">${ed.maintId ? 'موعد بعدی' : 'اولین موعد'}</span>
+          <div class="quick-group">
+            <button type="button" class="date-picker-btn" onclick="toggleMaintCalendar()">${icon('calendar',13)} ${formatDateShort(ed.nextDue + 'T00:00:00')}</button>
+          </div>
+          ${ed.calendarOpen ? renderPickCalendar({ jy:ed.calJY, jm:ed.calJM, date:ed.nextDue, prev:'maintCalPrevMonth', next:'maintCalNextMonth', pick:'maintCalPick' }) : ''}
+          <div class="reminder-kind-hint">از یه هفته قبلِ موعد توی اعلان صبح میاد؛ وقتی بزنی «انجامش دادم»، موعد بعدی خودش جلو می‌ره.</div>
+        </div>
+        <div class="modal-section">
+          <span class="modal-section-label">کجای خونه؟</span>
+          ${renderChoiceChips(rooms, ed.room, "maintEditorPick('room', this.dataset.v)")}
+        </div>
+        <div class="modal-section">
+          <span class="modal-section-label">کی انجامش می‌ده؟</span>
+          <div class="quick-group">
+            <span class="quick-chip ${ed.who==='self'?'active':''}" onclick="maintEditorPick('who', 'self')">خودم</span>
+            <span class="quick-chip ${ed.who==='pro'?'active':''}" onclick="maintEditorPick('who', 'pro')">استادکار</span>
+          </div>
+          ${ed.who === 'pro' ? `<div style="margin-top:10px">${renderChoiceChips(trades, ed.trade, "maintEditorPick('trade', this.dataset.v)")}</div>` : ''}
+        </div>
+        <div class="modal-section">
+          <span class="modal-section-label">یادداشت</span>
+          <textarea class="task-notes-input" dir="auto" placeholder="مدل فیلتر، شماره‌ی سرویس‌کار…" oninput="state.maintEditor.note=this.value">${escapeHtml(ed.note)}</textarea>
+        </div>
+        <div class="modal-actions">
+          <button class="confirm" onclick="confirmMaintEditor()">ذخیره</button>
+          <button class="cancel" onclick="closeMaintEditor()">انصراف</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+async function confirmMaintEditor(){
+  const ed = state.maintEditor;
+  if(!ed || !ed.title.trim() || !ed.nextDue) return;
+  const fields = {
+    title:ed.title.trim(), room:ed.room, everyMonths:ed.everyMonths, nextDue:ed.nextDue,
+    who:ed.who, trade: ed.who === 'pro' ? ed.trade : '', note:ed.note.trim(),
+  };
+  const row = {
+    title:fields.title, room:fields.room, every_months:fields.everyMonths, next_due:fields.nextDue,
+    who:fields.who, trade:fields.trade, note:fields.note,
+  };
+  state.maintEditor = null;
+  if(ed.maintId){
+    const m = state.homeMaint.find(x => x.id === ed.maintId);
+    if(!m){ render(); return; }
+    const before = { ...m };
+    Object.assign(m, fields);
+    render();
+    await persist(sb.from('home_maintenance').update(row).eq('id', m.id), {
+      message: 'تغییرات ذخیره نشد — اینترنتت رو چک کن و دوباره امتحان کن.',
+      rollback: () => { Object.assign(m, before); },
+    });
+  } else {
+    const id = uid();
+    const createdAt = new Date().toISOString();
+    state.homeMaint.push({ id, ...fields, lastDone:null, taskId:null, createdAt });
+    state.repairsTab = 'maint';
+    render();
+    await persist(sb.from('home_maintenance').insert({ id, ...row, created_at:createdAt }), {
+      message: 'کار دوره‌ای ذخیره نشد — اینترنتت رو چک کن و دوباره اضافه‌ش کن.',
+      rollback: () => { state.homeMaint = state.homeMaint.filter(x => x.id !== id); },
+    });
+  }
+}
+
 function renderToday(){
   const { wd } = fmtHeaderDate(state.today);
   const todayStr = dateKey(state.today);
@@ -6941,6 +7848,7 @@ function render(){
       ${state.view === 'prompts' ? renderPromptsPage() : ''}
       ${state.view === 'wins' ? renderWinsPage() : ''}
       ${state.view === 'mother' ? renderMotherPage() : ''}
+      ${state.view === 'repairs' ? renderRepairsPage() : ''}
       ${state.view === 'archive' ? renderArchivePage() : ''}
       ${state.view === 'ai-reports' ? renderAIReportsPage() : ''}
     </main>
@@ -6958,6 +7866,9 @@ function render(){
     ${state.winEditor ? renderWinEditorModal() : ''}
     ${state.winSos ? renderWinSos() : ''}
     ${state.motherEditor ? renderMotherEditorModal() : ''}
+    ${state.repairEditor ? renderRepairEditorModal() : ''}
+    ${state.maintEditor ? renderMaintEditorModal() : ''}
+    ${state.repairDoneModal ? renderRepairDoneModal() : ''}
   `;
   // every render rebuilds the tabs; if a group ever has more than fit, keep
   // the strip where it was and bring a newly opened tab into view
@@ -6997,6 +7908,7 @@ const NAV_GROUPS = [
   { id:'wins',   label:'زندگی', icon:'heart', items:[
     { id:'wins',       label:'تونستم',        icon:'trophy' },
     { id:'mother',     label:'مادر',          icon:'heart' },
+    { id:'repairs',    label:'تعمیرات خونه',  icon:'wrench' },
   ]},
   { id:'review', label:'مرور', icon:'archive', items:[
     { id:'archive',    label:'آرشیو',         icon:'archive' },
@@ -7302,6 +8214,7 @@ const BACKUP_TABLE_LABELS = {
   ideas:'ایده‌ها', idea_images:'عکس‌های ایده', wins:'دستاوردها', prompts:'پرامپت‌ها',
   reminders:'یادآورها', subscriptions:'اشتراک‌ها', purchases:'خریدها', ai_reports:'گزارش‌های هوش مصنوعی',
   tag_goals:'اهداف هفتگی', mother_care:'تنظیمات مادر', mother_care_items:'ملاحظه‌های مادر',
+  home_repairs:'تعمیرات خونه', home_repair_parts:'قطعه‌های تعمیر', home_maintenance:'نگهداری دوره‌ای خونه',
 };
 const BACKUP_KIND_LABELS = { auto:'خودکار هفتگی', download:'دانلود دستی', 'pre-restore':'قبل از بازیابی' };
 const BACKUP_OVERDUE_DAYS = 30;
@@ -7426,6 +8339,7 @@ function currentBackupCounts(){
     reminders: n(state.reminders), subscriptions: n(state.subscriptions), purchases: n(state.purchases),
     ai_reports: n(state.aiReports), tag_goals: n(state.tagGoals),
     mother_care: state.motherSettings ? 1 : 0, mother_care_items: n(state.motherItems),
+    home_repairs: n(state.homeRepairs), home_repair_parts: n(state.homeParts), home_maintenance: n(state.homeMaint),
   };
 }
 async function confirmRestore(){

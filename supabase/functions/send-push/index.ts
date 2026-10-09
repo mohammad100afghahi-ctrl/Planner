@@ -32,6 +32,9 @@ const fromB64url = (s: string) => Uint8Array.from(atob(s.replace(/-/g, "+").repl
 function localToday(): string {
   return new Date(Date.now() + TZ_OFFSET_HOURS * 3600_000).toISOString().slice(0, 10);
 }
+function addDaysKey(day: string, n: number): string {
+  return new Date(Date.parse(day + "T00:00:00Z") + n * 86400_000).toISOString().slice(0, 10);
+}
 function daysUntil(dateStr: string, today: string): number {
   return Math.round((Date.parse(dateStr + "T00:00:00Z") - Date.parse(today + "T00:00:00Z")) / 86400_000);
 }
@@ -87,9 +90,26 @@ function motherLine(care: any, items: any[], today: string): string {
   return `یادت باشه مادر: ${it.kind === "dont" ? "نکن — " : ""}${body}`;
 }
 
+/* «تعمیرات خونه»: urgent repairs nag every morning until they're fixed; upkeep
+   shows up from MAINT_LEAD_DAYS before it's due, alongside the reminders. */
+const MAINT_LEAD_DAYS = 7;
+function maintLabel(n: number): string {
+  if (n < 0) return `${fa(-n)} روز از موعدش گذشته`;
+  if (n === 0) return "موعدش امروزه";
+  if (n === 1) return "موعدش فرداست";
+  return `${fa(n)} روز تا موعدش`;
+}
+function urgentRepairsLine(repairs: any[]): string {
+  if (!repairs.length) return "";
+  const names = repairs.slice(0, 2).map((r) => r.title.length > 40 ? r.title.slice(0, 39) + "…" : r.title).join("، ");
+  return repairs.length === 1
+    ? `تعمیر فوری: ${names}`
+    : `${fa(repairs.length)} تعمیر فوری مونده: ${names}${repairs.length > 2 ? " و…" : ""}`;
+}
+
 async function digestFor(sb: SupabaseClient, uid: string) {
   const today = localToday();
-  const [rem, subs, tasks, backups, review, care, careItems] = await Promise.all([
+  const [rem, subs, tasks, backups, review, care, careItems, repairs, maint] = await Promise.all([
     sb.from("reminders").select("title, kind, date, lead_days").eq("user_id", uid).eq("done", false).neq("kind", "always").not("date", "is", null),
     sb.from("subscriptions").select("name, next_renewal, notify_days_before").eq("user_id", uid).eq("active", true).not("next_renewal", "is", null),
     sb.from("tasks").select("id", { count: "exact", head: true }).eq("user_id", uid).eq("date", today).eq("done", false),
@@ -97,6 +117,8 @@ async function digestFor(sb: SupabaseClient, uid: string) {
     sb.from("ai_reports").select("replan, replan_apply_after").eq("user_id", uid).gt("replan_apply_after", new Date().toISOString()),
     sb.from("mother_care").select("remind_days, push").eq("user_id", uid).maybeSingle(),
     sb.from("mother_care_items").select("kind, body").eq("user_id", uid).order("created_at", { ascending: true }).order("id", { ascending: true }),
+    sb.from("home_repairs").select("title").eq("user_id", uid).eq("urgency", "urgent").neq("status", "done").order("created_at", { ascending: true }),
+    sb.from("home_maintenance").select("title, next_due").eq("user_id", uid).lte("next_due", addDaysKey(today, MAINT_LEAD_DAYS)),
   ]);
   for (const r of [rem, subs, tasks]) if (r.error) throw r.error;
 
@@ -137,13 +159,19 @@ async function digestFor(sb: SupabaseClient, uid: string) {
   const items = [
     ...reminders.map(({ r, n }) => ({ n, line: `• ${r.title} — ${reminderLabel(r, n)}` })),
     ...renewals.map(({ s, n }) => ({ n, line: `• تمدید ${s.name} — ${subLabel(n)}` })),
+    ...(maint.error ? [] : maint.data || []).map((m: any) => {
+      const n = daysUntil(m.next_due, today);
+      return { n, line: `• ${m.title} — ${maintLabel(n)}` };
+    }),
   ].sort((a, b) => a.n - b.n);
+  const repairLine = repairs.error ? "" : urgentRepairsLine(repairs.data || []);
   const mother = care.error || careItems.error ? "" : motherLine(care.data, careItems.data || [], today);
-  if (!items.length && !taskCount && !backupLine && !reviewLine && !mother) return null;
+  if (!items.length && !taskCount && !backupLine && !reviewLine && !mother && !repairLine) return null;
 
   const lines = items.slice(0, 3).map((i) => i.line);
   if (items.length > 3) lines.push(`و ${fa(items.length - 3)} مورد دیگه`);
   if (taskCount) lines.push(`امروز ${fa(taskCount)} کار برنامه‌ریزی‌شده داری`);
+  if (repairLine) lines.push(repairLine);
   if (reviewLine) lines.push(reviewLine);
   if (mother) lines.push(mother);
   if (backupLine) lines.push(backupLine);
