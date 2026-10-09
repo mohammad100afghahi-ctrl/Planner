@@ -932,6 +932,63 @@ global.jalaali = {
   }
   .prompt-copy-btn:hover, .prompt-copy-btn.copied{border-color:var(--accent); color:var(--accent);}
 
+
+  /* «مادر» — considerations for Mom (MS), and the card that brings one to امروز */
+  .mother-card{
+    margin-bottom:16px; padding:12px 14px; background:var(--surface); border:1px solid var(--line);
+    border-inline-start:3px solid var(--english); border-radius:12px;
+  }
+  .mother-card-kicker, .mother-why-kicker{display:flex; align-items:center; gap:6px; font-size:11.5px; font-weight:700; color:var(--english); margin-bottom:6px;}
+  .mother-card-text{font-size:13.5px; line-height:1.9; color:var(--text);}
+  .mother-card-actions{display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;}
+  .mother-card-actions button{
+    display:inline-flex; align-items:center; gap:5px; background:var(--surface-2); border:1px solid var(--line);
+    color:var(--text-muted); font-family:inherit; font-size:12px; font-weight:700; padding:7px 12px; border-radius:8px; cursor:pointer; min-height:34px;
+  }
+  .mother-card-actions button:hover{border-color:var(--english); color:var(--english);}
+  .mother-kind{display:inline-block; font-size:10.5px; font-weight:700; padding:1px 8px; border-radius:10px; margin-inline-end:7px; vertical-align:2px; flex-shrink:0;}
+  .mother-kind.do{color:var(--freelance); background:color-mix(in srgb, var(--freelance) 16%, transparent);}
+  .mother-kind.dont{color:var(--danger); background:color-mix(in srgb, var(--danger) 16%, transparent);}
+  .mother-why{
+    position:relative; padding:16px 18px; margin-bottom:12px; background:var(--surface); border:1px solid var(--line);
+    border-top:3px solid var(--english); border-radius:14px;
+  }
+  .mother-why-text{font-family:var(--display); font-size:20px; line-height:1.6; color:var(--text); padding-inline-end:28px; white-space:pre-wrap;}
+  .mother-why-edit{position:absolute; top:12px; inset-inline-end:10px; background:none; border:none; color:var(--text-muted); cursor:pointer; padding:6px; display:inline-flex;}
+  .mother-why-edit:hover{color:var(--english);}
+  .mother-why-input{
+    width:100%; min-height:90px; resize:vertical; background:var(--surface-2); border:1px solid var(--line); color:var(--text);
+    font-family:inherit; font-size:13.5px; line-height:1.8; padding:9px 12px; border-radius:8px; outline:none;
+  }
+  .mother-why-actions{display:flex; gap:8px; margin-top:8px;}
+  .mother-why-actions button{
+    background:var(--surface-2); border:1px solid var(--line); color:var(--text-muted); font-family:inherit;
+    font-size:12px; font-weight:700; padding:7px 14px; border-radius:8px; cursor:pointer;
+  }
+  .mother-why-actions button.confirm{background:var(--accent); border-color:var(--accent); color:#16120A;}
+  .mother-remind{padding:13px 14px; margin-bottom:14px; background:var(--surface); border:1px solid var(--line); border-radius:12px;}
+  .mother-remind-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:9px;}
+  .mother-remind-count{font-size:11.5px; color:var(--text-muted);}
+  .mother-remind .quick-chip{padding:6px 11px;}
+  .mother-switch{display:flex; align-items:center; gap:9px; font-size:13px; color:var(--text); margin-top:11px; cursor:pointer;}
+  .mother-switch input{width:18px; height:18px; accent-color:var(--accent); flex-shrink:0;}
+  .mother-remind-note{font-size:11.5px; color:var(--text-muted); margin-top:10px;}
+  .mother-cat{margin-bottom:14px;}
+  .mother-cat-title{font-size:12px; font-weight:700; color:var(--text-muted); margin-bottom:6px;}
+  .mother-item{
+    display:flex; align-items:flex-start; gap:4px; padding:10px 12px; margin-bottom:6px;
+    background:var(--surface); border:1px solid var(--line); border-radius:10px;
+  }
+  .mother-item .mother-kind{margin-top:4px;}
+  .mother-item.today{border-color:var(--english);}
+  .mother-item-body{flex:1; font-size:13.5px; line-height:1.85; color:var(--text); word-break:break-word;}
+  .mother-today-tag{display:inline-block; margin-inline-start:8px; font-size:10.5px; font-weight:700; color:var(--english);}
+  .mother-cat-input{
+    display:block; width:100%; margin-top:6px; background:var(--surface-2); border:1px solid var(--line); color:var(--text);
+    font-family:inherit; font-size:12.5px; padding:7px 10px; border-radius:8px; outline:none;
+  }
+  .mother-footnote{font-size:11.5px; color:var(--text-muted); margin-top:6px; line-height:1.8;}
+
   /* wins («تونستم») — a wall of evidence */
   .wins-hero{
     display:flex; align-items:flex-end; justify-content:space-between; gap:14px; flex-wrap:wrap;
@@ -1451,6 +1508,9 @@ global.jalaali = {
     .idea-actions button:active, .today-item .ti-actions button:active{background:var(--surface-2, rgba(255,255,255,.06));}
     .sub-actions button[onclick^="delete"], .idea-footer .item-del,
     .today-item .item-del, .win-actions button[onclick^="delete"], .prompt-actions button[onclick^="delete"]{margin-inline-start:8px;}
+    /* «مادر» rows: stack the two buttons so the text keeps the width */
+    .mother-item .win-actions{flex-direction:column; gap:2px;}
+    .mother-item .win-actions button[onclick^="delete"]{margin-inline-start:0;}
     /* 40px buttons centred on the checkbox line (13px) without growing the row */
     .today-item-row .ti-actions{margin-top:-7px; margin-bottom:-7px;}
   }
@@ -1647,7 +1707,7 @@ window.addEventListener('offline', () => { lastSyncNetworkFailed = true; renderS
 setInterval(() => { if(outbox.length && navigator.onLine) goOnline(); }, 30000);
 
 /* ---------- offline snapshot of loaded data ---------- */
-const SNAPSHOT_KEYS = ['tags','tasks','recurringTemplates','tagGoals','aiReports','purchases','ideas','subscriptions','reminders','prompts','wins','aiHealth'];
+const SNAPSHOT_KEYS = ['tags','tasks','recurringTemplates','tagGoals','aiReports','purchases','ideas','subscriptions','reminders','prompts','wins','motherItems','motherSettings','aiHealth'];
 let dataLoaded = false; // state holds real data (server or snapshot), safe to snapshot
 let snapshotTimer = null;
 function scheduleSnapshot(){
@@ -1733,6 +1793,7 @@ function icon(name, size){
     pencil:   `<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/>`,
     bell:     `<path d="M18 9a6 6 0 1 0-12 0c0 5-2 6-2 6h16s-2-1-2-6"/><path d="M10.3 20a2 2 0 0 0 3.4 0"/>`,
     star:     `<path d="M12 3l2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3 6.4 20.2l1.1-6.2L3 9.6l6.2-.9z"/>`,
+    heart:    `<path d="M12 20s-7-4.4-9.2-9A5 5 0 0 1 12 6a5 5 0 0 1 9.2 5c-2.2 4.6-9.2 9-9.2 9z"/>`,
     trophy:   `<path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4z"/><path d="M7 6H4v1a3 3 0 0 0 3 3M17 6h3v1a3 3 0 0 1-3 3"/>`,
     starFill: `<path fill="currentColor" d="M12 3l2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3 6.4 20.2l1.1-6.2L3 9.6l6.2-.9z"/>`,
     prompt:   `<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9l3 3-3 3M12 15h5"/>`,
@@ -1878,6 +1939,10 @@ let state = {
   winEditor: null, // { winId, title, hardship, why, tagIds, happenedOn, calendarOpen, calJY, calJM }
   winsFilterTagIds: [], // show only wins carrying ANY of these tags (empty = all)
   winSos: null, // { order:[winId…], index } while the one-at-a-time view is open
+  motherItems: [], // [{ id, kind:'do'|'dont', category, body, createdAt }]
+  motherSettings: null, // { why, remindDays:[getDay()…], showOnToday, push } — null until saved once (defaults apply)
+  motherEditor: null, // { itemId, kind, category, body }
+  motherWhyDraft: null, // the «چرا یادم باشه» text while it's being edited
   aiHealth: null, // { errorKind, errorMessage, errorAt, okAt } — did هوشواره's last AI call work?
 };
 
@@ -1889,6 +1954,7 @@ let realtimeStarted = false;
 let remindersTableReady = false;
 let promptsTableReady = false; // same reason as remindersTableReady
 let winsTableReady = false; // same reason as remindersTableReady
+let motherTableReady = false; // same reason as remindersTableReady
 let aiHealthTableReady = false; // same reason as remindersTableReady
 
 /* No server to load from (offline, or edits still queued that the server
@@ -2037,6 +2103,20 @@ async function loadAll(){
   } catch(e){
     console.error('load wins failed', e);
     if(!state.wins) state.wins = [];
+  }
+  try{
+    const [items, care] = await Promise.all([
+      sb.from('mother_care_items').select('*').order('created_at', { ascending:true }).order('id', { ascending:true }),
+      sb.from('mother_care').select('*').maybeSingle(),
+    ]);
+    if(items.error) throw items.error;
+    if(care.error) throw care.error;
+    state.motherItems = items.data.map(motherItemFromRow);
+    state.motherSettings = care.data ? motherSettingsFromRow(care.data) : null;
+    motherTableReady = true;
+  } catch(e){
+    console.error('load mother_care failed', e);
+    if(!state.motherItems) state.motherItems = [];
   }
   try{
     const { data: health, error: healthErr } = await sb.from('ai_health').select('*').maybeSingle();
@@ -2406,6 +2486,31 @@ function startRealtimeSync(){
       render();
     },
   });
+
+  if(motherTableReady){
+    registerRealtimeSync(channel, 'mother_care_items', {
+      onInsert(row){
+        if(state.motherItems.some(i => i.id === row.id)) return;
+        state.motherItems.push(motherItemFromRow(row));
+        sortMotherItems();
+        render();
+      },
+      onUpdate(row){
+        const i = state.motherItems.find(x => x.id === row.id);
+        if(!i) return;
+        Object.assign(i, motherItemFromRow(row));
+        render();
+      },
+      onDelete(old){
+        state.motherItems = state.motherItems.filter(i => i.id !== old.id);
+        render();
+      },
+    });
+    registerRealtimeSync(channel, 'mother_care', {
+      onInsert(row){ state.motherSettings = motherSettingsFromRow(row); render(); },
+      onUpdate(row){ state.motherSettings = motherSettingsFromRow(row); render(); },
+    });
+  }
 
   let hasSubscribedBefore = false;
   channel.subscribe(status => {
@@ -6374,6 +6479,279 @@ function renderPrintSheet(tasks, wd){
     </div>
   `;
 }
+/* ---------- مادر ----------
+   Mom has MS. Months after an attack she looks well and it's easy to forget
+   she's still ill, so this page can't just wait to be opened: on the chosen
+   weekdays one consideration comes to me — a card on امروز and a line in the
+   08:00 push (send-push picks the same one; keep motherItemForDay in step with
+   it). Settings live in mother_care (one row), the list in mother_care_items. */
+const DEFAULT_MOTHER_WHY = 'ام‌اس بیماری نامرئیه. وقتی مدتی از آخرین حمله گذشته و حالش خوب به نظر میاد، هنوز مریضه. خستگی، درد و ضعفش دیده نمی‌شه ولی هست.';
+const DEFAULT_MOTHER_SETTINGS = { why:DEFAULT_MOTHER_WHY, remindDays:[6,1,3], showOnToday:true, push:true };
+// general MS considerations — the starting list, edited freely afterwards
+const DEFAULT_MOTHER_ITEMS = [
+  ['خستگی', 'do',   'خستگی ام‌اس با خستگی معمولی فرق داره؛ با یه چرت کوتاه رفع نمی‌شه و دیده هم نمی‌شه. اگه گفت خسته‌ام، باور کن.'],
+  ['خستگی', 'dont', 'نگو «تو که امروز کاری نکردی» یا «منم خسته‌ام».'],
+  ['خستگی', 'do',   'کارهای سنگین‌تر رو بذار برای ساعت‌هایی که انرژی داره (معمولاً صبح)، نه آخر روز.'],
+  ['گرما', 'do',    'گرما (هوای داغ، حموم داغ، تب) علائمش رو موقتاً بدتر می‌کنه. خونه رو خنک نگه دار و آب خنک دمِ دستش باشه.'],
+  ['گرما', 'dont',  'تو گرمای وسط روز نبرش بیرون یا خرید.'],
+  ['استرس و حرف زدن', 'do',   'استرس می‌تونه علائم رو بدتر کنه. آروم حرف بزن و بحث‌های سنگین رو بذار برای یه وقت دیگه.'],
+  ['استرس و حرف زدن', 'dont', 'نگو «ولی حالت که خوبه» یا «به نظر نمیاد مریض باشی».'],
+  ['استرس و حرف زدن', 'dont', 'عصبانیتت رو سرش خالی نکن، حتی وقتی حالش خوب به نظر میاد.'],
+  ['استرس و حرف زدن', 'do',   'بپرس «امروز چطوری؟» و واقعاً گوش بده.'],
+  ['حافظه و تمرکز', 'do',   'فراموشی و کندیِ فکر جزو بیماریه، نه بی‌دقتی. اگه چیزی یادش رفت، با حوصله دوباره بگو.'],
+  ['حافظه و تمرکز', 'dont', 'نگو «صد بار گفتم» یا «حواست کجاست».'],
+  ['حافظه و تمرکز', 'do',   'حواست به داروها و نوبت‌های دکترش باشه و به‌موقع یادش بنداز.'],
+  ['کمک در کارها', 'do',   'کارهای سنگین خونه (خرید، جابه‌جایی، تمیزکاری) رو قبل از اینکه بخواد انجام بده.'],
+  ['کمک در کارها', 'dont', 'کاری که خودش می‌تونه و دوست داره انجام بده رو ازش نگیر؛ استقلالش مهمه. اول بپرس «کمک می‌خوای؟»'],
+  ['بدن و حرکت', 'do',   'ممکنه تعادلش کم باشه یا پاش بی‌حس بشه. مسیرهای خونه رو خلوت نگه دار و تو پله‌ها کنارش باش.'],
+  ['بدن و حرکت', 'dont', 'اگه آروم راه می‌ره یا دیر آماده می‌شه، عجله‌ش نده.'],
+  ['بدن و حرکت', 'do',   'اگه علامت تازه‌ای دیدی (تاری دید، بی‌حسی، ضعف تازه) که بیشتر از یکی دو روز موند، تشویقش کن به دکترش خبر بده.'],
+  ['حال دل', 'do',   'افسردگی و زودرنجی هم می‌تونه بخشی از ام‌اس باشه. اگه بی‌حوصله یا دلخور بود، به خودت نگیر.'],
+  ['حال دل', 'do',   'وقت بذار و کنارش باش؛ نذار حس کنه باره یا تنهاست.'],
+];
+function motherSettingsFromRow(row){
+  return {
+    why: row.why || '', remindDays: (row.remind_days || []).map(Number),
+    showOnToday: row.show_on_today !== false, push: row.push !== false,
+  };
+}
+function motherItemFromRow(row){
+  return { id:row.id, kind:row.kind === 'dont' ? 'dont' : 'do', category:row.category || '', body:row.body || '', createdAt:row.created_at };
+}
+function motherSettings(){ return state.motherSettings || DEFAULT_MOTHER_SETTINGS; }
+function sortMotherItems(){
+  state.motherItems.sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || '') || a.id.localeCompare(b.id));
+}
+/* Which consideration a day gets: the reminder days are counted from 1970-01-01
+   and the list is walked in order, so every item comes round in turn. send-push
+   runs the same count — change both or neither. */
+function motherItemForDay(d){
+  const s = motherSettings();
+  const days = s.remindDays;
+  const items = state.motherItems || [];
+  if(!items.length || !days.includes(d.getDay())) return null;
+  const e = Math.round(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 86400000);
+  let n = Math.floor(e / 7) * days.length;
+  for(let x = e - (e % 7); x <= e; x++) if(days.includes((x + 4) % 7)) n++; // 1970-01-01 was a Thursday
+  return items[(n - 1) % items.length];
+}
+
+const MOTHER_READ_KEY = 'medar-mother-read';
+function motherReadToday(){
+  try{ return localStorage.getItem(MOTHER_READ_KEY) === dateKey(new Date()); }catch(_e){ return false; }
+}
+function markMotherRead(){
+  try{ localStorage.setItem(MOTHER_READ_KEY, dateKey(new Date())); }catch(_e){}
+  render();
+}
+function renderMotherTodayCard(){
+  if(!motherSettings().showOnToday || motherReadToday()) return '';
+  const item = motherItemForDay(new Date());
+  if(!item) return '';
+  return `
+    <div class="mother-card">
+      <div class="mother-card-kicker">${icon('heart',14)} یادت باشه — مادر</div>
+      <div class="mother-card-text" dir="auto">${renderMotherKind(item.kind)}${escapeHtml(item.body)}</div>
+      <div class="mother-card-actions">
+        <button onclick="markMotherRead()">${icon('check',14)} خوندم</button>
+        <button onclick="navigateTo('mother')">همه‌ی ملاحظه‌ها</button>
+      </div>
+    </div>
+  `;
+}
+function renderMotherKind(kind){
+  return kind === 'dont'
+    ? `<span class="mother-kind dont">نکن</span>`
+    : `<span class="mother-kind do">بکن</span>`;
+}
+
+function renderMotherPage(){
+  const s = motherSettings();
+  const items = state.motherItems || [];
+  const todays = motherItemForDay(new Date());
+  const cats = [...new Set(items.map(i => i.category))];
+  const days = WEEKDAY_DISPLAY_ORDER;
+  return `
+    <h2 class="section-title">مادر</h2>
+    <div class="mother-why">
+      <div class="mother-why-kicker">${icon('heart',14)} چرا یادم باشه</div>
+      ${state.motherWhyDraft !== null ? `
+        <textarea class="mother-why-input" dir="auto" oninput="state.motherWhyDraft=this.value">${escapeHtml(state.motherWhyDraft)}</textarea>
+        <div class="mother-why-actions">
+          <button class="confirm" onclick="saveMotherWhy()">ذخیره</button>
+          <button onclick="state.motherWhyDraft=null; render()">انصراف</button>
+        </div>
+      ` : `
+        <div class="mother-why-text" dir="auto">${escapeHtml(s.why || DEFAULT_MOTHER_WHY)}</div>
+        <button class="mother-why-edit" onclick="state.motherWhyDraft=motherSettings().why || DEFAULT_MOTHER_WHY; render()" title="ویرایش">${icon('pencil',14)}</button>
+      `}
+    </div>
+
+    <div class="mother-remind">
+      <div class="mother-remind-head">
+        <span class="modal-section-label" style="margin:0">یادآوری در این روزها</span>
+        <span class="mother-remind-count">${s.remindDays.length ? `هفته‌ای ${toFaDigits(s.remindDays.length)} روز` : 'خاموش'}</span>
+      </div>
+      <div class="quick-group">
+        ${days.map(d => `<span class="quick-chip ${s.remindDays.includes(d)?'active':''}" onclick="toggleMotherDay(${d})">${WEEKDAYS_FA[d]}</span>`).join('')}
+      </div>
+      <label class="mother-switch"><input type="checkbox" ${s.showOnToday?'checked':''} onchange="setMotherFlag('showOnToday', this.checked)" /> کارت روی صفحه‌ی «امروز»</label>
+      <label class="mother-switch"><input type="checkbox" ${s.push?'checked':''} onchange="setMotherFlag('push', this.checked)" /> توی اعلان صبح (ساعت ۸)</label>
+      ${todays ? `<div class="mother-remind-note">امروز روز یادآوریه — ملاحظه‌ی امروز پایین مشخص شده.</div>` : ''}
+    </div>
+
+    <button class="add-task-btn" onclick="openMotherEditor(null)" style="margin-bottom:14px;">+ ملاحظه‌ی تازه</button>
+    ${!items.length ? `
+      <div class="wins-empty">
+        <b>هنوز ملاحظه‌ای ننوشتی.</b><br>
+        می‌تونی از موارد عمومی ام‌اس شروع کنی و بعد به حال مادرت نزدیکشون کنی.<br>
+        <button class="wins-sos-btn" style="margin-top:10px" onclick="addDefaultMotherItems()">اضافه کردن موارد عمومی ام‌اس</button>
+      </div>
+    ` : cats.map(c => `
+      <div class="mother-cat">
+        <div class="mother-cat-title">${escapeHtml(c || 'بدون دسته')}</div>
+        ${items.filter(i => i.category === c).map(i => `
+          <div class="mother-item ${todays && todays.id === i.id ? 'today' : ''}">
+            ${renderMotherKind(i.kind)}
+            <div class="mother-item-body" dir="auto">${escapeHtml(i.body)}${todays && todays.id === i.id ? `<span class="mother-today-tag">ملاحظه‌ی امروز</span>` : ''}</div>
+            <div class="win-actions">
+              <button onclick="openMotherEditor('${i.id}')" title="ویرایش">${icon('pencil',14)}</button>
+              <button onclick="deleteMotherItem('${i.id}')" title="حذف">${icon('close',14)}</button>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `).join('')}
+    <div class="mother-footnote">این‌ها نکته‌های عمومی ام‌اس‌ان؛ هر چیزی که دکترِ مادرت گفته مهم‌تره.</div>
+  `;
+}
+
+async function saveMotherSettings(patch){
+  const before = { ...motherSettings() };
+  const next = { ...before, ...patch };
+  state.motherSettings = next;
+  render();
+  await persist(sb.from('mother_care').upsert({
+    why: next.why, remind_days: next.remindDays, show_on_today: next.showOnToday, push: next.push,
+    updated_at: new Date().toISOString(),
+  }, { onConflict:'user_id' }), {
+    message: 'تنظیمات «مادر» ذخیره نشد — اینترنتت رو چک کن و دوباره امتحان کن.',
+    rollback: () => { state.motherSettings = before; },
+  });
+}
+function toggleMotherDay(d){
+  const days = motherSettings().remindDays;
+  saveMotherSettings({ remindDays: days.includes(d) ? days.filter(x => x !== d) : [...days, d].sort((a, b) => a - b) });
+}
+function setMotherFlag(key, on){ saveMotherSettings({ [key]: !!on }); }
+function saveMotherWhy(){
+  const why = (state.motherWhyDraft || '').trim() || DEFAULT_MOTHER_WHY;
+  state.motherWhyDraft = null;
+  saveMotherSettings({ why });
+}
+
+async function addDefaultMotherItems(){
+  if((state.motherItems || []).length) return;
+  const t0 = Date.now();
+  const rows = DEFAULT_MOTHER_ITEMS.map(([category, kind, body], i) => ({
+    id: crypto.randomUUID(), category, kind, body, created_at: new Date(t0 + i).toISOString(),
+  }));
+  state.motherItems = rows.map(motherItemFromRow);
+  render();
+  const ids = new Set(rows.map(r => r.id));
+  await persist(sb.from('mother_care_items').insert(rows), {
+    message: 'ملاحظه‌ها ذخیره نشدن — اینترنتت رو چک کن و دوباره امتحان کن.',
+    rollback: () => { state.motherItems = state.motherItems.filter(x => !ids.has(x.id)); },
+  });
+}
+
+/* ---------- مادر: editor ---------- */
+function openMotherEditor(itemId){
+  const i = itemId ? state.motherItems.find(x => x.id === itemId) : null;
+  state.motherEditor = i ? { itemId:i.id, kind:i.kind, category:i.category, body:i.body }
+                         : { itemId:null, kind:'do', category:'', body:'' };
+  render();
+}
+function closeMotherEditor(){ state.motherEditor = null; render(); }
+function pickMotherCategory(c){
+  state.motherEditor.category = state.motherEditor.category === c ? '' : c;
+  render();
+}
+function renderMotherEditorModal(){
+  const ed = state.motherEditor;
+  const cats = [...new Set((state.motherItems || []).map(i => i.category).filter(Boolean))];
+  return `
+    <div class="modal-overlay" onclick="if(event.target===this) closeMotherEditor()">
+      <div class="modal-box">
+        <h3>${ed.itemId ? 'ویرایش ملاحظه' : 'ملاحظه‌ی تازه'}</h3>
+        <div class="modal-section">
+          <span class="modal-section-label">چی کار کنم / نکنم؟</span>
+          <textarea class="win-textarea" dir="auto" placeholder="مثلاً: وقتی خسته‌ست، کارهای خونه رو خودم انجام بدم" oninput="state.motherEditor.body=this.value">${escapeHtml(ed.body)}</textarea>
+        </div>
+        <div class="modal-section">
+          <span class="modal-section-label">نوع</span>
+          <div class="quick-group">
+            <span class="quick-chip ${ed.kind==='do'?'active':''}" onclick="state.motherEditor.kind='do'; render()">بکن</span>
+            <span class="quick-chip ${ed.kind==='dont'?'active':''}" onclick="state.motherEditor.kind='dont'; render()">نکن</span>
+          </div>
+        </div>
+        <div class="modal-section">
+          <span class="modal-section-label">دسته</span>
+          ${cats.map(c => `<span class="pick-chip ${ed.category===c?'on':''}" style="--chip-color:var(--accent)" data-v="${escapeAttr(c)}" onclick="pickMotherCategory(this.dataset.v)">${escapeHtml(c)}</span>`).join('')}
+          <input type="text" class="mother-cat-input" dir="auto" placeholder="یا یه دسته‌ی تازه بنویس" value="${cats.includes(ed.category) ? '' : escapeAttr(ed.category)}" oninput="state.motherEditor.category=this.value" />
+        </div>
+        <div class="modal-actions">
+          <button class="confirm" onclick="confirmMotherEditor()">ذخیره</button>
+          <button class="cancel" onclick="closeMotherEditor()">انصراف</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+async function confirmMotherEditor(){
+  const ed = state.motherEditor;
+  if(!ed || !ed.body.trim()) return;
+  const fields = { kind:ed.kind, category:ed.category.trim(), body:ed.body.trim() };
+  if(ed.itemId){
+    const i = state.motherItems.find(x => x.id === ed.itemId);
+    if(!i){ closeMotherEditor(); return; }
+    const before = { kind:i.kind, category:i.category, body:i.body };
+    Object.assign(i, fields);
+    state.motherEditor = null; render();
+    await persist(sb.from('mother_care_items').update(fields).eq('id', i.id), {
+      message: 'تغییرات ذخیره نشد — اینترنتت رو چک کن و دوباره امتحان کن.',
+      rollback: () => { Object.assign(i, before); },
+    });
+  } else {
+    const id = crypto.randomUUID();
+    const createdAt = new Date().toISOString();
+    state.motherItems.push({ id, ...fields, createdAt });
+    state.motherEditor = null; render();
+    await persist(sb.from('mother_care_items').insert({ id, ...fields, created_at:createdAt }), {
+      message: 'ملاحظه ذخیره نشد — اینترنتت رو چک کن و دوباره اضافه‌ش کن.',
+      rollback: () => { state.motherItems = state.motherItems.filter(x => x.id !== id); },
+    });
+  }
+}
+const pendingMotherDeleteTimers = {}; // itemId -> timeoutId, while the undo window is open
+function deleteMotherItem(id){
+  const idx = state.motherItems.findIndex(x => x.id === id);
+  if(idx === -1) return;
+  const [removed] = state.motherItems.splice(idx, 1);
+  showUndoToast('حذف شد', () => {
+    clearTimeout(pendingMotherDeleteTimers[id]);
+    delete pendingMotherDeleteTimers[id];
+    state.motherItems.splice(idx, 0, removed);
+    render();
+  });
+  render();
+  pendingMotherDeleteTimers[id] = setTimeout(async () => {
+    delete pendingMotherDeleteTimers[id];
+    const { error } = await sb.from('mother_care_items').delete().eq('id', id);
+    if(error) writeFailed('deleteMotherItem', error);
+  }, 5000);
+}
+
 function renderToday(){
   const { wd } = fmtHeaderDate(state.today);
   const todayStr = dateKey(state.today);
@@ -6398,6 +6776,7 @@ function renderToday(){
     </div>
     ${renderAIHealthBanner()}
     ${renderUnseenReportNotice()}
+    ${renderMotherTodayCard()}
     ${renderWeeklyFocus()}
     ${renderWeeklyGoals()}
     ${renderEncouragement()}
@@ -6561,6 +6940,7 @@ function render(){
       ${state.view === 'reminders' ? renderRemindersPage() : ''}
       ${state.view === 'prompts' ? renderPromptsPage() : ''}
       ${state.view === 'wins' ? renderWinsPage() : ''}
+      ${state.view === 'mother' ? renderMotherPage() : ''}
       ${state.view === 'archive' ? renderArchivePage() : ''}
       ${state.view === 'ai-reports' ? renderAIReportsPage() : ''}
     </main>
@@ -6577,6 +6957,7 @@ function render(){
     ${state.promptEditor ? renderPromptEditorModal() : ''}
     ${state.winEditor ? renderWinEditorModal() : ''}
     ${state.winSos ? renderWinSos() : ''}
+    ${state.motherEditor ? renderMotherEditorModal() : ''}
   `;
   // every render rebuilds the tabs; if a group ever has more than fit, keep
   // the strip where it was and bring a newly opened tab into view
@@ -6613,8 +6994,9 @@ const NAV_GROUPS = [
     { id:'purchases',     label:'خریدها',    icon:'cart' },
     { id:'subscriptions', label:'اشتراک‌ها', icon:'card' },
   ]},
-  { id:'wins',   label:'تونستم', icon:'trophy', items:[
+  { id:'wins',   label:'زندگی', icon:'heart', items:[
     { id:'wins',       label:'تونستم',        icon:'trophy' },
+    { id:'mother',     label:'مادر',          icon:'heart' },
   ]},
   { id:'review', label:'مرور', icon:'archive', items:[
     { id:'archive',    label:'آرشیو',         icon:'archive' },
@@ -6919,7 +7301,7 @@ const BACKUP_TABLE_LABELS = {
   tasks:'کارها', subtasks:'زیرکارها', tags:'تگ‌ها', recurring_templates:'کارهای تکراری',
   ideas:'ایده‌ها', idea_images:'عکس‌های ایده', wins:'دستاوردها', prompts:'پرامپت‌ها',
   reminders:'یادآورها', subscriptions:'اشتراک‌ها', purchases:'خریدها', ai_reports:'گزارش‌های هوش مصنوعی',
-  tag_goals:'اهداف هفتگی',
+  tag_goals:'اهداف هفتگی', mother_care:'تنظیمات مادر', mother_care_items:'ملاحظه‌های مادر',
 };
 const BACKUP_KIND_LABELS = { auto:'خودکار هفتگی', download:'دانلود دستی', 'pre-restore':'قبل از بازیابی' };
 const BACKUP_OVERDUE_DAYS = 30;
@@ -7043,6 +7425,7 @@ function currentBackupCounts(){
     ideas: n(state.ideas), idea_images: images, wins: n(state.wins), prompts: n(state.prompts),
     reminders: n(state.reminders), subscriptions: n(state.subscriptions), purchases: n(state.purchases),
     ai_reports: n(state.aiReports), tag_goals: n(state.tagGoals),
+    mother_care: state.motherSettings ? 1 : 0, mother_care_items: n(state.motherItems),
   };
 }
 async function confirmRestore(){

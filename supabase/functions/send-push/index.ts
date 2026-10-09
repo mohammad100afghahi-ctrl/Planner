@@ -72,14 +72,31 @@ function subLabel(n: number): string {
   return `${fa(n)} روز تا تمدید`;
 }
 
+/* «مادر»: on the chosen weekdays, one consideration for Mom (MS). Same count
+   as the app's motherItemForDay — reminder days since 1970-01-01, walking the
+   list in order — so the push and the امروز card show the same one. */
+function motherLine(care: any, items: any[], today: string): string {
+  if (!care?.push || !items.length) return "";
+  const days: number[] = (care.remind_days || []).map(Number);
+  const e = Math.round(Date.parse(today + "T00:00:00Z") / 86400_000);
+  if (!days.includes((e + 4) % 7)) return "";
+  let n = Math.floor(e / 7) * days.length;
+  for (let x = e - (e % 7); x <= e; x++) if (days.includes((x + 4) % 7)) n++;
+  const it = items[(n - 1) % items.length];
+  const body = it.body.length > 140 ? it.body.slice(0, 139) + "…" : it.body;
+  return `یادت باشه مادر: ${it.kind === "dont" ? "نکن — " : ""}${body}`;
+}
+
 async function digestFor(sb: SupabaseClient, uid: string) {
   const today = localToday();
-  const [rem, subs, tasks, backups, review] = await Promise.all([
+  const [rem, subs, tasks, backups, review, care, careItems] = await Promise.all([
     sb.from("reminders").select("title, kind, date, lead_days").eq("user_id", uid).eq("done", false).neq("kind", "always").not("date", "is", null),
     sb.from("subscriptions").select("name, next_renewal, notify_days_before").eq("user_id", uid).eq("active", true).not("next_renewal", "is", null),
     sb.from("tasks").select("id", { count: "exact", head: true }).eq("user_id", uid).eq("date", today).eq("done", false),
     sb.from("backups").select("kind, created_at").eq("user_id", uid).order("created_at", { ascending: true }),
     sb.from("ai_reports").select("replan, replan_apply_after").eq("user_id", uid).gt("replan_apply_after", new Date().toISOString()),
+    sb.from("mother_care").select("remind_days, push").eq("user_id", uid).maybeSingle(),
+    sb.from("mother_care_items").select("kind, body").eq("user_id", uid).order("created_at", { ascending: true }).order("id", { ascending: true }),
   ]);
   for (const r of [rem, subs, tasks]) if (r.error) throw r.error;
 
@@ -121,12 +138,14 @@ async function digestFor(sb: SupabaseClient, uid: string) {
     ...reminders.map(({ r, n }) => ({ n, line: `• ${r.title} — ${reminderLabel(r, n)}` })),
     ...renewals.map(({ s, n }) => ({ n, line: `• تمدید ${s.name} — ${subLabel(n)}` })),
   ].sort((a, b) => a.n - b.n);
-  if (!items.length && !taskCount && !backupLine && !reviewLine) return null;
+  const mother = care.error || careItems.error ? "" : motherLine(care.data, careItems.data || [], today);
+  if (!items.length && !taskCount && !backupLine && !reviewLine && !mother) return null;
 
   const lines = items.slice(0, 3).map((i) => i.line);
   if (items.length > 3) lines.push(`و ${fa(items.length - 3)} مورد دیگه`);
   if (taskCount) lines.push(`امروز ${fa(taskCount)} کار برنامه‌ریزی‌شده داری`);
   if (reviewLine) lines.push(reviewLine);
+  if (mother) lines.push(mother);
   if (backupLine) lines.push(backupLine);
   const urgent = items.some((i) => i.n <= 0);
   return {
