@@ -238,6 +238,18 @@ async function reportFor(sb: SupabaseClient, uid: string, force: boolean, apiKey
     .lte("happened_on", today)
     .order("happened_on", { ascending: false });
 
+  // «تعمیرات خونه»: what's still broken, what got fixed and what it cost, and upkeep that's slipping
+  const { data: homeRepairs } = await sb
+    .from("home_repairs")
+    .select("title, urgency, status, est_cost, actual_cost, created_at, done_at")
+    .eq("user_id", uid);
+  const { data: homeMaint } = await sb
+    .from("home_maintenance")
+    .select("title, next_due")
+    .eq("user_id", uid)
+    .lte("next_due", dk(weekAhead))
+    .order("next_due", { ascending: true });
+
   // how the user handled last week's review: which proposals they took, and
   // whether the priorities they picked actually got done
   const { data: prevReview } = await sb
@@ -414,6 +426,33 @@ async function reportFor(sb: SupabaseClient, uid: string, force: boolean, apiKey
     ? `${winsCurr.length} مورد (بازه‌ی قبل: ${winsPrevCount})؛ نمونه‌ها: ${winsCurr.slice(0, 5).map((w: any) => `"${w.title}"${w.hardship ? ` با اینکه ${w.hardship}` : ''}`).join('، ')}`
     : `چیزی ثبت نشده (بازه‌ی قبل: ${winsPrevCount})`;
 
+  const repairsOpen = (homeRepairs || []).filter((r: any) => r.status !== 'done');
+  const fixedBetween = (fromKey: string, toKey: string) => (homeRepairs || []).filter((r: any) => {
+    if (r.status !== 'done' || !r.done_at) return false;
+    const d = dk(localDate(r.done_at));
+    return d >= fromKey && d <= toKey;
+  });
+  const fixedCurr = fixedBetween(dk(periodStart), today);
+  const fixedPrevCount = fixedBetween(dk(prevPeriodStart), dk(prevPeriodEnd)).length;
+  const spentCurr = fixedCurr.reduce((s: number, r: any) => s + (Number(r.actual_cost) || 0), 0);
+  const ageDays = (iso: string) => Math.floor((periodEnd.getTime() - new Date(iso).getTime()) / 86400000);
+  const staleUrgent = repairsOpen.filter((r: any) => r.urgency === 'urgent' && ageDays(r.created_at) >= 7);
+  const countUrgency = (u: string) => repairsOpen.filter((r: any) => r.urgency === u).length;
+  const estLeft = repairsOpen.reduce((s: number, r: any) => s + (Number(r.est_cost) || 0), 0);
+  const maintLate = (homeMaint || []).filter((m: any) => m.next_due < today);
+  const maintSoon = (homeMaint || []).filter((m: any) => m.next_due >= today);
+  const repairParts: string[] = [];
+  if ((homeRepairs || []).length) {
+    repairParts.push(`کارهای باز: ${repairsOpen.length} (فوری ${countUrgency('urgent')}، به‌زودی ${countUrgency('soon')}، هر وقت شد ${countUrgency('whenever')})${estLeft ? `، هزینه‌ی تخمینی باقی‌مونده ${estLeft.toLocaleString('en')} تومان` : ''}`);
+    repairParts.push(`این بازه درست شد: ${fixedCurr.length} مورد${fixedCurr.length ? ` (${fixedCurr.slice(0, 4).map((r: any) => `"${r.title}"`).join('، ')})` : ''}، بازه‌ی قبل: ${fixedPrevCount}${spentCurr ? `؛ خرج این بازه ${spentCurr.toLocaleString('en')} تومان` : ''}`);
+    if (staleUrgent.length) {
+      repairParts.push(`فوری‌هایی که بیشتر از یه هفته‌ست مونده‌ن: ${staleUrgent.slice(0, 3).map((r: any) => `"${r.title}" (${ageDays(r.created_at)} روز)`).join('، ')}`);
+    }
+  }
+  if (maintLate.length) repairParts.push(`نگهداری دوره‌ای که موعدش گذشته: ${maintLate.map((m: any) => `"${m.title}" (از ${m.next_due})`).join('، ')}`);
+  if (maintSoon.length) repairParts.push(`نگهداری دوره‌ای هفت روز آینده: ${maintSoon.map((m: any) => `"${m.title}" (${m.next_due})`).join('، ')}`);
+  const repairsLine = repairParts.length ? repairParts.join('\n') : 'موردی ثبت نشده';
+
   const reminderLines =
     (reminders || []).map((r: any) => `- ${r.title} (${r.date}${r.kind === 'deadline' ? '، ددلاین' : ''})`).join('\n') || 'موردی نیست';
 
@@ -446,10 +485,13 @@ ${recurringLines}
 یادآورها و ددلاین‌های هفت روز آینده:
 ${reminderLines}
 
+تعمیرات و نگهداری خونه (از بخش «تعمیرات خونه»):
+${repairsLine}
+
 مرور هفتگی قبلی و تصمیم‌هایی که خودش گرفت: ${prevReviewLine}
 
 این گزارش «مرور هفتگی» کاربره: هر جمعه عصر می‌خونتش و بعدش هفته‌ی بعد رو می‌چینه.
-یه گزارش کوتاه (حداکثر ۲۰۰ کلمه)، فارسی، صمیمی ولی صادق و مستقیم بنویس: این بازه رو با بازه‌ی قبل مقایسه کن، به مهم‌ترین الگوهایی که توی این عددها می‌بینی اشاره کن (نه همه‌شون)، و ۱ تا ۲ پیشنهاد عملی و مشخص برای بازه‌ی بعدی بده که اگه ددلاین نزدیکی هست اون رو هم در نظر بگیره. لحن انتقادیِ سازنده باشه، نه صرفاً تشویقی؛ از کلی‌گویی بپرهیز و به عددهای واقعی همین گزارش اشاره کن. اگه یه بخش داده‌ای نداره، فقط ازش بگذر و درباره‌ی نبودنش نصیحت نکن. اگه موفقیتی توی «تونستم» ثبت کرده، به یکی‌شون مشخصاً اشاره کن، چون اینا شواهدیه که خودش جمع می‌کنه تا به خودش ثابت کنه می‌تونه. اگه مرور قبلی داده داره (مثلاً اولویت‌هایی که انتخاب کرده بود انجام نشدن، یا همیشه پیشنهادها رو بی‌تصمیم رها می‌کنه)، کوتاه بهش اشاره کن.${replanBlock}${focusBlock}`;
+یه گزارش کوتاه (حداکثر ۲۰۰ کلمه)، فارسی، صمیمی ولی صادق و مستقیم بنویس: این بازه رو با بازه‌ی قبل مقایسه کن، به مهم‌ترین الگوهایی که توی این عددها می‌بینی اشاره کن (نه همه‌شون)، و ۱ تا ۲ پیشنهاد عملی و مشخص برای بازه‌ی بعدی بده که اگه ددلاین نزدیکی هست اون رو هم در نظر بگیره. لحن انتقادیِ سازنده باشه، نه صرفاً تشویقی؛ از کلی‌گویی بپرهیز و به عددهای واقعی همین گزارش اشاره کن. اگه یه بخش داده‌ای نداره، فقط ازش بگذر و درباره‌ی نبودنش نصیحت نکن. اگه موفقیتی توی «تونستم» ثبت کرده، به یکی‌شون مشخصاً اشاره کن، چون اینا شواهدیه که خودش جمع می‌کنه تا به خودش ثابت کنه می‌تونه. اگه مرور قبلی داده داره (مثلاً اولویت‌هایی که انتخاب کرده بود انجام نشدن، یا همیشه پیشنهادها رو بی‌تصمیم رها می‌کنه)، کوتاه بهش اشاره کن. اگه تعمیر فوری‌ای مدت‌هاست مونده یا موعد نگهداری دوره‌ای گذشته، در یه جمله بگو و پیشنهاد کن یه روز مشخص از هفته‌ی بعد براش بذاره.${replanBlock}${focusBlock}`;
 
   const aiRes = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
