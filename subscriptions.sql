@@ -9,7 +9,7 @@ create table if not exists public.subscriptions (
   id                 uuid primary key default gen_random_uuid(),
   name               text not null,
   cycle              text not null default 'monthly'
-                       check (cycle in ('monthly', 'yearly')),
+                       check (cycle in ('monthly', 'bimonthly', 'quarterly', 'semiannual', 'yearly')),
   next_renewal       date,
   active             boolean not null default true,
   notify_days_before integer not null default 3,
@@ -30,3 +30,8 @@ grant select, insert, update, delete on public.subscriptions to anon, authentica
 
 -- 4. Realtime, so a change on one device reaches the others.
 alter publication supabase_realtime add table public.subscriptions;
+
+-- 2026-09-24: 2-, 3- and 6-month cycles (applied as migration subscriptions_more_cycles).
+alter table public.subscriptions drop constraint if exists subscriptions_cycle_check;
+alter table public.subscriptions add constraint subscriptions_cycle_check
+  check (cycle in ('monthly', 'bimonthly', 'quarterly', 'semiannual', 'yearly'));
