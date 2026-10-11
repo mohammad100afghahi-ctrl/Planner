@@ -1,7 +1,7 @@
 /* App-shell cache for مدار.
    Bump CACHE_NAME (e.g. medar-shell-v2) whenever index.html/manifest/icons change,
    so returning visitors pick up the new version instead of a stale cached copy. */
-const CACHE_NAME = 'medar-shell-v33';
+const CACHE_NAME = 'medar-shell-v34';
 const APP_SHELL = [
   './',
   './index.html',
@@ -70,8 +70,9 @@ self.addEventListener('fetch', (event) => {
 });
 
 /* Push notifications — the morning digest sent by the send-push edge function.
-   The payload is JSON { title, body, tag }; a same-tag notification replaces
-   yesterday's instead of piling up. */
+   The payload is JSON { title, body, tag, silent }; a same-tag notification
+   replaces yesterday's instead of piling up, and the digest's side notes
+   (مادر، مرور هفتگی، پشتیبان) arrive silent so the morning rings once. */
 /* Android lays notification text out left-to-right regardless of `dir`, so a
    Persian line with a Latin name in it (تمدید Claude Pro — ۲ روز…) comes out
    scrambled. Wrapping each line in an explicit RTL embedding (RLE … PDF) makes
@@ -85,7 +86,8 @@ self.addEventListener('push', (event) => {
     self.registration.showNotification(rtl(data.title || 'مدار'), {
       body: rtl(data.body),
       tag: data.tag || 'medar',
-      renotify: true,
+      renotify: !data.silent,
+      silent: !!data.silent,
       dir: 'rtl',
       lang: 'fa',
       icon: './icon-192.png',
