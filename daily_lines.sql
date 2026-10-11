@@ -1,4 +1,5 @@
--- public.daily_lines — the one AI-written text per day on «امروز».
+-- public.daily_lines — the one AI-written text per day on «امروز»
+-- (alternating by day: a quote from a great mind, then هوشواره's own line).
 -- daily-encouragement writes it with the service role the first time the app
 -- asks on a given day and returns the same row for every later call, so a
 -- refresh (or a second device) never produces a different text. The last two
