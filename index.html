@@ -2002,7 +2002,15 @@ let state = {
 };
 
 let loadError = false;
-let realtimeStarted = false;
+/* The live channel, and the *TableReady flags it was built with. It gets rebuilt
+   when it dies (see restartRealtimeSync) or when a table that wasn't ready at
+   build time — e.g. on an offline cold start — answers later. */
+let syncChannel = null;
+let syncChannelFlags = '';
+let syncChannelSeq = 0;
+let syncRetryTimer = null;
+let syncRetryDelay = 2000;
+let syncNeedsCatchUp = false; // events may have been missed while the channel was down
 /* false until the reminders table answers once — a realtime binding on a table
    that doesn't exist yet would error the whole shared channel, taking every
    other table's live sync down with it. */
@@ -2021,7 +2029,7 @@ async function loadFromLocalCopy(){
     if(await restoreSnapshot()){ dataLoaded = true; usingLocalCopy = true; }
     else { loadError = true; applyEmptyDefaults(); }
   }
-  if(!realtimeStarted){ realtimeStarted = true; startRealtimeSync(); }
+  ensureRealtimeSync();
   render();
 }
 function applyEmptyDefaults(){
@@ -2208,7 +2216,7 @@ async function loadAll(){
     // mint a second instance another device already created
     generateRecurringInstances();
   }
-  if(!realtimeStarted){ realtimeStarted = true; startRealtimeSync(); }
+  ensureRealtimeSync();
   render();
 }
 
@@ -2225,8 +2233,47 @@ function registerRealtimeSync(channel, table, handlers){
   if(handlers.onDelete) channel.on('postgres_changes', { event:'DELETE', schema:'public', table }, payload => handlers.onDelete(payload.old));
   return channel;
 }
+function realtimeFlags(){
+  return [remindersTableReady, promptsTableReady, winsTableReady, motherTableReady, homeTableReady, aiHealthTableReady].join();
+}
+function ensureRealtimeSync(){
+  if(syncChannel && syncChannelFlags === realtimeFlags()) return;
+  restartRealtimeSync();
+}
+/* supabase-js only rejoins a channel that errored. One the server closed — which
+   it does when the login token runs out in a tab that was hidden or asleep —
+   is dropped for good, and live sync stays dead until a reload. So a dead
+   channel is thrown away and built again from scratch. */
+function restartRealtimeSync(){
+  clearTimeout(syncRetryTimer); syncRetryTimer = null;
+  const old = syncChannel;
+  syncChannel = null; // the old channel's CLOSED must not schedule another restart
+  if(old) sb.removeChannel(old);
+  syncChannelFlags = realtimeFlags();
+  syncChannel = startRealtimeSync();
+}
+function retryRealtimeSync(){
+  if(syncRetryTimer) return;
+  syncRetryTimer = setTimeout(() => {
+    syncRetryTimer = null;
+    // hidden or offline: wakeRealtimeSync picks it up when the tab/network is back
+    if(document.hidden || !navigator.onLine) return;
+    restartRealtimeSync();
+  }, syncRetryDelay);
+  syncRetryDelay = Math.min(syncRetryDelay * 2, 60000);
+}
+function wakeRealtimeSync(){
+  if(!syncChannel || document.hidden || !navigator.onLine) return;
+  if(syncChannel.state === 'joined' || syncChannel.state === 'joining') return;
+  syncNeedsCatchUp = true;
+  restartRealtimeSync();
+}
+document.addEventListener('visibilitychange', wakeRealtimeSync);
+window.addEventListener('online', wakeRealtimeSync);
+
 function startRealtimeSync(){
-  const channel = sb.channel('planner-sync');
+  // a fresh topic each time — sb.channel() hands back the old object for a topic it still knows
+  const channel = sb.channel('planner-sync-' + (++syncChannelSeq));
 
   registerRealtimeSync(channel, 'tags', {
     onInsert(row){
@@ -2610,14 +2657,21 @@ function startRealtimeSync(){
 
   let hasSubscribedBefore = false;
   channel.subscribe(status => {
+    if(channel !== syncChannel) return; // already replaced
     if(status === 'SUBSCRIBED'){
+      syncRetryDelay = 2000;
       // a re-subscribe after a dropped connection may have missed events in between;
       // one full reconciliation load fixes that. First-ever subscribe is a no-op here
       // since loadAll() already populated state right before this was called.
-      if(hasSubscribedBefore) loadAll();
+      if(hasSubscribedBefore || syncNeedsCatchUp) loadAll();
       hasSubscribedBefore = true;
+      syncNeedsCatchUp = false;
+    } else if(status === 'CLOSED' || status === 'CHANNEL_ERROR' || status === 'TIMED_OUT'){
+      syncNeedsCatchUp = true;
+      retryRealtimeSync();
     }
   });
+  return channel;
 }
 
 function uid(){ return (crypto.randomUUID ? crypto.randomUUID() : 'id-'+Date.now()+'-'+Math.random()); }
