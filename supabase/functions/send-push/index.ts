@@ -7,6 +7,8 @@ import webpush from "npm:web-push@3.6.7";
      x-cron-secret + {action:"digest"}  — the 08:00 pg_cron job: every account's morning digest
      x-cron-secret + {action:"notify", user_id, title, body, tag}
                                         — generate-ai-report: the weekly review is ready
+     x-cron-secret + {action:"english"}  — the every-10-minutes pg_cron job: «انگلیسی» nudges
+                                          that are due right now (see englishFor)
      user JWT + {action:"publicKey"}     — the app asks for the VAPID public key before subscribing
      user JWT + {action:"test"}          — «ارسال اعلان آزمایشی»: the caller's digest right now
    The morning digest is up to four notifications, each with its own tag so one
@@ -121,6 +123,126 @@ function urgentRepairsLine(repairs: any[]): string {
     : `${fa(repairs.length)} تعمیر فوری مونده: ${names}${repairs.length > 2 ? " و…" : ""}`;
 }
 
+/* ---------- «انگلیسی» ----------
+   Three nudges, each at its own time of day, so they can't ride the 08:00
+   digest. The `english-push` cron calls in every 10 minutes and englishFor()
+   sends whatever has just come due:
+     after    — the class just ended and no homework is written down for today
+     practice — the daily practice time, unless today is already done
+     eve      — 21:00 the night before a class, while chunks are still open
+   english_settings.pushed remembers the day each one last went out, so a nudge
+   goes once a day however often the cron runs; ENGLISH_WINDOW_MIN stops a late
+   cron from ringing in the middle of the night. */
+const ENGLISH_WINDOW_MIN = 120;
+const ENGLISH_EVE_MIN = 21 * 60;
+const hhmmToMin = (t: string) => { const [h, m] = String(t || "").split(":").map(Number); return (h || 0) * 60 + (m || 0); };
+const weekdayOf = (day: string) => new Date(day + "T00:00:00Z").getUTCDay();
+const localDayOf = (iso: string) => new Date(Date.parse(iso) + TZ_OFFSET_HOURS * 3600_000).toISOString().slice(0, 10);
+
+async function englishData(sb: SupabaseClient, uid: string, today: string) {
+  const [chunks, practice] = await Promise.all([
+    sb.from("english_chunks").select("title, minutes, day, done, done_at, homework_id, position").eq("user_id", uid)
+      .or(`done.eq.false,done_at.gte.${new Date(Date.parse(addDaysKey(today, -3) + "T00:00:00Z")).toISOString()}`)
+      .order("day", { ascending: true }).order("position", { ascending: true }),
+    sb.from("english_practice").select("day").eq("user_id", uid).gte("day", addDaysKey(today, -2)),
+  ]);
+  if (chunks.error) throw chunks.error;
+  if (practice.error) throw practice.error;
+  const practiced = new Set<string>((practice.data || []).map((p: any) => p.day));
+  for (const c of chunks.data || []) if (c.done && c.done_at) practiced.add(localDayOf(c.done_at));
+  const open = (chunks.data || []).filter((c: any) => !c.done);
+  return { open, practiced };
+}
+
+// the 08:00 digest's one line about English: what's on today, and whether it's a class day
+async function englishDigestLine(sb: SupabaseClient, uid: string, today: string): Promise<string> {
+  const { data: s } = await sb.from("english_settings").select("class_days, class_time").eq("user_id", uid).maybeSingle();
+  const { open } = await englishData(sb, uid, today);
+  const due = open.filter((c: any) => c.day <= today);
+  const classToday = !!s && (s.class_days || []).map(Number).includes(weekdayOf(today));
+  const mins = due.reduce((n: number, c: any) => n + (c.minutes || 0), 0);
+  if (classToday && open.length) return `انگلیسی: امروز ساعت ${fa(s!.class_time)} کلاس داری و ${fa(open.length)} تکه از تکلیف مونده`;
+  if (due.length) return `انگلیسی: ${fa(due.length)} تکه برای امروز (${fa(mins)} دقیقه)`;
+  if (classToday) return `انگلیسی: امروز ساعت ${fa(s!.class_time)} کلاس داری`;
+  return "";
+}
+
+async function englishFor(sb: SupabaseClient, uid: string): Promise<Payload[]> {
+  const { data: s, error } = await sb.from("english_settings").select("*").eq("user_id", uid).maybeSingle();
+  if (error) throw error;
+  if (!s || !s.push) return [];
+  const local = new Date(Date.now() + TZ_OFFSET_HOURS * 3600_000);
+  const today = local.toISOString().slice(0, 10);
+  const nowMin = local.getUTCHours() * 60 + local.getUTCMinutes();
+  const days: number[] = (s.class_days || []).map(Number);
+  const pushed: Record<string, string> = { ...(s.pushed || {}) };
+  const classToday = days.includes(weekdayOf(today));
+  const classStart = hhmmToMin(s.class_time);
+  const classEnd = Math.min(classStart + (s.class_minutes || 90), 23 * 60 + 50);
+  const practiceAt = hhmmToMin(s.practice_time);
+  const inWindow = (at: number) => nowMin >= at && nowMin < at + ENGLISH_WINDOW_MIN;
+
+  const wantAfter = classToday && inWindow(classEnd) && pushed.after !== today;
+  const inClass = classToday && nowMin >= classStart && nowMin < classEnd;
+  const wantPractice = inWindow(practiceAt) && !inClass && pushed.practice !== today;
+  const wantEve = days.includes(weekdayOf(addDaysKey(today, 1))) && nowMin >= ENGLISH_EVE_MIN && pushed.eve !== today;
+  if (!wantAfter && !wantPractice && !wantEve) return [];
+
+  const { open, practiced } = await englishData(sb, uid, today);
+  const out: Payload[] = [];
+
+  if (wantAfter) {
+    pushed.after = today;
+    const { count } = await sb.from("english_homework").select("id", { count: "exact", head: true }).eq("user_id", uid).gte("assigned_on", today);
+    if (!count) out.push({
+      title: "انگلیسی — تکلیف امروز چی بود؟",
+      body: "تا یادته ثبتش کن؛ خودم خردش می‌کنم و می‌ذارمش روی روزهات.",
+      tag: "medar-english-class",
+    });
+  }
+
+  let eveSent = false;
+  if (wantEve) {
+    pushed.eve = today;
+    if (open.length) {
+      const mins = open.reduce((n: number, c: any) => n + (c.minutes || 0), 0);
+      out.push({
+        title: "انگلیسی — فردا کلاس داری",
+        body: `${fa(open.length)} تکه مونده، حدود ${fa(mins)} دقیقه وقت می‌بره. همین امشب با «${clip(open[0].title, 40)}» شروع کن.`,
+        tag: "medar-english",
+      });
+      eveSent = true;
+    }
+  }
+
+  if (wantPractice) {
+    pushed.practice = today;
+    // the night-before warning already says what's left — don't ring twice
+    if (!eveSent && !practiced.has(today)) {
+      const due = open.filter((c: any) => c.day <= today);
+      // yesterday slipped (class days don't count either way): the chain breaks on a second miss
+      const y = addDaysKey(today, -1);
+      const missedYesterday = !practiced.has(y) && !days.includes(weekdayOf(y));
+      const tail = missedYesterday ? " دیروز جا افتاد؛ نذار دوتا بشه." : "";
+      out.push(due.length
+        ? {
+          title: "انگلیسی — فقط همین یه تکه",
+          body: `«${clip(due[0].title, 60)}» — ${fa(due[0].minutes)} دقیقه${due.length > 1 ? ` (و ${fa(due.length - 1)} تکه‌ی دیگه)` : ""}.${tail}`,
+          tag: "medar-english",
+        }
+        : {
+          title: "انگلیسی — ۵ دقیقه‌ی امروز",
+          body: `تکه‌ای برای امروز نداری؛ ۵ دقیقه مرور کن تا زنجیره‌ت نشکنه.${tail}`,
+          tag: "medar-english",
+        });
+    }
+  }
+
+  const { error: e2 } = await sb.from("english_settings").update({ pushed }).eq("user_id", uid);
+  if (e2) throw e2; // without the mark the same nudge would go out again in 10 minutes
+  return out;
+}
+
 async function digestFor(sb: SupabaseClient, uid: string): Promise<Payload[]> {
   const today = localToday();
   const [rem, subs, tasks, backups, review, care, careItems, repairs, maint] = await Promise.all([
@@ -189,14 +311,17 @@ async function digestFor(sb: SupabaseClient, uid: string): Promise<Payload[]> {
     }),
   ].sort((a, b) => a.n - b.n);
   const repairLine = repairs.error ? "" : urgentRepairsLine(repairs.data || []);
+  let englishLine = "";
+  try { englishLine = await englishDigestLine(sb, uid, today); } catch (e) { console.error("english digest", e); }
 
   const out: Payload[] = [];
-  if (items.length || taskCount || repairLine) {
+  if (items.length || taskCount || repairLine || englishLine) {
     const lines: string[] = [];
     if (taskCount) lines.push(`${fa(taskCount)} کار برای امروز داری`);
     lines.push(...items.slice(0, 3).map((i) => i.line));
     if (items.length > 3) lines.push(`و ${fa(items.length - 3)} مورد دیگه`);
     if (repairLine) lines.push(repairLine);
+    if (englishLine) lines.push(englishLine);
     out.push({
       title: items.some((i) => i.n <= 0) ? "مدار — امروز یادت نره" : "مدار — صبح بخیر",
       body: lines.join("\n"),
@@ -265,11 +390,12 @@ Deno.serve(async (req: Request) => {
       }
       const { data: rows, error } = await sb.from("push_subscriptions").select("user_id");
       if (error) throw error;
+      if (action !== "digest" && action !== "english") return json({ error: "unknown action" }, 400);
       const results: any[] = [];
       // one account's failure must not stop the cron from reaching the others
       for (const uid of new Set((rows || []).map((r: any) => r.user_id as string))) {
         try {
-          const d = await digestFor(sb, uid);
+          const d = action === "english" ? await englishFor(sb, uid) : await digestFor(sb, uid);
           results.push(d.length ? await sendAll(sb, uid, d) : { skipped: "nothing today" });
         } catch (e) {
           console.error(e);

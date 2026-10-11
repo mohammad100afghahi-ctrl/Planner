@@ -250,6 +250,29 @@ async function reportFor(sb: SupabaseClient, uid: string, force: boolean, apiKey
     .lte("next_due", dk(weekAhead))
     .order("next_due", { ascending: true });
 
+  // «انگلیسی»: homework from the class cut into chunks, the daily minimum, and why chunks got skipped
+  const { data: enSettings } = await sb
+    .from("english_settings")
+    .select("class_days, class_time, practice_time")
+    .eq("user_id", uid)
+    .maybeSingle();
+  const { data: enHomework } = await sb
+    .from("english_homework")
+    .select("id, title, unit, assigned_on, due_on")
+    .eq("user_id", uid)
+    .gte("due_on", dk(periodStart))
+    .order("due_on", { ascending: true });
+  const { data: enChunks } = await sb
+    .from("english_chunks")
+    .select("homework_id, minutes, day, done, done_at, skips")
+    .eq("user_id", uid)
+    .gte("day", dk(new Date(prevPeriodStart.getTime() - 30 * 86400000)));
+  const { data: enPractice } = await sb
+    .from("english_practice")
+    .select("day")
+    .eq("user_id", uid)
+    .gte("day", dk(prevPeriodStart));
+
   // how the user handled last week's review: which proposals they took, and
   // whether the priorities they picked actually got done
   const { data: prevReview } = await sb
@@ -453,6 +476,36 @@ async function reportFor(sb: SupabaseClient, uid: string, force: boolean, apiKey
   if (maintSoon.length) repairParts.push(`نگهداری دوره‌ای هفت روز آینده: ${maintSoon.map((m: any) => `"${m.title}" (${m.next_due})`).join('، ')}`);
   const repairsLine = repairParts.length ? repairParts.join('\n') : 'موردی ثبت نشده';
 
+  const EN_WEEKDAYS = ["یکشنبه", "دوشنبه", "سه‌شنبه", "چهارشنبه", "پنجشنبه", "جمعه", "شنبه"];
+  const EN_REASONS: Record<string, string> = { time: "وقت نشد", hard: "سخت بود", forgot: "یادم رفت", mood: "حوصله نداشتم" };
+  const enDoneDay = (c: any) => c.done && c.done_at ? dk(localDate(c.done_at)) : null;
+  const enDays = new Set<string>((enPractice || []).map((p: any) => p.day));
+  (enChunks || []).forEach((c: any) => { const d = enDoneDay(c); if (d) enDays.add(d); });
+  const enDaysIn = (fromKey: string, toKey: string) => [...enDays].filter((d) => d >= fromKey && d <= toKey).length;
+  const enReasons: Record<string, number> = {};
+  (enChunks || []).forEach((c: any) => (Array.isArray(c.skips) ? c.skips : []).forEach((k: any) => {
+    if (k?.day >= dk(prevPeriodStart)) enReasons[k.reason] = (enReasons[k.reason] || 0) + 1;
+  }));
+  const enParts: string[] = [];
+  if (enSettings || (enHomework || []).length || enDays.size) {
+    const classDays = (enSettings?.class_days || []).map((d: number) => EN_WEEKDAYS[d]).join("، ");
+    if (classDays) enParts.push(`روزهای کلاس: ${classDays} ساعت ${enSettings!.class_time}؛ ساعت تمرین روزانه‌ای که خودش گذاشته: ${enSettings!.practice_time}`);
+    enParts.push(`روزهایی که تمرین کرد (یه تکه از تکلیف یا حداقلِ ۵ دقیقه‌ای): ${enDaysIn(dk(periodStart), today)} از ${REPORT_PERIOD_DAYS} روز، بازه‌ی قبل: ${enDaysIn(dk(prevPeriodStart), dk(prevPeriodEnd))}`);
+    for (const h of enHomework || []) {
+      const mine = (enChunks || []).filter((c: any) => c.homework_id === h.id);
+      if (!mine.length) continue;
+      const onTime = mine.filter((c: any) => { const d = enDoneDay(c); return d && d <= h.due_on; }).length;
+      const lateDone = mine.filter((c: any) => { const d = enDoneDay(c); return d && d > h.due_on; }).length;
+      const left = mine.filter((c: any) => !c.done).length;
+      const when = h.due_on <= today ? `تا کلاس ${h.due_on}` : `کلاس ${h.due_on} هنوز نرسیده`;
+      enParts.push(`- تکلیف "${clip(h.title, 80)}"${h.unit ? ` (${h.unit})` : ''}: ${when}، ${onTime} از ${mine.length} تکه انجام شد${lateDone ? `، ${lateDone} تکه بعد از کلاس` : ''}${left ? `، ${left} تکه هنوز مونده` : ''}`);
+    }
+    if (!(enHomework || []).length) enParts.push('توی این بازه تکلیفی ثبت نکرده (یا تکلیف نداشته، یا بعد از کلاس ثبتش نکرده)');
+    const reasonTxt = Object.entries(enReasons).sort((a, b) => b[1] - a[1]).map(([r, n]) => `«${EN_REASONS[r] || r}» ${n} بار`).join('، ');
+    if (reasonTxt) enParts.push(`دلیل‌هایی که خودش برای انجام ندادنِ تکه‌ها زده (دو بازه‌ی اخیر): ${reasonTxt}`);
+  }
+  const englishLine = enParts.length ? enParts.join('\n') : 'موردی ثبت نشده';
+
   const reminderLines =
     (reminders || []).map((r: any) => `- ${r.title} (${r.date}${r.kind === 'deadline' ? '، ددلاین' : ''})`).join('\n') || 'موردی نیست';
 
@@ -487,6 +540,9 @@ ${reminderLines}
 
 تعمیرات و نگهداری خونه (از بخش «تعمیرات خونه»):
 ${repairsLine}
+
+انگلیسی (با معلم خصوصی و کتاب Top Notch می‌خونه؛ مشکل اصلیش اینه که تکلیف‌ها رو انجام نمی‌ده. از بخش «انگلیسی»، تکلیف هر جلسه به تکه‌های ۱۰ تا ۱۵ دقیقه‌ای خرد می‌شه):
+${englishLine}
 
 مرور هفتگی قبلی و تصمیم‌هایی که خودش گرفت: ${prevReviewLine}
 
