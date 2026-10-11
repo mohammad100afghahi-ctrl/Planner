@@ -1632,6 +1632,7 @@ let outboxSeq = Date.now();
 let outboxFlushing = null; // the in-flight flush promise, shared by every caller
 let lastSyncNetworkFailed = false; // the last flush attempt couldn't reach the server
 let usingLocalCopy = false; // state came from the on-device snapshot, not the server
+let restWriteSeq = 0; // counts writes sent (or queued) — loadAll() uses it to spot answers an edit has overtaken
 const outboxReady = offlineDB.getAll('outbox')
   .then(items => {
     outbox = (items || []).sort((a, b) => a.seq - b.seq);
@@ -1662,6 +1663,7 @@ async function offlineFetch(input, init){
   const url = typeof input === 'string' ? input : input.url;
   const method = ((init && init.method) || 'GET').toUpperCase();
   if(!isRestWrite(url, method)) return fetch(input, init);
+  restWriteSeq++;
   await outboxReady;
   if(outbox.length || !navigator.onLine){
     const res = await enqueueWrite(url, init);
@@ -2043,22 +2045,56 @@ function applyEmptyDefaults(){
   if(!state.subscriptions) state.subscriptions = [];
 }
 
-async function loadAll(){
+/* Every table is asked for at once — one round trip's wait instead of fourteen
+   in a row — and nothing is written into state until all of them have answered.
+   If something was saved while the answers were on their way, they may predate
+   that save, so they're thrown away and asked for again rather than painted
+   over the edit. */
+async function loadAll(attempt){
   loadError = false;
   await flushOutbox();
   if(outbox.length || !navigator.onLine) return loadFromLocalCopy();
+  const writesBefore = restWriteSeq;
+  // a query that throws instead of answering counts as a failed one, not a crash
+  const ask = q => Promise.resolve(q).catch(error => ({ data:null, error }));
+  const [core, remindersRes, promptsRes, winsRes, motherRes, homeRes, healthRes] = await Promise.all([
+    Promise.all([
+      sb.from('tags').select('*').order('created_at'),
+      sb.from('tasks')
+        .select('*, subtasks(*), task_tags(tag_id)')
+        .order('created_at', { ascending:false })
+        .order('position', { foreignTable:'subtasks', ascending:true }),
+      sb.from('recurring_templates').select('*, recurring_template_tags(tag_id)').order('created_at'),
+      sb.from('tag_goals').select('*'),
+      sb.from('ai_reports').select('*').order('period_end', { ascending:false }),
+      sb.from('purchases').select('*').order('created_at', { ascending:false }),
+      sb.from('ideas')
+        .select('*, idea_tags(tag_id), idea_images(id, data_url, position)')
+        .order('created_at', { ascending:false })
+        .order('position', { foreignTable:'idea_images', ascending:true }),
+      sb.from('subscriptions').select('*').order('next_renewal', { ascending:true, nullsFirst:false }),
+    ].map(ask)),
+    ask(sb.from('reminders').select('*').order('date', { ascending:true, nullsFirst:false })),
+    ask(sb.from('prompts').select('*').order('created_at', { ascending:false })),
+    ask(sb.from('wins').select('*').order('happened_on', { ascending:false }).order('created_at', { ascending:false })),
+    Promise.all([
+      sb.from('mother_care_items').select('*').order('created_at', { ascending:true }).order('id', { ascending:true }),
+      sb.from('mother_care').select('*').maybeSingle(),
+    ].map(ask)),
+    Promise.all([
+      sb.from('home_repairs').select('*').order('created_at', { ascending:true }),
+      sb.from('home_repair_parts').select('*').order('created_at', { ascending:true }),
+      sb.from('home_maintenance').select('*').order('next_due', { ascending:true }),
+    ].map(ask)),
+    ask(sb.from('ai_health').select('*').maybeSingle()),
+  ]);
+  if(restWriteSeq !== writesBefore && (attempt || 0) < 2) return loadAll((attempt || 0) + 1);
+
   let fromServer = true;
   try{
-    const { data: tags, error: tagsErr } = await sb.from('tags').select('*').order('created_at');
-    if(tagsErr) throw tagsErr;
+    for(const r of core) if(r.error) throw r.error;
+    const [tags, tasks, recurring, goals, aiReports, purchases, ideas, subs] = core.map(r => r.data);
     state.tags = tags.map(t => ({ id:t.id, name:t.name, color:t.color }));
-
-    const { data: tasks, error: tasksErr } = await sb
-      .from('tasks')
-      .select('*, subtasks(*), task_tags(tag_id)')
-      .order('created_at', { ascending:false })
-      .order('position', { foreignTable:'subtasks', ascending:true });
-    if(tasksErr) throw tasksErr;
     state.tasks = tasks.map(t => ({
       id: t.id, title: t.title, notes: t.notes || '', done: !!t.done, completedAt: t.completed_at,
       tagIds: (t.task_tags||[]).map(tt => tt.tag_id),
@@ -2071,35 +2107,18 @@ async function loadAll(){
       recurringTemplateId: t.recurring_template_id,
     }));
 
-    const { data: recurring, error: recurringErr } = await sb
-      .from('recurring_templates')
-      .select('*, recurring_template_tags(tag_id)')
-      .order('created_at');
-    if(recurringErr) throw recurringErr;
     state.recurringTemplates = recurring.map(r => ({
       id: r.id, title: r.title, notes: r.notes || '', priority: r.priority, durationMin: r.duration_min,
       weekdays: r.weekdays || [], active: !!r.active,
       tagIds: (r.recurring_template_tags||[]).map(tt => tt.tag_id),
     }));
 
-    const { data: goals, error: goalsErr } = await sb.from('tag_goals').select('*');
-    if(goalsErr) throw goalsErr;
     state.tagGoals = goals.map(g => ({ tagId: g.tag_id, weeklyMinutes: g.weekly_minutes, reason: g.reason || '' }));
 
-    const { data: aiReports, error: aiReportsErr } = await sb.from('ai_reports').select('*').order('period_end', { ascending:false });
-    if(aiReportsErr) throw aiReportsErr;
     state.aiReports = aiReports.map(mapAIReport);
 
-    const { data: purchases, error: purchasesErr } = await sb.from('purchases').select('*').order('created_at', { ascending:false });
-    if(purchasesErr) throw purchasesErr;
     state.purchases = purchases.map(p => ({ id:p.id, title:p.title, priority:p.priority, price:p.price, bought:!!p.bought, boughtAt:p.bought_at }));
 
-    const { data: ideas, error: ideasErr } = await sb
-      .from('ideas')
-      .select('*, idea_tags(tag_id), idea_images(id, data_url, position)')
-      .order('created_at', { ascending:false })
-      .order('position', { foreignTable:'idea_images', ascending:true });
-    if(ideasErr) throw ideasErr;
     state.ideas = ideas.map(i => ({
       id:i.id, body:i.body,
       tagIds:(i.idea_tags||[]).map(it => it.tag_id),
@@ -2107,11 +2126,6 @@ async function loadAll(){
       createdAt:i.created_at,
     }));
 
-    const { data: subs, error: subsErr } = await sb
-      .from('subscriptions')
-      .select('*')
-      .order('next_renewal', { ascending:true, nullsFirst:false });
-    if(subsErr) throw subsErr;
     state.subscriptions = subs.map(s => ({
       id:s.id, name:s.name, cycle:s.cycle,
       nextRenewal:s.next_renewal || '', active:!!s.active,
@@ -2125,14 +2139,11 @@ async function loadAll(){
     if(!dataLoaded && await restoreSnapshot()){ dataLoaded = true; usingLocalCopy = true; }
     else if(!dataLoaded){ loadError = true; applyEmptyDefaults(); }
   }
-  /* Reminders load on their own so a failure on any other table can't swallow
-     them — they're the first thing you see when the app opens. */
+  /* The tables below each stand on their own, so a failure on any other table
+     can't swallow them — reminders are the first thing you see when the app opens. */
   try{
-    const { data: reminders, error: remErr } = await sb
-      .from('reminders')
-      .select('*')
-      .order('date', { ascending:true, nullsFirst:false });
-    if(remErr) throw remErr;
+    if(remindersRes.error) throw remindersRes.error;
+    const reminders = remindersRes.data;
     state.reminders = reminders.map(r => ({
       id:r.id, title:r.title, kind:r.kind,
       date:r.date || '', leadDays: r.lead_days == null ? 0 : r.lead_days,
@@ -2144,35 +2155,23 @@ async function loadAll(){
     if(!state.reminders) state.reminders = [];
   }
   try{
-    const { data: prompts, error: promptsErr } = await sb
-      .from('prompts')
-      .select('*')
-      .order('created_at', { ascending:false });
-    if(promptsErr) throw promptsErr;
-    state.prompts = prompts.map(promptFromRow);
+    if(promptsRes.error) throw promptsRes.error;
+    state.prompts = promptsRes.data.map(promptFromRow);
     promptsTableReady = true;
   } catch(e){
     console.error('load prompts failed', e);
     if(!state.prompts) state.prompts = [];
   }
   try{
-    const { data: wins, error: winsErr } = await sb
-      .from('wins')
-      .select('*')
-      .order('happened_on', { ascending:false })
-      .order('created_at', { ascending:false });
-    if(winsErr) throw winsErr;
-    state.wins = wins.map(winFromRow);
+    if(winsRes.error) throw winsRes.error;
+    state.wins = winsRes.data.map(winFromRow);
     winsTableReady = true;
   } catch(e){
     console.error('load wins failed', e);
     if(!state.wins) state.wins = [];
   }
   try{
-    const [items, care] = await Promise.all([
-      sb.from('mother_care_items').select('*').order('created_at', { ascending:true }).order('id', { ascending:true }),
-      sb.from('mother_care').select('*').maybeSingle(),
-    ]);
+    const [items, care] = motherRes;
     if(items.error) throw items.error;
     if(care.error) throw care.error;
     state.motherItems = items.data.map(motherItemFromRow);
@@ -2183,12 +2182,8 @@ async function loadAll(){
     if(!state.motherItems) state.motherItems = [];
   }
   try{
-    const [repairs, parts, maint] = await Promise.all([
-      sb.from('home_repairs').select('*').order('created_at', { ascending:true }),
-      sb.from('home_repair_parts').select('*').order('created_at', { ascending:true }),
-      sb.from('home_maintenance').select('*').order('next_due', { ascending:true }),
-    ]);
-    for(const r of [repairs, parts, maint]) if(r.error) throw r.error;
+    const [repairs, parts, maint] = homeRes;
+    for(const r of homeRes) if(r.error) throw r.error;
     state.homeRepairs = repairs.data.map(repairFromRow);
     state.homeParts = parts.data.map(repairPartFromRow);
     state.homeMaint = maint.data.map(maintFromRow);
@@ -2200,9 +2195,8 @@ async function loadAll(){
     if(!state.homeMaint) state.homeMaint = [];
   }
   try{
-    const { data: health, error: healthErr } = await sb.from('ai_health').select('*').maybeSingle();
-    if(healthErr) throw healthErr;
-    state.aiHealth = health ? aiHealthFromRow(health) : null;
+    if(healthRes.error) throw healthRes.error;
+    state.aiHealth = healthRes.data ? aiHealthFromRow(healthRes.data) : null;
     aiHealthTableReady = true;
   } catch(e){
     console.error('load ai_health failed', e);
@@ -8503,14 +8497,38 @@ function renderRestoreModal(){
 let appStarted = false;
 function bootApp(){
   if(appStarted) return;
-  appStarted = true;
-  document.body.classList.remove('signed-out');
+  startApp();
   loadAll();
   loadEncouragement();
   refreshPushStatus();
   loadBackups();
 }
+function startApp(){
+  appStarted = true;
+  document.body.classList.remove('signed-out');
+}
+/* Opening the app used to mean staring at «در حال بارگذاری» until the login
+   token was refreshed and every table had answered. Instead the on-device copy
+   is painted straight away, and bootApp() → loadAll() swaps in the server's
+   data once it arrives. Only when a login is stored on this device — signOut()
+   wipes the copy, and without a stored login the next thing shown is the
+   login form anyway. */
+let loginShown = false;
+(async function paintLocalCopyEarly(){
+  let hasLogin = false;
+  try{ hasLogin = !!localStorage.getItem(sb.auth.storageKey || 'sb-byqowlvyupcusjjyxwaf-auth-token'); }catch(_e){}
+  if(!hasLogin) return;
+  await outboxReady; // so the offline bar's queue count is right on the first paint
+  if(dataLoaded || loginShown || !(await restoreSnapshot())) return;
+  if(dataLoaded || loginShown) return;
+  dataLoaded = true;
+  usingLocalCopy = true;
+  startApp();
+  render();
+})();
 function renderLogin(){
+  loginShown = true;
+  appStarted = false; // an early-painted local copy must not render over the form
   document.body.classList.add('signed-out');
   document.getElementById('app').innerHTML = `
     <form class="login" onsubmit="submitLogin(event)">
