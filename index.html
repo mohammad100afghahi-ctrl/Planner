@@ -830,8 +830,6 @@ global.jalaali = {
     border-inline-start:3px solid var(--accent);
   }
   .encourage-text{font-size:13.5px; line-height:1.85; color:var(--text); flex:1;}
-  /* the daily text is two lines: هوشواره's own, then a quote */
-  .encourage-quote{display:block; margin-top:4px; font-size:12.5px; color:var(--text-muted);}
   .encourage.loading .encourage-text{color:var(--text-muted);}
   /* هوشواره can't reach the AI (credit ran out, bad key) — same card, danger edge */
   .encourage.ai-health{border-inline-start-color:var(--danger); align-items:center;}
@@ -1976,7 +1974,7 @@ let state = {
   subscriptions: [], // [{ id, name, cycle, nextRenewal, active, notifyDaysBefore, note }]
   subscriptionEditor: null, // { subId, name, cycle, nextRenewal, notifyDaysBefore, note }
   subscriptionShowInactive: false,
-  encouragement: null, // { date, text } — one AI text per day (own line + a quote), cached locally
+  encouragement: null, // { date, text } — one AI text per day (a quote one day, its own line the next), cached locally
   reminders: [], // [{ id, title, kind:'once'|'yearly'|'deadline'|'always', date, leadDays, note, done, createdAt }]
   reminderEditor: null, // { reminderId, title, kind, date, leadDays, note, calendarOpen, calJY, calJM }
   reminderShowDone: false,
@@ -6473,11 +6471,10 @@ function rolloverYearlyReminders(){
 function renderEncouragement(){
   const e = state.encouragement;
   if(!e || !e.text) return '';
-  const [line, ...quote] = e.text.split('\n');
   return `
     <div class="encourage">
       <span style="color:var(--accent); flex-shrink:0; margin-top:2px;">${icon('bulb',16)}</span>
-      <span class="encourage-text">${escapeHtml(line)}${quote.length ? `<span class="encourage-quote">${escapeHtml(quote.join(' '))}</span>` : ''}</span>
+      <span class="encourage-text">${escapeHtml(e.text)}</span>
     </div>
   `;
 }
@@ -6486,7 +6483,7 @@ function renderEncouragement(){
 async function loadEncouragement(){
   const todayStr = dateKey(new Date());
   try{
-    const cached = JSON.parse(localStorage.getItem('medar-encouragement-v3') || 'null');
+    const cached = JSON.parse(localStorage.getItem('medar-encouragement-v4') || 'null');
     if(cached && cached.date === todayStr && cached.text){
       state.encouragement = cached;
       render();
@@ -6498,7 +6495,7 @@ async function loadEncouragement(){
     if(error || !data || !data.text) return;
     const fresh = { date: todayStr, text: data.text };
     state.encouragement = fresh;
-    try{ localStorage.setItem('medar-encouragement-v3', JSON.stringify(fresh)); }catch(_e){}
+    try{ localStorage.setItem('medar-encouragement-v4', JSON.stringify(fresh)); }catch(_e){}
     render();
   }catch(_e){ /* offline or function down — the line is optional, skip silently */ }
 }
@@ -8567,7 +8564,7 @@ async function signOut(){
     ? `\n\n${toFaDigits(outbox.length)} تغییر هنوز روی سرور ذخیره نشده و با خروج از بین می‌ره.`
     : '';
   if(!confirm('از حسابت خارج بشی؟' + unsynced)) return;
-  try{ localStorage.removeItem('medar-encouragement-v3'); }catch(_e){}
+  try{ localStorage.removeItem('medar-encouragement-v4'); }catch(_e){}
   // the outbox and the snapshot belong to this account — don't leave them for the next one
   dataLoaded = false;
   clearTimeout(snapshotTimer); snapshotTimer = null;
