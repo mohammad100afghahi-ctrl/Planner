@@ -89,6 +89,28 @@ Deno.serve(async (req: Request) => {
     const localMidnightIso = (key: string) => new Date(Date.parse(key + "T00:00:00Z") - TZ_OFFSET_HOURS * 3600000).toISOString();
     const localDay = (iso: string) => dk(new Date(Date.parse(iso) + TZ_OFFSET_HOURS * 3600000));
 
+    // One text per day: once today's is written, every later call (a refresh,
+    // another device) gets that same row back instead of a new generation.
+    const { data: existing } = await sb
+      .from("daily_lines")
+      .select("text")
+      .eq("user_id", user.id)
+      .eq("date", today)
+      .maybeSingle();
+    if (existing?.text) {
+      return new Response(JSON.stringify({ text: existing.text, date: today }), {
+        headers: { ...cors, "Content-Type": "application/json" },
+      });
+    }
+
+    // the last two weeks' texts, so the same quote doesn't come back
+    const { data: recentLines } = await sb
+      .from("daily_lines")
+      .select("text")
+      .eq("user_id", user.id)
+      .gte("date", dayOffset(-14))
+      .order("date", { ascending: false });
+
     const { data: todayTasks } = await sb
       .from("tasks")
       .select("title, done, priority")
@@ -161,7 +183,9 @@ Deno.serve(async (req: Request) => {
       .map((r: any) => `${r.title} (${r.date === today ? "امروز" : "فردا"})`)
       .join("، ");
 
-    const prompt = `یه جمله‌ی کوتاه فارسی برای بالای صفحه‌ی امروزِ یه اپ برنامه‌ریزی شخصی بنویس.
+    const recentBlock = (recentLines || []).map((r: any) => `- ${String(r.text).replace(/\s*\n\s*/g, " / ")}`).join("\n");
+
+    const prompt = `یه متن کوتاه فارسیِ دوخطی برای بالای صفحه‌ی امروزِ یه اپ برنامه‌ریزی شخصی بنویس: خط اول حرف خودت به کاربر، خط دوم یه جمله از یکی از بزرگان که به همون حرف می‌خوره.
 
 وضعیت امروز کاربر:
 - کارهای امروز: ${todayCount} تا، ${todayDone} تا انجام شده${openImportant.length ? `؛ کارهای باز با اولویت بالا: ${openImportant.join("، ")}` : ""}
@@ -171,15 +195,27 @@ Deno.serve(async (req: Request) => {
 - یادآورهای امروز و فردا: ${reminderLine || "هیچ"}
 - یکی از کارهایی که قبلاً تونسته و خودش ثبت کرده: ${pastWin ? `«${pastWin.title}»${pastWin.hardship ? ` با اینکه ${pastWin.hardship}` : ""}` : "هیچ"}
 
-قواعد:
-- حداکثر ۲۵ کلمه، فقط خودِ جمله، بدون علامت نقل‌قول و بدون توضیح اضافه
+متن‌های روزهای قبل (تکرارشون نکن، نه جمله‌ی بزرگان رو و نه گوینده‌ی دیروز رو):
+${recentBlock || "هیچ"}
+
+قالب خروجی — دقیقاً دو خط، بدون هیچ توضیح اضافه:
+خط اول: جمله‌ی خودت، حداکثر ۲۵ کلمه، بدون علامت نقل‌قول
+خط دوم: «متنِ جمله» — نام گوینده
+
+قواعد خط اول:
 - فقط روی مهم‌ترین نکته‌ی همین داده‌ها تمرکز کن (مثلاً یه کار مهم امروز، هدفی که عقب مونده، یا یه یادآور نزدیک)، نه همه‌شون
-- نقل‌قول از آدم‌های مشهور نزن، جمله‌ی خودت باشه
 - کلیشه‌های انگیزشی («هر روز یه قدم»، «تو می‌تونی») ممنوع
 - صادق باش: اگه عقب‌افتاده زیاده، تشویق توخالی نکن؛ به‌جاش یه جمله‌ی واقع‌بینانه و آرام‌کننده بگو که شروع کردن رو ساده کنه
 - اگه هفته‌ی خوبی داشته، خیلی ساده و بدون اغراق بهش اشاره کن
 - اگه روزش سنگین به نظر میاد (عقب‌افتاده‌ی زیاد، هفته‌ی کم‌کار)، می‌تونی به همون کاری که قبلاً تونسته مشخصاً اشاره کنی؛ فقط وقتی به جمله کمک می‌کنه، نه هر روز
-- لحن: دوستانه و بالغ، انگار یه رفیق باتجربه داره حرف می‌زنه، نه یه پوستر انگیزشی`;
+- لحن: دوستانه و بالغ، انگار یه رفیق باتجربه داره حرف می‌زنه، نه یه پوستر انگیزشی
+
+قواعد خط دوم:
+- یه جمله‌ی واقعی و انگیزه‌بخش از یه آدم بزرگ: شاعرها و حکیم‌های فارسی (سعدی، مولانا، حافظ، فردوسی، خیام، نظامی…)، فیلسوف‌ها، دانشمندها، نویسنده‌ها، ورزشکارها و آدم‌های اثرگذار ایران و جهان
+- فقط جمله‌ای که مطمئنی واقعاً از همون آدمه؛ جمله‌ی ساختگی یا با انتسابِ مشکوک ممنوع. اگه شک داری، یکی دیگه رو انتخاب کن
+- شعر فارسی رو عیناً و درست بیار (یک بیت یا یک مصراع)؛ جمله‌ی غیرفارسی رو روان و کوتاه ترجمه کن
+- حداکثر ۳۰ کلمه، و به حال‌وهوای خط اول بخوره، نه یه جمله‌ی بی‌ربط
+- گوینده‌ها رو متنوع نگه دار؛ هر روز از یه نفر و یه حوزه نباشه`;
 
     const aiRes = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -190,7 +226,7 @@ Deno.serve(async (req: Request) => {
       },
       body: JSON.stringify({
         model: "claude-sonnet-5",
-        max_tokens: 200,
+        max_tokens: 400,
         // Sonnet 5 thinks by default, which would eat this small token budget
         thinking: { type: "disabled" },
         messages: [{ role: "user", content: prompt }],
@@ -204,7 +240,24 @@ Deno.serve(async (req: Request) => {
     await recordAIHealth(sb, user.id, null);
 
     const aiData = await aiRes.json();
-    const text = (aiData.content?.find((b: any) => b.type === "text")?.text || "").trim();
+    let text = (aiData.content?.find((b: any) => b.type === "text")?.text || "")
+      .split("\n").map((l: string) => l.trim()).filter(Boolean).join("\n");
+
+    // Keep it for the rest of the day. If a parallel call (two tabs opening at
+    // once) got there first, its row wins and both show the same text.
+    if (text) {
+      const { error: saveErr } = await sb
+        .from("daily_lines")
+        .upsert({ user_id: user.id, date: today, text }, { onConflict: "user_id,date", ignoreDuplicates: true });
+      if (saveErr) console.error("daily_lines write failed", saveErr);
+      const { data: saved } = await sb
+        .from("daily_lines")
+        .select("text")
+        .eq("user_id", user.id)
+        .eq("date", today)
+        .maybeSingle();
+      if (saved?.text) text = saved.text;
+    }
 
     return new Response(JSON.stringify({ text, date: today }), {
       headers: { ...cors, "Content-Type": "application/json" },
