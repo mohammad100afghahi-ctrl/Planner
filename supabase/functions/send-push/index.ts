@@ -9,6 +9,9 @@ import webpush from "npm:web-push@3.6.7";
                                         — generate-ai-report: the weekly review is ready
      user JWT + {action:"publicKey"}     — the app asks for the VAPID public key before subscribing
      user JWT + {action:"test"}          — «ارسال اعلان آزمایشی»: the caller's digest right now
+   The morning digest is up to four notifications, each with its own tag so one
+   doesn't bury another: dated items + today's tasks, «مادر», مرور هفتگی, پشتیبان.
+   Only the first one makes a sound.
    The VAPID pair is generated here on first use and kept in private.cron_secrets
    (via init_vapid_keys), so the private key never exists anywhere else. */
 
@@ -27,6 +30,11 @@ const FA_DIGITS = "۰۱۲۳۴۵۶۷۸۹";
 const fa = (n: number | string) => String(n).replace(/\d/g, (d) => FA_DIGITS[+d]);
 const b64url = (buf: ArrayBuffer | Uint8Array) =>
   btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+/* Persian digits are bidi class EN, so right after a Latin name they join its
+   left-to-right run: «Claude Pro — ۱۴ روز» comes out as «۱۴ — Claude Pro روز».
+   A right-to-left mark in front of each number cuts it loose from the name. */
+const bidi = (text: string) => String(text || "").replace(/[۰-۹]+/g, "\u200F$&");
+const clip = (text: string, max: number) => text.length > max ? text.slice(0, max - 1) + "…" : text;
 const fromB64url = (s: string) => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/")), (c) => c.charCodeAt(0));
 
 function localToday(): string {
@@ -69,25 +77,31 @@ function reminderLabel(r: any, n: number): string {
   return `${fa(n)} روز مونده`;
 }
 function subLabel(n: number): string {
-  if (n < 0) return `${fa(-n)} روز از تمدید گذشته`;
+  if (n < 0) return `${fa(-n)} روز از تمدیدش گذشته`;
   if (n === 0) return "امروز تمدید می‌شه";
   if (n === 1) return "فردا تمدید می‌شه";
   return `${fa(n)} روز تا تمدید`;
 }
 
+type Payload = { title: string; body: string; tag: string; silent?: boolean };
+
 /* «مادر»: on the chosen weekdays, one consideration for Mom (MS). Same count
    as the app's motherItemForDay — reminder days since 1970-01-01, walking the
    list in order — so the push and the امروز card show the same one. */
-function motherLine(care: any, items: any[], today: string): string {
-  if (!care?.push || !items.length) return "";
+function motherNote(care: any, items: any[], today: string): Payload | null {
+  if (!care?.push || !items.length) return null;
   const days: number[] = (care.remind_days || []).map(Number);
   const e = Math.round(Date.parse(today + "T00:00:00Z") / 86400_000);
-  if (!days.includes((e + 4) % 7)) return "";
+  if (!days.includes((e + 4) % 7)) return null;
   let n = Math.floor(e / 7) * days.length;
   for (let x = e - (e % 7); x <= e; x++) if (days.includes((x + 4) % 7)) n++;
   const it = items[(n - 1) % items.length];
-  const body = it.body.length > 140 ? it.body.slice(0, 139) + "…" : it.body;
-  return `یادت باشه مادر: ${it.kind === "dont" ? "نکن — " : ""}${body}`;
+  return {
+    title: it.kind === "dont" ? "مادر — این کار رو نکن" : "مادر — یادت باشه",
+    body: clip(it.body, 140),
+    tag: "medar-mother",
+    silent: true,
+  };
 }
 
 /* «تعمیرات خونه»: urgent repairs nag every morning until they're fixed; upkeep
@@ -101,13 +115,13 @@ function maintLabel(n: number): string {
 }
 function urgentRepairsLine(repairs: any[]): string {
   if (!repairs.length) return "";
-  const names = repairs.slice(0, 2).map((r) => r.title.length > 40 ? r.title.slice(0, 39) + "…" : r.title).join("، ");
+  const names = repairs.slice(0, 2).map((r) => clip(r.title, 30)).join("، ");
   return repairs.length === 1
     ? `تعمیر فوری: ${names}`
     : `${fa(repairs.length)} تعمیر فوری مونده: ${names}${repairs.length > 2 ? " و…" : ""}`;
 }
 
-async function digestFor(sb: SupabaseClient, uid: string) {
+async function digestFor(sb: SupabaseClient, uid: string): Promise<Payload[]> {
   const today = localToday();
   const [rem, subs, tasks, backups, review, care, careItems, repairs, maint] = await Promise.all([
     sb.from("reminders").select("title, kind, date, lead_days").eq("user_id", uid).eq("done", false).neq("kind", "always").not("date", "is", null),
@@ -135,55 +149,76 @@ async function digestFor(sb: SupabaseClient, uid: string) {
   /* The server's own copies don't survive losing the project, only a downloaded
      file does. 30 days after the last download (or after backups began, if
      there's never been one) say so — then once a week, not every morning. */
-  let backupLine = "";
+  let backupNote: Payload | null = null;
   if (!backups.error && backups.data?.length) {
     const downloads = backups.data.filter((b: any) => b.kind === "download");
     const since = (downloads.length ? downloads[downloads.length - 1] : backups.data[0]).created_at;
     const gap = daysUntil(today, since.slice(0, 10));
     if (gap >= 30 && (gap - 30) % 7 === 0) {
-      backupLine = downloads.length
-        ? `${fa(gap)} روزه پشتیبان دانلود نکردی — از منوی «پشتیبان» یکی بگیر`
-        : "هنوز هیچ پشتیبانی دانلود نکردی — از منوی «پشتیبان» یکی بگیر";
+      backupNote = {
+        title: downloads.length ? `مدار — ${fa(gap)} روزه پشتیبان نگرفتی` : "مدار — هنوز پشتیبان نگرفتی",
+        body: "از منوی «پشتیبان» یه نسخه دانلود کن.",
+        tag: "medar-backup",
+        silent: true,
+      };
     }
   }
 
   // مرور هفتگی still has undecided proposals — they auto-apply at replan_apply_after
-  let reviewLine = "";
+  let reviewNote: Payload | null = null;
   for (const r of review.data || []) {
     const pending = (r.replan?.changes || []).filter((c: any) => c.status === "pending").length;
     if (!pending) continue;
     const hoursLeft = (Date.parse(r.replan_apply_after) - Date.now()) / 3600_000;
-    reviewLine = `مرور هفتگی: ${fa(pending)} پیشنهاد منتظر تصمیمته — ${hoursLeft <= 24 ? "تا فردا" : "تا دو روز دیگه"} خودکار اعمال می‌شن`;
+    // same tag as generate-ai-report's «مرور هفتگی آماده‌ست», so this takes its place
+    reviewNote = {
+      title: `مرور هفتگی — ${fa(pending)} پیشنهاد منتظر تصمیمته`,
+      body: `${hoursLeft <= 24 ? "تا فردا" : "تا دو روز دیگه"} خودکار اعمال می‌شن.`,
+      tag: "medar-review",
+      silent: true,
+    };
   }
 
+  /* One short line each, so a line stays a line on the lock screen. */
   const items = [
-    ...reminders.map(({ r, n }) => ({ n, line: `• ${r.title} — ${reminderLabel(r, n)}` })),
-    ...renewals.map(({ s, n }) => ({ n, line: `• تمدید ${s.name} — ${subLabel(n)}` })),
+    ...reminders.map(({ r, n }) => ({ n, line: `• ${clip(r.title, 30)} — ${reminderLabel(r, n)}` })),
+    ...renewals.map(({ s, n }) => ({ n, line: `• ${clip(s.name, 30)} — ${subLabel(n)}` })),
     ...(maint.error ? [] : maint.data || []).map((m: any) => {
       const n = daysUntil(m.next_due, today);
-      return { n, line: `• ${m.title} — ${maintLabel(n)}` };
+      return { n, line: `• ${clip(m.title, 30)} — ${maintLabel(n)}` };
     }),
   ].sort((a, b) => a.n - b.n);
   const repairLine = repairs.error ? "" : urgentRepairsLine(repairs.data || []);
-  const mother = care.error || careItems.error ? "" : motherLine(care.data, careItems.data || [], today);
-  if (!items.length && !taskCount && !backupLine && !reviewLine && !mother && !repairLine) return null;
 
-  const lines = items.slice(0, 3).map((i) => i.line);
-  if (items.length > 3) lines.push(`و ${fa(items.length - 3)} مورد دیگه`);
-  if (taskCount) lines.push(`امروز ${fa(taskCount)} کار برنامه‌ریزی‌شده داری`);
-  if (repairLine) lines.push(repairLine);
-  if (reviewLine) lines.push(reviewLine);
-  if (mother) lines.push(mother);
-  if (backupLine) lines.push(backupLine);
-  const urgent = items.some((i) => i.n <= 0);
-  return {
-    title: urgent ? "مدار — امروز یادت نره" : "مدار — صبح بخیر",
-    body: lines.join("\n"),
-    tag: "medar-digest",
-  };
+  const out: Payload[] = [];
+  if (items.length || taskCount || repairLine) {
+    const lines: string[] = [];
+    if (taskCount) lines.push(`${fa(taskCount)} کار برای امروز داری`);
+    lines.push(...items.slice(0, 3).map((i) => i.line));
+    if (items.length > 3) lines.push(`و ${fa(items.length - 3)} مورد دیگه`);
+    if (repairLine) lines.push(repairLine);
+    out.push({
+      title: items.some((i) => i.n <= 0) ? "مدار — امروز یادت نره" : "مدار — صبح بخیر",
+      body: lines.join("\n"),
+      tag: "medar-digest",
+    });
+  }
+  const mother = care.error || careItems.error ? null : motherNote(care.data, careItems.data || [], today);
+  for (const note of [mother, reviewNote, backupNote]) if (note) out.push(note);
+  if (out.length) out[0].silent = false; // whichever comes first is the one that rings
+  return out;
 }
 
-async function sendTo(sb: SupabaseClient, uid: string, payload: object) {
+/* Several notifications for one account: the endpoints are read once per send,
+   so a device that died on the first is already gone for the second. */
+async function sendAll(sb: SupabaseClient, uid: string, payloads: Payload[]) {
+  let last = { devices: 0, sent: 0 };
+  for (const p of payloads) last = await sendTo(sb, uid, p);
+  return { ...last, notifications: payloads.length };
+}
+
+async function sendTo(sb: SupabaseClient, uid: string, payload: Payload) {
+  const message = JSON.stringify({ ...payload, title: bidi(payload.title), body: bidi(payload.body) });
   const { data: subs, error } = await sb.from("push_subscriptions").select("id, endpoint, p256dh, auth").eq("user_id", uid);
   if (error) throw error;
   let sent = 0;
@@ -191,7 +226,7 @@ async function sendTo(sb: SupabaseClient, uid: string, payload: object) {
     try {
       await webpush.sendNotification(
         { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
-        JSON.stringify(payload),
+        message,
         { TTL: 12 * 3600 },
       );
       sent++;
@@ -235,7 +270,7 @@ Deno.serve(async (req: Request) => {
       for (const uid of new Set((rows || []).map((r: any) => r.user_id as string))) {
         try {
           const d = await digestFor(sb, uid);
-          results.push(d ? await sendTo(sb, uid, d) : { skipped: "nothing today" });
+          results.push(d.length ? await sendAll(sb, uid, d) : { skipped: "nothing today" });
         } catch (e) {
           console.error(e);
           results.push({ error: String((e as any)?.message ?? e) });
@@ -251,8 +286,8 @@ Deno.serve(async (req: Request) => {
     if (action === "publicKey") return json({ publicKey: keys.publicKey });
     if (action === "test") {
       const d = await digestFor(sb, user.id);
-      const payload = d || { title: "مدار", body: "اعلان‌ها روشنه ✓ هر روز ساعت ۸ صبح یادآوری‌ها و کارهای امروزت رو اینجا می‌بینی.", tag: "medar-test" };
-      return json(await sendTo(sb, user.id, payload));
+      if (d.length) return json(await sendAll(sb, user.id, d));
+      return json(await sendTo(sb, user.id, { title: "مدار", body: "اعلان‌ها روشنه ✓ هر روز ساعت ۸ صبح یادآوری‌ها و کارهای امروزت رو اینجا می‌بینی.", tag: "medar-test" }));
     }
     return json({ error: "unknown action" }, 400);
   } catch (e) {
