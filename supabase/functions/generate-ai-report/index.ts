@@ -466,8 +466,8 @@ async function reportFor(sb: SupabaseClient, uid: string, force: boolean, apiKey
   const maintSoon = (homeMaint || []).filter((m: any) => m.next_due >= today);
   const repairParts: string[] = [];
   if ((homeRepairs || []).length) {
-    repairParts.push(`کارهای باز: ${repairsOpen.length} (فوری ${countUrgency('urgent')}، به‌زودی ${countUrgency('soon')}، هر وقت شد ${countUrgency('whenever')})${estLeft ? `، هزینه‌ی تخمینی باقی‌مونده ${estLeft.toLocaleString('en')} تومان` : ''}`);
-    repairParts.push(`این بازه درست شد: ${fixedCurr.length} مورد${fixedCurr.length ? ` (${fixedCurr.slice(0, 4).map((r: any) => `"${r.title}"`).join('، ')})` : ''}، بازه‌ی قبل: ${fixedPrevCount}${spentCurr ? `؛ خرج این بازه ${spentCurr.toLocaleString('en')} تومان` : ''}`);
+    repairParts.push(`کارهای باز: ${repairsOpen.length} (فوری ${countUrgency('urgent')}، به‌زودی ${countUrgency('soon')}، هر وقت شد ${countUrgency('whenever')})${estLeft ? `، هزینه‌ی تخمینی باقی‌مونده ${estLeft.toLocaleString('en')} دینار` : ''}`);
+    repairParts.push(`این بازه درست شد: ${fixedCurr.length} مورد${fixedCurr.length ? ` (${fixedCurr.slice(0, 4).map((r: any) => `"${r.title}"`).join('، ')})` : ''}، بازه‌ی قبل: ${fixedPrevCount}${spentCurr ? `؛ خرج این بازه ${spentCurr.toLocaleString('en')} دینار` : ''}`);
     if (staleUrgent.length) {
       repairParts.push(`فوری‌هایی که بیشتر از یه هفته‌ست مونده‌ن: ${staleUrgent.slice(0, 3).map((r: any) => `"${r.title}" (${ageDays(r.created_at)} روز)`).join('، ')}`);
     }
