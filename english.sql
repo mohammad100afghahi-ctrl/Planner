@@ -14,6 +14,7 @@ create table if not exists public.english_settings (
   user_id       uuid primary key default auth.uid() references auth.users(id) on delete cascade,
   class_days    smallint[] not null default '{}',     -- JS getDay(): 0 = یکشنبه … 6 = شنبه
   class_time    text not null default '18:00' check (class_time ~ '^[0-2][0-9]:[0-5][0-9]$'),
+  class_times   jsonb not null default '{}'::jsonb,   -- { "<getDay()>": 'HH:MM' } — a day's own start time; without one, class_time
   class_minutes smallint not null default 90 check (class_minutes between 15 and 300),
   practice_time text not null default '20:00' check (practice_time ~ '^[0-2][0-9]:[0-5][0-9]$'),
   push          boolean not null default true,
