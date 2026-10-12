@@ -15,7 +15,7 @@ create table if not exists public.home_repairs (
   who         text not null default 'self' check (who in ('self', 'pro')),
   trade       text not null default '',          -- لوله‌کش، برق‌کار… when who = 'pro'
   status      text not null default 'open' check (status in ('open', 'waiting', 'done')),
-  est_cost    bigint check (est_cost >= 0),       -- تومان
+  est_cost    bigint check (est_cost >= 0),       -- دینار
   actual_cost bigint check (actual_cost >= 0),
   note        text not null default '',
   task_id     uuid references public.tasks(id) on delete set null,  -- sent to امروز

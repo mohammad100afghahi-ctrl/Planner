@@ -1286,6 +1286,7 @@ global.jalaali = {
   }
   .pick-chip.on{background:color-mix(in srgb, var(--chip-color) 20%, var(--surface-2)); color:var(--chip-color); border-color:var(--chip-color);}
   .priority-chip{
+    display:inline-block; /* back-to-back chips would otherwise join their Persian letters across the gap */
     padding:4px 11px; border-radius:14px; font-size:11px; font-weight:700; cursor:pointer;
     background:var(--surface-2); border:1px solid var(--line); color:var(--text-muted); margin-left:4px;
   }
@@ -7073,9 +7074,9 @@ function maintFromRow(r){
     trade:r.trade || '', note:r.note || '', taskId:r.task_id || null, createdAt:r.created_at,
   };
 }
-const fmtToman = n => `${fmtPrice(n)} تومان`;
+const fmtDinar = n => `${fmtPrice(n)} دینار`;
 // «۳٫۸ میلیون» / «۸۰۰ هزار» — for the narrow stat tile
-function fmtTomanShort(n){
+function fmtDinarShort(n){
   const short = (v, unit) => `${toFaDigits(String(Math.round(v * 10) / 10)).replace('.', '٫')} ${unit}`;
   if(n >= 1e9) return short(n / 1e9, 'میلیارد');
   if(n >= 1e6) return short(n / 1e6, 'میلیون');
@@ -7137,7 +7138,7 @@ function renderRepairsPage(){
     <div class="repair-stats">
       <div class="repair-stat"><b>${toFaDigits(open.length)}</b><span>کار مونده</span></div>
       <div class="repair-stat ${urgent ? 'hot' : ''}"><b>${toFaDigits(urgent)}</b><span>فوری</span></div>
-      <div class="repair-stat"><b>${estLeft ? fmtTomanShort(estLeft) : '—'}</b><span>هزینه‌ی تخمینی (تومان)</span></div>
+      <div class="repair-stat"><b>${estLeft ? fmtDinarShort(estLeft) : '—'}</b><span>هزینه‌ی تخمینی (دینار)</span></div>
     </div>
     <div class="archive-tabs repair-tabs">
       ${tabBtn('list', 'کارها', open.length)}
@@ -7217,13 +7218,14 @@ function renderRepairRow(r){
             <span class="dur">${escapeHtml(whoLabel(r))}</span>
             ${r.status === 'waiting' ? `<span class="repair-wait">منتظر استادکار/قطعه</span>` : ''}
             ${parts.length && !done ? `<span class="dur">قطعه ${toFaDigits(bought)} از ${toFaDigits(parts.length)}</span>` : ''}
-            ${cost != null ? `<span class="dur">${done && r.actualCost != null ? '' : '≈ '}${fmtToman(cost)}</span>` : ''}
+            ${cost != null ? `<span class="dur">${done && r.actualCost != null ? '' : '≈ '}${fmtDinar(cost)}</span>` : ''}
             ${inToday ? `<span class="repair-today-tag">${icon('sun',12)} توی امروز</span>` : ''}
           </div>
           ${r.note ? `<div class="task-notes" dir="auto">${escapeHtml(r.note)}</div>` : ''}
         </div>
         <div class="ti-actions" onclick="event.stopPropagation()">
           ${!done && !inToday ? `<button class="item-edit" onclick="sendHomeJobToToday('repair', '${r.id}')" title="بفرست به امروز">${icon('sun',15)}</button>` : ''}
+          <button class="item-edit" onclick="openRepairEditor('${r.id}')" title="ویرایش">${icon('pencil',15)}</button>
           <button class="item-del" onclick="deleteRepair('${r.id}')" title="حذف">✕</button>
         </div>
       </div>
@@ -7239,7 +7241,7 @@ function renderRepairsDoneTab(){
     .reduce((s, r) => s + (r.actualCost || 0), 0);
   const spentAll = done.reduce((s, r) => s + (r.actualCost || 0), 0);
   return `
-    ${spentAll ? `<div class="purchases-total">خرج تعمیرات امسال: ${fmtToman(spentYear)}${spentAll !== spentYear ? ` · از اول: ${fmtToman(spentAll)}` : ''}</div>` : ''}
+    ${spentAll ? `<div class="purchases-total">خرج تعمیرات امسال: ${fmtDinar(spentYear)}${spentAll !== spentYear ? ` · از اول: ${fmtDinar(spentAll)}` : ''}</div>` : ''}
     ${done.length ? done.map(renderRepairRow).join('') : `<div class="empty-state">هنوز تعمیری تموم نشده</div>`}
   `;
 }
@@ -7330,6 +7332,7 @@ function renderMaintRow(m){
         <div class="ti-actions" onclick="event.stopPropagation()">
           ${cls && !inToday ? `<button class="item-edit" onclick="sendHomeJobToToday('maint', '${m.id}')" title="بفرست به امروز">${icon('sun',15)}</button>` : ''}
           <button class="item-edit" onclick="markMaintDone('${m.id}')" title="انجامش دادم">${icon('check',15)}</button>
+          <button class="item-edit" onclick="openMaintEditor('${m.id}')" title="ویرایش">${icon('pencil',15)}</button>
           <button class="item-del" onclick="deleteMaint('${m.id}')" title="حذف">✕</button>
         </div>
       </div>
@@ -7390,7 +7393,7 @@ function renderRepairDoneModal(){
       <div class="modal-box">
         <h3>درست شد</h3>
         <div class="modal-section">
-          <span class="modal-section-label">«${escapeHtml(r.title)}» در کل چقدر خرج داشت؟ (تومان)</span>
+          <span class="modal-section-label">«${escapeHtml(r.title)}» در کل چقدر خرج داشت؟ (دینار)</span>
           <input type="text" inputmode="numeric" class="repair-cost-input" value="${escapeAttr(m.cost)}"
             oninput="state.repairDoneModal.cost=normalizeNumericInput(this)"
             onkeydown="if(event.key==='Enter'){event.preventDefault(); saveRepairDoneCost();}" />
@@ -7643,7 +7646,7 @@ function renderRepairEditorModal(){
           </div>
         ` : ''}
         <div class="modal-section">
-          <span class="modal-section-label">هزینه (تومان)</span>
+          <span class="modal-section-label">هزینه (دینار)</span>
           <div class="repair-cost-row">
             <label>تخمینی<input type="text" inputmode="numeric" class="repair-cost-input" value="${escapeAttr(ed.estCost)}" oninput="state.repairEditor.estCost=normalizeNumericInput(this)" /></label>
             <label>واقعی<input type="text" inputmode="numeric" class="repair-cost-input" value="${escapeAttr(ed.actualCost)}" oninput="state.repairEditor.actualCost=normalizeNumericInput(this)" /></label>
