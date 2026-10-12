@@ -253,7 +253,7 @@ async function reportFor(sb: SupabaseClient, uid: string, force: boolean, apiKey
   // «انگلیسی»: homework from the class cut into chunks, the daily minimum, and why chunks got skipped
   const { data: enSettings } = await sb
     .from("english_settings")
-    .select("class_days, class_time, practice_time")
+    .select("class_days, class_time, class_times, practice_time")
     .eq("user_id", uid)
     .maybeSingle();
   const { data: enHomework } = await sb
@@ -488,8 +488,8 @@ async function reportFor(sb: SupabaseClient, uid: string, force: boolean, apiKey
   }));
   const enParts: string[] = [];
   if (enSettings || (enHomework || []).length || enDays.size) {
-    const classDays = (enSettings?.class_days || []).map((d: number) => EN_WEEKDAYS[d]).join("، ");
-    if (classDays) enParts.push(`روزهای کلاس: ${classDays} ساعت ${enSettings!.class_time}؛ ساعت تمرین روزانه‌ای که خودش گذاشته: ${enSettings!.practice_time}`);
+    const classDays = (enSettings?.class_days || []).map((d: number) => `${EN_WEEKDAYS[d]} ساعت ${(enSettings!.class_times || {})[d] || enSettings!.class_time}`).join("، ");
+    if (classDays) enParts.push(`روزهای کلاس: ${classDays}؛ ساعت تمرین روزانه‌ای که خودش گذاشته: ${enSettings!.practice_time}`);
     enParts.push(`روزهایی که تمرین کرد (یه تکه از تکلیف یا حداقلِ ۵ دقیقه‌ای): ${enDaysIn(dk(periodStart), today)} از ${REPORT_PERIOD_DAYS} روز، بازه‌ی قبل: ${enDaysIn(dk(prevPeriodStart), dk(prevPeriodEnd))}`);
     for (const h of enHomework || []) {
       const mine = (enChunks || []).filter((c: any) => c.homework_id === h.id);

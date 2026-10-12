@@ -2065,7 +2065,7 @@ let state = {
   repairEditor: null,
   repairDoneModal: null, // { id, cost } — "what did it cost?" right after ticking a repair off
   maintEditor: null,
-  englishSettings: null, // { classDays:[getDay()…], classTime, classMinutes, practiceTime, push } — null until saved once (defaults apply)
+  englishSettings: null, // { classDays:[getDay()…], classTime, classTimes:{getDay():'HH:MM'}, classMinutes, practiceTime, push } — null until saved once (defaults apply)
   englishHomework: [], // [{ id, title, unit, assignedOn, dueOn, createdAt }]
   englishChunks: [], // [{ id, homeworkId, title, minutes, day, position, done, doneAt, skips:[{ day, reason }], createdAt }]
   englishPractice: [], // [{ day, createdAt }] — days the 5-minute minimum was ticked
@@ -7849,7 +7849,7 @@ async function confirmMaintEditor(){
    missed, and class days don't count either way. The timed pushes (after
    class, daily practice time, the night before a class) are in send-push's
    englishFor — keep the class-day rules there in step with the ones here. */
-const DEFAULT_ENGLISH_SETTINGS = { classDays:[], classTime:'18:00', classMinutes:90, practiceTime:'20:00', push:true };
+const DEFAULT_ENGLISH_SETTINGS = { classDays:[], classTime:'18:00', classTimes:{}, classMinutes:90, practiceTime:'20:00', push:true };
 const EN_SKIP_REASONS = { time:'وقت نشد', hard:'سخت بود', forgot:'یادم رفت', mood:'حوصله نداشتم' };
 const EN_WEEKDAY_SHORT = ['ی','د','س','چ','پ','ج','ش']; // getDay() order
 // what the 5-minute minimum can be, one per weekday so it isn't the same line every day
@@ -7868,6 +7868,7 @@ const EN_PLAN_MAX_DAYS = 14;
 function englishSettingsFromRow(r){
   return {
     classDays:(r.class_days || []).map(Number), classTime:r.class_time || '18:00',
+    classTimes:(r.class_times && typeof r.class_times === 'object') ? r.class_times : {},
     classMinutes:Number(r.class_minutes) || 90, practiceTime:r.practice_time || '20:00', push:r.push !== false,
   };
 }
@@ -7887,10 +7888,12 @@ function enAddDays(key, n){ const d = new Date(key + 'T00:00:00'); d.setDate(d.g
 const enWeekday = key => new Date(key + 'T00:00:00').getDay();
 const enIsClassDay = key => englishSettings().classDays.includes(enWeekday(key));
 const enMinutesOf = t => { const [h, m] = String(t || '').split(':').map(Number); return (h || 0) * 60 + (m || 0); };
+// each class day can start at its own time; a day without one uses the general classTime
+const enClassTime = weekday => { const s = englishSettings(); return (s.classTimes || {})[weekday] || s.classTime; };
 function enNowMin(){ const d = new Date(); return d.getHours() * 60 + d.getMinutes(); }
 function enClassEndedToday(){
-  const s = englishSettings();
-  return enIsClassDay(dateKey(new Date())) && enNowMin() >= enMinutesOf(s.classTime) + s.classMinutes;
+  const today = dateKey(new Date());
+  return enIsClassDay(today) && enNowMin() >= enMinutesOf(enClassTime(enWeekday(today))) + englishSettings().classMinutes;
 }
 // the first class day after `key` — null while no class days are set
 function enNextClass(key){
@@ -7909,7 +7912,7 @@ function enLastClass(){
 // the class this homework is for: today's if it hasn't started yet, else the next one
 function enUpcomingClass(){
   const today = dateKey(new Date());
-  if(enIsClassDay(today) && enNowMin() < enMinutesOf(englishSettings().classTime)) return today;
+  if(enIsClassDay(today) && enNowMin() < enMinutesOf(enClassTime(enWeekday(today)))) return today;
   return enNextClass(today);
 }
 function enDayLabel(key){
@@ -8032,7 +8035,7 @@ function renderEnglishTodayCard(){
   return `
     <div class="mother-card en-card">
       <div class="mother-card-kicker">
-        <span>${icon('book',14)} انگلیسی${classLater ? ` — امروز ساعت ${toFaDigits(s.classTime)} کلاس داری` : ''}</span>
+        <span>${icon('book',14)} انگلیسی${classLater ? ` — امروز ساعت ${toFaDigits(enClassTime(enWeekday(today)))} کلاس داری` : ''}</span>
         <span class="en-kicker-streak ${streak ? '' : 'cold'}" title="روزهای پیاپی تمرین">${icon('flame',13)} ${toFaDigits(streak)}</span>
       </div>
       ${askFor && !state.englishPlanning ? `
@@ -8202,10 +8205,15 @@ function renderEnglishSettingsTab(){
       <div class="quick-group">
         ${WEEKDAY_DISPLAY_ORDER.map(d => `<span class="quick-chip ${s.classDays.includes(d)?'active':''}" onclick="toggleEnglishClassDay(${d})">${WEEKDAYS_FA[d]}</span>`).join('')}
       </div>
+      ${s.classDays.length ? `
+        <span class="modal-section-label" style="margin:14px 0 0">ساعت شروع کلاس</span>
+        <div class="en-time-row" style="margin-top:8px">
+          ${WEEKDAY_DISPLAY_ORDER.filter(d => s.classDays.includes(d)).map(d => `
+            <label>${WEEKDAYS_FA[d]}
+              <input type="time" value="${escapeAttr(enClassTime(d))}" onchange="if(this.value) setEnglishClassTime(${d}, this.value)" />
+            </label>`).join('')}
+        </div>` : ''}
       <div class="en-time-row">
-        <label>ساعت شروع کلاس
-          <input type="time" value="${escapeAttr(s.classTime)}" onchange="if(this.value) saveEnglishSettings({ classTime:this.value })" />
-        </label>
         <label>ساعت تمرین روزانه
           <input type="time" value="${escapeAttr(s.practiceTime)}" onchange="if(this.value) saveEnglishSettings({ practiceTime:this.value })" />
         </label>
@@ -8230,12 +8238,15 @@ async function saveEnglishSettings(patch){
   state.englishSettings = next;
   render();
   await persist(sb.from('english_settings').upsert({
-    class_days: next.classDays, class_time: next.classTime, class_minutes: next.classMinutes,
+    class_days: next.classDays, class_time: next.classTime, class_times: next.classTimes || {}, class_minutes: next.classMinutes,
     practice_time: next.practiceTime, push: next.push, updated_at: new Date().toISOString(),
   }, { onConflict:'user_id' }), {
     message: 'تنظیمات انگلیسی ذخیره نشد — اینترنتت رو چک کن و دوباره امتحان کن.',
     rollback: () => { state.englishSettings = before; },
   });
+}
+function setEnglishClassTime(d, time){
+  saveEnglishSettings({ classTimes: { ...(englishSettings().classTimes || {}), [d]: time } });
 }
 function toggleEnglishClassDay(d){
   const days = englishSettings().classDays;

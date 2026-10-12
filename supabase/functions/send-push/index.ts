@@ -139,6 +139,9 @@ const hhmmToMin = (t: string) => { const [h, m] = String(t || "").split(":").map
 const weekdayOf = (day: string) => new Date(day + "T00:00:00Z").getUTCDay();
 const localDayOf = (iso: string) => new Date(Date.parse(iso) + TZ_OFFSET_HOURS * 3600_000).toISOString().slice(0, 10);
 
+// each class day can start at its own time (class_times); a day without one uses class_time
+const classTimeOn = (s: any, day: string) => (s.class_times || {})[weekdayOf(day)] || s.class_time;
+
 async function englishData(sb: SupabaseClient, uid: string, today: string) {
   const [chunks, practice] = await Promise.all([
     sb.from("english_chunks").select("title, minutes, day, done, done_at, homework_id, position").eq("user_id", uid)
@@ -156,14 +159,14 @@ async function englishData(sb: SupabaseClient, uid: string, today: string) {
 
 // the 08:00 digest's one line about English: what's on today, and whether it's a class day
 async function englishDigestLine(sb: SupabaseClient, uid: string, today: string): Promise<string> {
-  const { data: s } = await sb.from("english_settings").select("class_days, class_time").eq("user_id", uid).maybeSingle();
+  const { data: s } = await sb.from("english_settings").select("class_days, class_time, class_times").eq("user_id", uid).maybeSingle();
   const { open } = await englishData(sb, uid, today);
   const due = open.filter((c: any) => c.day <= today);
   const classToday = !!s && (s.class_days || []).map(Number).includes(weekdayOf(today));
   const mins = due.reduce((n: number, c: any) => n + (c.minutes || 0), 0);
-  if (classToday && open.length) return `انگلیسی: امروز ساعت ${fa(s!.class_time)} کلاس داری و ${fa(open.length)} تکه از تکلیف مونده`;
+  if (classToday && open.length) return `انگلیسی: امروز ساعت ${fa(classTimeOn(s, today))} کلاس داری و ${fa(open.length)} تکه از تکلیف مونده`;
   if (due.length) return `انگلیسی: ${fa(due.length)} تکه برای امروز (${fa(mins)} دقیقه)`;
-  if (classToday) return `انگلیسی: امروز ساعت ${fa(s!.class_time)} کلاس داری`;
+  if (classToday) return `انگلیسی: امروز ساعت ${fa(classTimeOn(s, today))} کلاس داری`;
   return "";
 }
 
@@ -177,7 +180,7 @@ async function englishFor(sb: SupabaseClient, uid: string): Promise<Payload[]> {
   const days: number[] = (s.class_days || []).map(Number);
   const pushed: Record<string, string> = { ...(s.pushed || {}) };
   const classToday = days.includes(weekdayOf(today));
-  const classStart = hhmmToMin(s.class_time);
+  const classStart = hhmmToMin(classTimeOn(s, today));
   const classEnd = Math.min(classStart + (s.class_minutes || 90), 23 * 60 + 50);
   const practiceAt = hhmmToMin(s.practice_time);
   const inWindow = (at: number) => nowMin >= at && nowMin < at + ENGLISH_WINDOW_MIN;
