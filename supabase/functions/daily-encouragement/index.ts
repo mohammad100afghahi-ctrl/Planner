@@ -238,9 +238,9 @@ ${status}
       },
       body: JSON.stringify({
         model: "claude-sonnet-5",
-        max_tokens: 200,
-        // Sonnet 5 thinks by default, which would eat this small token budget
-        thinking: { type: "disabled" },
+        // Sonnet 5 thinks by default; the budget leaves room for it, so a second
+        // thought about the pick happens there and not in the text itself
+        max_tokens: 2000,
         messages: [{ role: "user", content: prompt }],
       }),
     });
@@ -253,6 +253,11 @@ ${status}
 
     const aiData = await aiRes.json();
     let text = (aiData.content?.find((b: any) => b.type === "text")?.text || "").replace(/\s*\n\s*/g, " ").trim();
+    // a quote day is one «جمله» — گوینده; if the model changed its mind out loud, the last one is its pick
+    if (quoteDay) {
+      const quotes = text.match(/«[^«»]+»\s*[—–-]\s*[^«»]+/g);
+      if (quotes) text = quotes[quotes.length - 1].trim();
+    }
 
     // Keep it for the rest of the day. If a parallel call (two tabs opening at
     // once) got there first, its row wins and both show the same text.
