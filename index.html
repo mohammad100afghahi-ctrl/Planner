@@ -9195,8 +9195,13 @@ function renderRestoreModal(){
    loads until there's a session. The account is created in the Supabase
    dashboard (sign-ups are off), which is why there's no register form here. */
 let appStarted = false;
+/* Separate from appStarted: paintLocalCopyEarly() sets that one as soon as the
+   on-device copy is on screen, which is usually before the login token has
+   been refreshed — bootApp() must still run once after it. */
+let appBooted = false;
 function bootApp(){
-  if(appStarted) return;
+  if(appBooted) return;
+  appBooted = true;
   startApp();
   loadAll();
   loadEncouragement();
@@ -9229,6 +9234,7 @@ let loginShown = false;
 function renderLogin(){
   loginShown = true;
   appStarted = false; // an early-painted local copy must not render over the form
+  appBooted = false;
   document.body.classList.add('signed-out');
   document.getElementById('app').innerHTML = `
     <form class="login" onsubmit="submitLogin(event)">
