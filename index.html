@@ -6613,7 +6613,7 @@ function renderEncouragement(){
 async function loadEncouragement(){
   const todayStr = dateKey(new Date());
   try{
-    const cached = JSON.parse(localStorage.getItem('medar-encouragement-v4') || 'null');
+    const cached = JSON.parse(localStorage.getItem('medar-encouragement-v5') || 'null');
     if(cached && cached.date === todayStr && cached.text){
       state.encouragement = cached;
       render();
@@ -6625,7 +6625,7 @@ async function loadEncouragement(){
     if(error || !data || !data.text) return;
     const fresh = { date: todayStr, text: data.text };
     state.encouragement = fresh;
-    try{ localStorage.setItem('medar-encouragement-v4', JSON.stringify(fresh)); }catch(_e){}
+    try{ localStorage.setItem('medar-encouragement-v5', JSON.stringify(fresh)); }catch(_e){}
     render();
   }catch(_e){ /* offline or function down — the line is optional, skip silently */ }
 }
@@ -9281,7 +9281,7 @@ async function signOut(){
     ? `\n\n${toFaDigits(outbox.length)} تغییر هنوز روی سرور ذخیره نشده و با خروج از بین می‌ره.`
     : '';
   if(!confirm('از حسابت خارج بشی؟' + unsynced)) return;
-  try{ localStorage.removeItem('medar-encouragement-v4'); }catch(_e){}
+  try{ localStorage.removeItem('medar-encouragement-v5'); }catch(_e){}
   // the outbox and the snapshot belong to this account — don't leave them for the next one
   dataLoaded = false;
   clearTimeout(snapshotTimer); snapshotTimer = null;
