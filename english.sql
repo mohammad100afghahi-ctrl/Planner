@@ -44,6 +44,8 @@ create table if not exists public.english_chunks (
   position    smallint not null default 0,
   done        boolean not null default false,
   done_at     timestamptz,
+  actual_min  smallint check (actual_min is null or actual_min between 1 and 600),  -- asked when it's ticked; counts toward the «انگلیسی» weekly goal
+  difficulty  text check (difficulty is null or difficulty in ('easy','medium','hard')),
   skips       jsonb not null default '[]'::jsonb,  -- [{ day, reason: time|hard|forgot|mood }] — «چرا نشد؟»
   created_at  timestamptz not null default now()
 );

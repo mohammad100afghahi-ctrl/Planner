@@ -2086,7 +2086,7 @@ let state = {
   backups: null, // [{ id, kind:'auto'|'download'|'pre-restore', createdAt, counts }] — server copies, newest first
   backupBusy: false,
   restorePreview: null, // { payload, backupId, label, counts, mode:'merge'|'replace' } while confirming a restore
-  taskCompletionModal: null, // { taskId, minutes, difficulty } shown right after checking a task done
+  taskCompletionModal: null, // { taskId | chunkId, minutes, difficulty } shown right after checking a task (or an English chunk) done
   aiReports: [], // [{ id, periodStart, periodEnd, text, createdAt, seenAt }]
   aiReportGenerating: false,
   aiReportError: null,
@@ -3291,7 +3291,22 @@ function computeTagWeeklyMinutes(tagId){
       const relevantDate = (t.done && t.completedAt) ? dateKey(new Date(t.completedAt)) : t.date;
       return relevantDate && relevantDate >= start && relevantDate <= end;
     })
-    .reduce((s,t) => s + taskGoalMinutes(t), 0);
+    .reduce((s,t) => s + taskGoalMinutes(t), 0)
+    + (isEnglishTag(tagId) ? englishChunkMinutesBetween(start, end) : 0);
+}
+/* Homework chunks aren't tasks, so they carry no tag — a finished chunk counts
+   toward the weekly goal of the tag named «انگلیسی» (generate-ai-report does
+   the same; keep the two in step). Real minutes if they were given when it was
+   ticked, the planned ones otherwise — same rule as taskGoalMinutes. */
+function isEnglishTag(tagId){
+  const tag = state.tags.find(t => t.id === tagId);
+  return !!tag && /انگلیسی|english/i.test(tag.name);
+}
+function englishChunkMinutesBetween(start, end){
+  return (state.englishChunks || []).filter(c => c.done).reduce((n, c) => {
+    const day = c.doneAt ? dateKey(new Date(c.doneAt)) : c.day;
+    return day >= start && day <= end ? n + (c.actualMin || c.minutes) : n;
+  }, 0);
 }
 async function setTagGoal(tagId, weeklyMinutes){
   const existing = state.tagGoals.find(g => g.tagId === tagId);
@@ -3640,6 +3655,7 @@ async function addActualMinToTask(taskId, deltaMin){
 }
 async function confirmTaskCompletion(){
   const m = state.taskCompletionModal;
+  if(m.chunkId) return confirmEnglishCompletion(m);
   const t = state.tasks.find(t => t.id === m.taskId);
   state.taskCompletionModal = null;
   if(!t) return;
@@ -7931,6 +7947,7 @@ function englishChunkFromRow(r){
   return {
     id:r.id, homeworkId:r.homework_id, title:r.title || '', minutes:Number(r.minutes) || 10, day:r.day,
     position:r.position || 0, done:!!r.done, doneAt:r.done_at || null,
+    actualMin:r.actual_min || null, difficulty:r.difficulty || null,
     skips:Array.isArray(r.skips) ? r.skips : [], createdAt:r.created_at,
   };
 }
@@ -8037,7 +8054,8 @@ function renderEnglishChunk(c, { showDay, canDelete } = {}){
       <div class="en-chunk-main">
         <div class="en-chunk-title">${escapeHtml(c.title)}</div>
         <div class="en-chunk-meta">
-          <span>${toFaDigits(c.minutes)} دقیقه</span>
+          <span>${toFaDigits(c.done && c.actualMin ? c.actualMin : c.minutes)} دقیقه</span>
+          ${c.done && c.difficulty ? `<span>${DIFFICULTY_LABEL[c.difficulty]}</span>` : ''}
           ${showDay && !late && !c.done ? `<span>${enDayLabel(c.day)}</span>` : ''}
           ${late ? `<span class="en-late">${lateBy === 1 ? 'از دیروز جا مونده' : `${toFaDigits(lateBy)} روزه جا مونده`}</span>` : ''}
         </div>
@@ -8397,11 +8415,27 @@ async function addEnglishHomework(){
 async function toggleEnglishChunk(id){
   const c = state.englishChunks.find(x => x.id === id);
   if(!c) return;
-  const before = { done:c.done, doneAt:c.doneAt };
+  const before = { done:c.done, doneAt:c.doneAt, actualMin:c.actualMin, difficulty:c.difficulty };
   c.done = !c.done;
   c.doneAt = c.done ? new Date().toISOString() : null;
+  // unticking takes the logged time and difficulty back with it
+  if(!c.done){ c.actualMin = null; c.difficulty = null; }
+  // same question a finished task gets; the planned minutes are the starting answer
+  if(c.done) state.taskCompletionModal = { chunkId:id, minutes:c.minutes, difficulty:null };
   render();
-  await persist(sb.from('english_chunks').update({ done:c.done, done_at:c.doneAt }).eq('id', id), {
+  await persist(sb.from('english_chunks').update({ done:c.done, done_at:c.doneAt, actual_min:c.actualMin, difficulty:c.difficulty }).eq('id', id), {
+    rollback: () => { Object.assign(c, before); if(state.taskCompletionModal && state.taskCompletionModal.chunkId === id) state.taskCompletionModal = null; },
+  });
+}
+async function confirmEnglishCompletion(m){
+  state.taskCompletionModal = null;
+  const c = state.englishChunks.find(x => x.id === m.chunkId);
+  if(!c || !c.done){ render(); return; }
+  const before = { actualMin:c.actualMin, difficulty:c.difficulty };
+  c.actualMin = m.minutes && m.minutes > 0 ? Math.min(600, m.minutes) : null;
+  c.difficulty = m.difficulty || null;
+  render();
+  await persist(sb.from('english_chunks').update({ actual_min:c.actualMin, difficulty:c.difficulty }).eq('id', c.id), {
     rollback: () => { Object.assign(c, before); },
   });
 }
@@ -8945,16 +8979,16 @@ function renderSubnav(){
 }
 function renderTaskCompletionModal(){
   const m = state.taskCompletionModal;
-  const t = state.tasks.find(t => t.id === m.taskId);
+  const t = m.chunkId ? (state.englishChunks || []).find(c => c.id === m.chunkId) : state.tasks.find(t => t.id === m.taskId);
   if(!t){ state.taskCompletionModal = null; return ''; }
-  const quickVals = [15,30,45,60];
+  const quickVals = m.chunkId ? [5,10,15,20,30] : [15,30,45,60];
   const customVal = (m.minutes && !quickVals.includes(m.minutes)) ? m.minutes : '';
   return `
     <div class="modal-overlay" onclick="if(event.target===this) skipTaskCompletion()">
       <div class="modal-box">
         <h3>✓ ${escapeHtml(t.title)}</h3>
         <div class="modal-section">
-          <span class="modal-section-label">چقدر واقعاً طول کشید؟ (اختیاری)</span>
+          <span class="modal-section-label">چقدر واقعاً طول کشید؟ ${m.chunkId ? '(دقیقه — می‌ره توی هدف هفتگیِ انگلیسی)' : '(اختیاری)'}</span>
           <div class="quick-group">
             ${quickVals.map(v => `<span class="quick-chip ${m.minutes===v?'active':''}" onclick="completionSetMinutes(${v})">${toFaDigits(v)}</span>`).join('')}
             <input type="text" inputmode="numeric" class="num-text" placeholder="سفارشی" value="${customVal}"

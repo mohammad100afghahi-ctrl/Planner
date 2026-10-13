@@ -264,7 +264,7 @@ async function reportFor(sb: SupabaseClient, uid: string, force: boolean, apiKey
     .order("due_on", { ascending: true });
   const { data: enChunks } = await sb
     .from("english_chunks")
-    .select("homework_id, minutes, day, done, done_at, skips")
+    .select("homework_id, minutes, actual_min, difficulty, day, done, done_at, skips")
     .eq("user_id", uid)
     .gte("day", dk(new Date(prevPeriodStart.getTime() - 30 * 86400000)));
   const { data: enPractice } = await sb
@@ -312,6 +312,16 @@ async function reportFor(sb: SupabaseClient, uid: string, force: boolean, apiKey
         actual += t.actual_min;
       }
     });
+    // finished homework chunks aren't tasks and carry no tag: they count toward
+    // the tag named «انگلیسی», as the app's weekly goal does (isEnglishTag there)
+    const enTag = (tags || []).find((t: any) => /انگلیسی|english/i.test(t.name || ""));
+    if (enTag) {
+      (enChunks || []).forEach((c: any) => {
+        if (!c.done) return;
+        const d = c.done_at ? dk(localDate(c.done_at)) : c.day;
+        if (d >= fromKey && d <= toKey) byTagMinutes[enTag.id] = (byTagMinutes[enTag.id] || 0) + (c.actual_min || c.minutes || 0);
+      });
+    }
     const finished = (completions || []).filter((c: any) => {
       const d = dk(localDate(c.completed_at));
       return d >= fromKey && d <= toKey;
@@ -499,6 +509,18 @@ async function reportFor(sb: SupabaseClient, uid: string, force: boolean, apiKey
       const left = mine.filter((c: any) => !c.done).length;
       const when = h.due_on <= today ? `تا کلاس ${h.due_on}` : `کلاس ${h.due_on} هنوز نرسیده`;
       enParts.push(`- تکلیف "${clip(h.title, 80)}"${h.unit ? ` (${h.unit})` : ''}: ${when}، ${onTime} از ${mine.length} تکه انجام شد${lateDone ? `، ${lateDone} تکه بعد از کلاس` : ''}${left ? `، ${left} تکه هنوز مونده` : ''}`);
+    }
+    // time and difficulty he logged when ticking a chunk (this period)
+    const enDoneNow = (enChunks || []).filter((c: any) => { const d = enDoneDay(c); return d && d >= dk(periodStart) && d <= today; });
+    if (enDoneNow.length) {
+      const mins = enDoneNow.reduce((n: number, c: any) => n + (c.actual_min || c.minutes || 0), 0);
+      const timed = enDoneNow.filter((c: any) => c.actual_min > 0);
+      const plannedT = timed.reduce((n: number, c: any) => n + (c.minutes || 0), 0);
+      const actualT = timed.reduce((n: number, c: any) => n + c.actual_min, 0);
+      const diff: Record<string, number> = {};
+      enDoneNow.forEach((c: any) => { if (c.difficulty) diff[c.difficulty] = (diff[c.difficulty] || 0) + 1; });
+      const diffTxt = [["easy", "راحت"], ["medium", "معمولی"], ["hard", "سخت"]].filter(([k]) => diff[k]).map(([k, l]) => `${l} ${diff[k]}`).join('، ');
+      enParts.push(`تکه‌های انجام‌شده‌ی این بازه: ${enDoneNow.length} تکه، روی‌هم ${mins} دقیقه (توی هدف هفتگیِ تگ انگلیسی هم حساب شده)${timed.length ? `؛ برای ${timed.length} تکه زمان واقعی ثبت کرده: ${actualT} دقیقه در برابر ${plannedT} دقیقه‌ی تخمینی` : ''}${diffTxt ? `؛ سختی‌ای که خودش زده: ${diffTxt}` : ''}`);
     }
     if (!(enHomework || []).length) enParts.push('توی این بازه تکلیفی ثبت نکرده (یا تکلیف نداشته، یا بعد از کلاس ثبتش نکرده)');
     const reasonTxt = Object.entries(enReasons).sort((a, b) => b[1] - a[1]).map(([r, n]) => `«${EN_REASONS[r] || r}» ${n} بار`).join('، ');
