@@ -8,7 +8,8 @@ import webpush from "npm:web-push@3.6.7";
      x-cron-secret + {action:"notify", user_id, title, body, tag}
                                         — generate-ai-report: the weekly review is ready
      x-cron-secret + {action:"english"}  — the every-10-minutes pg_cron job: «انگلیسی» nudges
-                                          that are due right now (see englishFor)
+                                          that are due right now (see englishFor), and the
+                                          21:00 / 23:00 streak warning (see streakFor)
      user JWT + {action:"publicKey"}     — the app asks for the VAPID public key before subscribing
      user JWT + {action:"test"}          — «ارسال اعلان آزمایشی»: the caller's digest right now
    The morning digest is up to four notifications, each with its own tag so one
@@ -246,6 +247,78 @@ async function englishFor(sb: SupabaseClient, uid: string): Promise<Payload[]> {
   return out;
 }
 
+/* ---------- استریک ----------
+   The same replay as computeStreak() in index.html — keep the two in step: a
+   day counts when a task was finished on it, every STREAK_FREEZE_EVERY active
+   days earn a freeze (at most STREAK_FREEZE_MAX), a missed day spends one.
+   streakFor() rides the every-10-minutes `english-push` cron and warns at
+   21:00 and 23:00 while today is still empty. Nothing is stored: each time is
+   a 10-minute window, and the cron lands in it exactly once. */
+const STREAK_FREEZE_EVERY = 7;
+const STREAK_FREEZE_MAX = 2;
+const STREAK_NUDGES_MIN = [21 * 60, 23 * 60];
+const STREAK_CRON_MIN = 10;
+
+async function streakState(sb: SupabaseClient, uid: string, today: string) {
+  const days = new Set<string>();
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await sb.from("tasks").select("date, completed_at").eq("user_id", uid).eq("done", true)
+      .order("id", { ascending: true }).range(from, from + 999);
+    if (error) throw error;
+    for (const t of data || []) {
+      const day = t.completed_at ? localDayOf(t.completed_at) : t.date;
+      if (day) days.add(day);
+    }
+    if (!data || data.length < 1000) break;
+  }
+  let streak = 0, freezes = 0, towardFreeze = 0;
+  const first = [...days].sort()[0];
+  if (first && first <= today) {
+    for (let day = first; day <= today; day = addDaysKey(day, 1)) {
+      if (days.has(day)) {
+        streak++;
+        if (++towardFreeze >= STREAK_FREEZE_EVERY) {
+          towardFreeze = 0;
+          if (freezes < STREAK_FREEZE_MAX) freezes++;
+        }
+      } else if (day === today) {
+        // today isn't over yet
+      } else if (streak > 0 && freezes > 0) {
+        freezes--;
+      } else {
+        streak = 0; towardFreeze = 0;
+      }
+    }
+  }
+  return { streak, freezes, doneToday: days.has(today) };
+}
+
+async function streakFor(sb: SupabaseClient, uid: string): Promise<Payload[]> {
+  const local = new Date(Date.now() + TZ_OFFSET_HOURS * 3600_000);
+  const nowMin = local.getUTCHours() * 60 + local.getUTCMinutes();
+  const slot = STREAK_NUDGES_MIN.findIndex((at) => nowMin >= at && nowMin < at + STREAK_CRON_MIN);
+  if (slot < 0) return [];
+  const { streak, freezes, doneToday } = await streakState(sb, uid, local.toISOString().slice(0, 10));
+  if (!streak || doneToday) return [];
+  const cost = freezes ? "وگرنه یه فریز خرج می‌شه" : "فریز هم نداری، وگرنه صفر می‌شه";
+  return [{
+    title: slot === STREAK_NUDGES_MIN.length - 1
+      ? `یه ساعت تا نیمه‌شب — استریک ${fa(streak)} روزه`
+      : `استریک ${fa(streak)} روزه‌ت در خطره`,
+    body: `امروز هنوز کاری تموم نکردی. یه کار کوچیک هم کافیه — ${cost}.`,
+    tag: "medar-streak",
+  }];
+}
+
+// what the every-10-minutes cron sends; one part failing must not silence the other
+async function timedFor(sb: SupabaseClient, uid: string): Promise<Payload[]> {
+  const out: Payload[] = [];
+  for (const part of [englishFor, streakFor]) {
+    try { out.push(...await part(sb, uid)); } catch (e) { console.error(part.name, e); }
+  }
+  return out;
+}
+
 async function digestFor(sb: SupabaseClient, uid: string): Promise<Payload[]> {
   const today = localToday();
   const [rem, subs, tasks, backups, review, care, careItems, repairs, maint] = await Promise.all([
@@ -316,6 +389,11 @@ async function digestFor(sb: SupabaseClient, uid: string): Promise<Payload[]> {
   const repairLine = repairs.error ? "" : urgentRepairsLine(repairs.data || []);
   let englishLine = "";
   try { englishLine = await englishDigestLine(sb, uid, today); } catch (e) { console.error("english digest", e); }
+  let streakLine = "";
+  try {
+    const { streak } = await streakState(sb, uid, today);
+    if (streak) streakLine = `استریک: ${fa(streak)} روز — امروز هم یه کار تموم کن`;
+  } catch (e) { console.error("streak digest", e); }
 
   const out: Payload[] = [];
   if (items.length || taskCount || repairLine || englishLine) {
@@ -325,6 +403,7 @@ async function digestFor(sb: SupabaseClient, uid: string): Promise<Payload[]> {
     if (items.length > 3) lines.push(`و ${fa(items.length - 3)} مورد دیگه`);
     if (repairLine) lines.push(repairLine);
     if (englishLine) lines.push(englishLine);
+    if (streakLine) lines.push(streakLine);
     out.push({
       title: items.some((i) => i.n <= 0) ? "مدار — امروز یادت نره" : "مدار — صبح بخیر",
       body: lines.join("\n"),
@@ -398,7 +477,7 @@ Deno.serve(async (req: Request) => {
       // one account's failure must not stop the cron from reaching the others
       for (const uid of new Set((rows || []).map((r: any) => r.user_id as string))) {
         try {
-          const d = action === "english" ? await englishFor(sb, uid) : await digestFor(sb, uid);
+          const d = action === "english" ? await timedFor(sb, uid) : await digestFor(sb, uid);
           results.push(d.length ? await sendAll(sb, uid, d) : { skipped: "nothing today" });
         } catch (e) {
           console.error(e);
