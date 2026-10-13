@@ -1458,6 +1458,41 @@ global.jalaali = {
     border-inline-start:1px solid var(--line); color:var(--python); font-size:13px; font-weight:700;
   }
   .streak-freeze.empty{color:var(--text-muted); opacity:.6;}
+  button.streak-badge{font:inherit; color:inherit; cursor:pointer; text-align:inherit;}
+  button.streak-badge:hover{border-color:var(--line-strong);}
+  .streak-chev{display:inline-flex; color:var(--text-muted); transform:rotate(90deg); margin-inline-start:2px;}
+
+  /* streak panel */
+  .streak-hero{display:flex; align-items:center; gap:14px; margin-bottom:6px;}
+  .streak-hero-flame{display:inline-flex; color:var(--accent);}
+  .streak-hero.at-risk .streak-hero-flame, .streak-hero.at-risk .streak-hero-num{color:var(--text-muted);}
+  .streak-hero-num{font-family:var(--display); font-size:54px; font-weight:700; line-height:.9; color:var(--accent); font-variant-numeric:tabular-nums;}
+  .streak-hero-label{font-size:13px; font-weight:700; color:var(--text);}
+  .streak-hero-since{font-size:11.5px; color:var(--text-muted); margin-top:3px;}
+  .streak-status{font-size:12.5px; line-height:1.8; color:var(--text-muted); padding:10px 12px; border-radius:10px; background:var(--surface-2); border-inline-start:3px solid var(--line-strong); margin:14px 0;}
+  .streak-status.ok{border-inline-start-color:var(--accent); color:var(--text);}
+  .streak-status.risk{border-inline-start-color:var(--danger); color:var(--text);}
+  .streak-bar-row{margin-bottom:12px;}
+  .streak-bar-head{display:flex; justify-content:space-between; gap:10px; font-size:12px; color:var(--text-muted); margin-bottom:6px;}
+  .streak-bar-head b{color:var(--text); font-weight:700;}
+  .streak-bar{height:6px; border-radius:99px; background:var(--surface-3); overflow:hidden;}
+  .streak-bar i{display:block; height:100%; border-radius:99px; background:var(--accent);}
+  .streak-bar.ice i{background:var(--python);}
+  .streak-map{display:grid; grid-auto-flow:column; grid-template-rows:14px repeat(7, auto); grid-template-columns:auto; grid-auto-columns:minmax(0, 1fr); gap:3px; margin:6px 0 10px;}
+  .streak-map-wd{font-size:9.5px; color:var(--text-muted); display:flex; align-items:center; padding-inline-end:4px;}
+  .streak-map-month{font-size:9.5px; color:var(--text-muted); white-space:nowrap; width:0; overflow:visible;}
+  .streak-cell{aspect-ratio:1; border-radius:3px; background:transparent; box-shadow:inset 0 0 0 1px var(--line);}
+  .streak-cell.l1{background:color-mix(in srgb, var(--accent) 38%, var(--surface-2)); box-shadow:none;}
+  .streak-cell.l2{background:color-mix(in srgb, var(--accent) 68%, var(--surface-2)); box-shadow:none;}
+  .streak-cell.l3{background:var(--accent); box-shadow:none;}
+  .streak-cell.frozen{background:color-mix(in srgb, var(--python) 60%, var(--surface-2)); box-shadow:none;}
+  .streak-cell.miss{background:color-mix(in srgb, var(--danger) 30%, var(--surface-2)); box-shadow:none;}
+  .streak-cell.out{box-shadow:none;}
+  .streak-cell.today{outline:1.5px solid var(--text); outline-offset:1px;}
+  .streak-legend{display:flex; flex-wrap:wrap; gap:6px 14px; font-size:11px; color:var(--text-muted); margin-bottom:14px;}
+  .streak-legend span{display:inline-flex; align-items:center; gap:5px;}
+  .streak-legend .streak-cell{width:10px; display:inline-block;}
+  .streak-rules{font-size:11.5px; line-height:1.9; color:var(--text-muted); border-top:1px solid var(--line); padding-top:12px;}
 
   /* shared "pick a task from a list" pattern — used by the move-to-day calendar picker */
   .actual-time-row{font-size:11.5px; color:var(--freelance); margin-top:4px;}
@@ -2052,6 +2087,7 @@ let state = {
   winEditor: null, // { winId, title, hardship, why, tagIds, happenedOn, calendarOpen, calJY, calJM }
   winsFilterTagIds: [], // show only wins carrying ANY of these tags (empty = all)
   winSos: null, // { order:[winId…], index } while the one-at-a-time view is open
+  streakPanel: false, // the streak detail sheet opened from the badge on امروز
   motherItems: [], // [{ id, kind:'do'|'dont', category, body, createdAt }]
   motherSettings: null, // { why, remindDays:[getDay()…], showOnToday, push } — null until saved once (defaults apply)
   motherEditor: null, // { itemId, kind, category, body }
@@ -8464,28 +8500,33 @@ function renderToday(){
    automatically. A frozen day keeps the streak alive but doesn't add to it. */
 const STREAK_FREEZE_EVERY = 7;
 const STREAK_FREEZE_MAX = 2;
+const STREAK_MILESTONES = [3, 7, 14, 21, 30, 50, 75, 100, 150, 200, 300, 365, 500, 730, 1000];
+const STREAK_MAP_WEEKS = 16;
 function computeStreak(){
-  const doneDates = new Set();
+  const doneCounts = new Map(); // day -> how many tasks were finished on it
   state.tasks.forEach(t => {
     if(!t.done) return;
     // same fix as the weekly goals: a completed task counts toward the day it was
     // actually FINISHED, not the day it was originally scheduled for — otherwise
     // finishing an overdue task today never credits today's streak
     const completedKey = t.completedAt ? dateKey(new Date(t.completedAt)) : t.date;
-    if(completedKey) doneDates.add(completedKey);
+    if(completedKey) doneCounts.set(completedKey, (doneCounts.get(completedKey) || 0) + 1);
   });
 
   const todayKey = dateKey(new Date());
-  const atRisk = !doneDates.has(todayKey);
+  const atRisk = !doneCounts.has(todayKey);
 
   let streak = 0, freezes = 0, towardFreeze = 0, frozeYesterday = false;
-  const first = [...doneDates].sort()[0];
+  let best = 0, bestEnd = null, since = null;
+  const log = new Map(); // day -> 'frozen' | 'miss', for the days nothing was finished
+  const first = [...doneCounts.keys()].sort()[0];
   if(first && first <= todayKey){
     const [y, m, d] = first.split('-').map(Number);
     const cursor = new Date(y, m - 1, d);
     for(let key = dateKey(cursor); key <= todayKey; cursor.setDate(cursor.getDate() + 1), key = dateKey(cursor)){
-      if(doneDates.has(key)){
-        streak++;
+      if(doneCounts.has(key)){
+        if(++streak === 1) since = key;
+        if(streak > best){ best = streak; bestEnd = key; }
         if(++towardFreeze >= STREAK_FREEZE_EVERY){
           towardFreeze = 0;
           if(freezes < STREAK_FREEZE_MAX) freezes++;
@@ -8496,26 +8537,116 @@ function computeStreak(){
       } else if(streak > 0 && freezes > 0){
         freezes--;
         frozeYesterday = true;
+        log.set(key, 'frozen');
       } else {
-        streak = 0; towardFreeze = 0; frozeYesterday = false;
+        streak = 0; towardFreeze = 0; frozeYesterday = false; since = null;
+        log.set(key, 'miss');
       }
     }
   }
-  return { streak, atRisk, freezes, frozeYesterday };
+  return { streak, atRisk, freezes, frozeYesterday, best, bestEnd, since, towardFreeze, first, doneCounts, log };
 }
 function renderStreakBadge(){
-  const { streak, atRisk, freezes, frozeYesterday } = computeStreak();
-  const title = frozeYesterday ? 'دیروز یه فریز خرج شد و استریکت حفظ شد'
-    : atRisk ? 'امروز هنوز تسکی تکمیل نکردی — استریکت در خطره'
-    : 'امروز حفظ شد';
+  const { streak, atRisk, freezes } = computeStreak();
   return `
-    <div class="streak-badge ${atRisk ? 'at-risk' : ''}" title="${title}">
+    <button type="button" class="streak-badge ${atRisk ? 'at-risk' : ''}" onclick="openStreakPanel()" aria-label="جزئیات استریک">
       <span class="streak-flame">${icon('flame',18)}</span>
       <span class="streak-count mono">${toFaDigits(streak)}</span>
       <span class="streak-label">روز پیاپی</span>
-      <span class="streak-freeze ${freezes ? '' : 'empty'}" title="فریز: هر ${toFaDigits(STREAK_FREEZE_EVERY)} روز پیاپی یکی جایزه می‌گیری (حداکثر ${toFaDigits(STREAK_FREEZE_MAX)} تا) و روزی که جا بندازی خودکار خرج می‌شه">
+      <span class="streak-freeze ${freezes ? '' : 'empty'}">
         ${icon('snowflake',14)}<span class="mono">${toFaDigits(freezes)}</span>
       </span>
+      <span class="streak-chev">${icon('chevronDown',13)}</span>
+    </button>
+  `;
+}
+function openStreakPanel(){ state.streakPanel = true; render(); }
+function closeStreakPanel(){ state.streakPanel = false; render(); }
+function renderStreakStatus(sk){
+  const doneToday = sk.doneCounts.get(dateKey(new Date())) || 0;
+  if(doneToday) return `<div class="streak-status ok">امروز ثبت شد — ${toFaDigits(doneToday)} کار تموم کردی.</div>`;
+  if(!sk.streak) return `<div class="streak-status">الان استریکی نداری. امروز یه کار رو تموم کن تا از همین امروز شروع بشه.</div>`;
+  const now = new Date();
+  const left = 24 * 60 - (now.getHours() * 60 + now.getMinutes());
+  return `<div class="streak-status risk">
+    ${sk.frozeYesterday ? 'دیروز جا افتاد و یه فریز خرج شد. ' : ''}امروز هنوز کاری تموم نکردی — ${formatDuration(left)} تا نیمه‌شب مونده.
+    ${sk.freezes ? `اگه امروز هم جا بمونه یکی از ${toFaDigits(sk.freezes)} فریزت خرج می‌شه.` : 'فریز نداری؛ اگه امروز جا بمونه استریک صفر می‌شه.'}
+  </div>`;
+}
+/* The last STREAK_MAP_WEEKS weeks, one column per week (شنبه on top), oldest
+   first — so in this RTL page time runs right to left like everything else. */
+function renderStreakMap(sk){
+  const todayKey = dateKey(new Date());
+  const cursor = new Date();
+  cursor.setHours(12, 0, 0, 0);
+  cursor.setDate(cursor.getDate() - ((cursor.getDay() + 1) % 7) - (STREAK_MAP_WEEKS - 1) * 7);
+  let cells = `<span></span>` + ['ش','','د','','چ','','ج'].map(l => `<span class="streak-map-wd">${l}</span>`).join('');
+  for(let w = 0; w < STREAK_MAP_WEEKS; w++){
+    let month = '', col = '';
+    for(let i = 0; i < 7; i++, cursor.setDate(cursor.getDate() + 1)){
+      const key = dateKey(cursor);
+      const [, jm, jd] = gregorianToJalali(cursor.getFullYear(), cursor.getMonth() + 1, cursor.getDate());
+      if(jd === 1) month = MONTHS_JALALI[jm - 1];
+      const n = sk.doneCounts.get(key) || 0;
+      const cls = key > todayKey || !sk.first || key < sk.first ? 'out'
+        : n ? (n >= 4 ? 'l3' : n >= 2 ? 'l2' : 'l1')
+        : sk.log.get(key) || '';
+      const label = n ? `${toFaDigits(n)} کار` : cls === 'frozen' ? 'فریز' : cls === 'miss' ? 'جا افتاد' : '';
+      col += `<span class="streak-cell ${cls} ${key === todayKey ? 'today' : ''}" title="${formatDateShort(key)}${label ? ' — ' + label : ''}"></span>`;
+    }
+    cells += `<span class="streak-map-month">${month}</span>` + col;
+  }
+  return `<div class="streak-map">${cells}</div>`;
+}
+function renderStreakPanel(){
+  const sk = computeStreak();
+  const { streak, freezes, best, bestEnd, since, towardFreeze, doneCounts } = sk;
+  const next = STREAK_MILESTONES.find(m => m > streak);
+  const prev = [...STREAK_MILESTONES].reverse().find(m => m <= streak) || 0;
+  const cursor = new Date();
+  let last30 = 0;
+  for(let i = 0; i < 30; i++, cursor.setDate(cursor.getDate() - 1)) if(doneCounts.has(dateKey(cursor))) last30++;
+  const freezeFull = freezes >= STREAK_FREEZE_MAX;
+  return `
+    <div class="modal-overlay" onclick="if(event.target===this) closeStreakPanel()">
+      <div class="modal-box">
+        <div class="streak-hero ${sk.atRisk ? 'at-risk' : ''}">
+          <span class="streak-hero-flame">${icon('flame',40)}</span>
+          <span class="streak-hero-num mono">${toFaDigits(streak)}</span>
+          <div>
+            <div class="streak-hero-label">روز پیاپی</div>
+            ${since ? `<div class="streak-hero-since">از ${formatDateShort(since)}</div>` : ''}
+          </div>
+        </div>
+        ${renderStreakStatus(sk)}
+        <div class="repair-stats">
+          <div class="repair-stat"><b>${toFaDigits(best)}</b><span>رکورد${best && best === streak ? ' (همین الان)' : bestEnd ? ` — تا ${formatDateShort(bestEnd)}` : ''}</span></div>
+          <div class="repair-stat"><b>${toFaDigits(last30)}<small style="font-size:11px;color:var(--text-muted);font-weight:400;"> از ۳۰</small></b><span>روز فعال در ماه اخیر</span></div>
+          <div class="repair-stat"><b>${toFaDigits(doneCounts.size)}</b><span>کل روزهای فعال</span></div>
+        </div>
+        ${next ? `<div class="streak-bar-row">
+          <div class="streak-bar-head"><span>${icon('trophy',13)} نشان بعدی: <b>${toFaDigits(next)} روز</b></span><span>${toFaDigits(next - streak)} روز مونده</span></div>
+          <div class="streak-bar"><i style="width:${Math.round((streak - prev) / (next - prev) * 100)}%"></i></div>
+        </div>` : ''}
+        <div class="streak-bar-row">
+          <div class="streak-bar-head"><span>${icon('snowflake',13)} فریز: <b>${toFaDigits(freezes)} از ${toFaDigits(STREAK_FREEZE_MAX)}</b></span><span>${freezeFull ? 'پُره' : `${toFaDigits(STREAK_FREEZE_EVERY - towardFreeze)} روز تا فریز بعدی`}</span></div>
+          <div class="streak-bar ice"><i style="width:${freezeFull ? 100 : Math.round(towardFreeze / STREAK_FREEZE_EVERY * 100)}%"></i></div>
+        </div>
+        <span class="modal-section-label">${toFaDigits(STREAK_MAP_WEEKS)} هفته‌ی اخیر</span>
+        ${renderStreakMap(sk)}
+        <div class="streak-legend">
+          <span><i class="streak-cell l1"></i>۱ کار</span>
+          <span><i class="streak-cell l2"></i>۲–۳</span>
+          <span><i class="streak-cell l3"></i>۴ به بالا</span>
+          <span><i class="streak-cell frozen"></i>فریز</span>
+          <span><i class="streak-cell miss"></i>جا افتاد</span>
+        </div>
+        <div class="streak-rules">
+          هر روزی که دست‌کم یه کار رو تموم کنی یه روز به استریک اضافه می‌شه (روزِ تموم‌شدن حسابه، نه روزی که برنامه‌ش بود).
+          هر ${toFaDigits(STREAK_FREEZE_EVERY)} روز فعال یه فریز جایزه می‌گیری، حداکثر ${toFaDigits(STREAK_FREEZE_MAX)} تا؛ روزی که جا بندازی خودش خرج می‌شه و استریک می‌مونه، ولی اون روز شمرده نمی‌شه.
+        </div>
+        <div class="modal-actions"><button onclick="closeStreakPanel()">بستن</button></div>
+      </div>
     </div>
   `;
 }
@@ -8624,6 +8755,7 @@ function render(){
     ${state.promptEditor ? renderPromptEditorModal() : ''}
     ${state.winEditor ? renderWinEditorModal() : ''}
     ${state.winSos ? renderWinSos() : ''}
+    ${state.streakPanel ? renderStreakPanel() : ''}
     ${state.motherEditor ? renderMotherEditorModal() : ''}
     ${state.repairEditor ? renderRepairEditorModal() : ''}
     ${state.maintEditor ? renderMaintEditorModal() : ''}
