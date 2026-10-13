@@ -636,11 +636,6 @@ global.jalaali = {
 
   .icn{display:inline-block; vertical-align:-0.18em; flex-shrink:0;}
   h2.section-title{font-family:var(--display); font-size:23px; font-weight:600; color:var(--text); margin:26px 0 12px; line-height:1.2;}
-  .print-btn{
-    background:var(--surface-2); border:1px solid var(--line); color:var(--text-muted); font-size:11.5px; font-weight:700;
-    padding:7px 12px; border-radius:8px; cursor:pointer;
-  }
-  .print-btn:hover{border-color:var(--accent); color:var(--accent);}
 
   /* the print sheet is invisible on screen; only shown (and everything else hidden) when printing */
   .print-sheet{display:none;}
@@ -838,23 +833,7 @@ global.jalaali = {
     display:inline-flex; align-items:center; justify-content:center; min-width:32px; min-height:32px;
   }
 
-  /* reminders — the "don't let this slip" card at the top of امروز */
-  .reminder-card{
-    background:var(--surface); border:1px solid var(--line); border-radius:12px;
-    border-inline-start:3px solid var(--accent2); padding:12px 14px; margin-bottom:16px;
-  }
-  .reminder-card.urgent{border-inline-start-color:var(--danger);}
-  .reminder-card-head{
-    display:flex; align-items:center; gap:7px; font-size:12px; font-weight:700;
-    color:var(--text-muted); margin-bottom:10px;
-  }
-  .reminder-card-icon{display:flex; color:var(--accent2);}
-  .reminder-card.urgent .reminder-card-icon{color:var(--danger);}
-  .reminder-card-more{
-    margin-inline-start:auto; background:none; border:none; cursor:pointer;
-    font-family:inherit; font-size:11.5px; font-weight:600; color:var(--text-muted); padding:0;
-  }
-  .reminder-card-more:hover{color:var(--accent);}
+  /* reminders — the "don't let this slip" rows on امروز */
   .reminder-line{display:flex; align-items:flex-start; gap:9px; padding:7px 0;}
   .reminder-line + .reminder-line{border-top:1px solid var(--line);}
   .reminder-tick{
@@ -1254,7 +1233,61 @@ global.jalaali = {
   .today-item .ti-actions{display:flex; align-items:center; gap:0; flex-shrink:0;}
   .today-item .item-del{background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:14px; padding:2px 4px; flex-shrink:0;}
   .today-item .item-del:hover{color:var(--danger);}
+  .today-item .item-edit{background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:13px; padding:2px 4px; flex-shrink:0;}
+  .today-item .item-edit:hover{color:var(--accent);}
+  /* a task on امروز gets one «⋯»; edit / copy / delete live in the opened row */
+  .today-item .ti-more{
+    background:none; border:none; color:var(--text-muted); cursor:pointer; flex-shrink:0;
+    display:inline-flex; align-items:center; justify-content:center; padding:2px 4px; border-radius:8px;
+  }
+  .today-item .ti-more.open{color:var(--accent);}
   .today-subtasks{padding:0 14px 12px 14px; border-top:1px solid var(--line); padding-top:8px;}
+  .ti-menu{display:flex; flex-wrap:wrap; gap:8px; margin-top:4px;}
+  .today-subtasks > .task-notes + .ti-menu, .today-subtasks > .subtask-row + .ti-menu{margin-top:10px;}
+  .ti-menu button{
+    display:inline-flex; align-items:center; gap:5px; background:var(--surface-2); border:1px solid var(--line);
+    color:var(--text-muted); font-family:inherit; font-size:12px; font-weight:700; padding:7px 12px; border-radius:8px; cursor:pointer; min-height:34px;
+  }
+  .ti-menu button:hover{border-color:var(--accent); color:var(--accent);}
+  .ti-menu button.danger{margin-inline-start:auto;}
+  .ti-menu button.danger:hover{border-color:var(--danger); color:var(--danger);}
+
+  /* امروز: the weekday and the day's line share the top, with no box */
+  .today-lead{margin-bottom:14px;}
+  .today-wd{font-size:12px; color:var(--text-muted);}
+  .today-quote{display:block; margin-top:6px; font-size:13.5px; line-height:1.85; color:var(--text);}
+  .today-badges{display:flex; flex-wrap:wrap; gap:8px;}
+  @media (max-width:420px){ .today-badges .streak-badge{padding:9px 11px; gap:6px;} }
+  .today-head{display:flex; align-items:center; gap:8px; margin-bottom:12px;}
+  .today-head h2{margin:0; flex:1;}
+  .today-tool{
+    position:relative; display:inline-flex; align-items:center; justify-content:center; width:36px; height:36px;
+    background:transparent; border:1px solid var(--line); color:var(--text-muted); border-radius:9px; cursor:pointer;
+  }
+  .today-tool:hover, .today-tool.on{border-color:var(--accent); color:var(--accent);}
+  .today-tool .filter-count{position:absolute; top:-6px; inset-inline-end:-6px;}
+  .today-done-toggle{
+    display:flex; align-items:center; gap:7px; width:100%; margin:4px 0 8px; padding:9px 4px; cursor:pointer;
+    background:none; border:none; color:var(--text-muted); font-family:inherit; font-size:12.5px; font-weight:700;
+  }
+  .today-all-done{font-size:13px; color:var(--freelance); font-weight:700; padding:6px 4px 10px;}
+  /* everything that isn't a task for today: one line each, opened with a tap */
+  .today-folds{margin-top:22px;}
+  .today-folds.urgent{margin:0 0 16px;}
+  .today-fold{
+    background:var(--surface); border:1px solid var(--line); border-inline-start:3px solid var(--fold-color, var(--line-strong));
+    border-radius:10px; margin-bottom:8px; overflow:hidden;
+  }
+  .today-fold-head{
+    display:flex; align-items:center; gap:8px; width:100%; padding:12px 14px; cursor:pointer; min-height:44px;
+    background:none; border:none; color:var(--text); font-family:inherit; font-size:13px; text-align:start;
+  }
+  .today-fold-icon{display:inline-flex; color:var(--fold-color, var(--text-muted)); flex-shrink:0;}
+  .today-fold-title{font-weight:700; flex-shrink:0;}
+  .today-fold-sum{flex:1; min-width:0; color:var(--text-muted); font-size:12.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .today-fold.open .today-fold-sum{visibility:hidden;}
+  .today-fold-body{padding:10px 14px 12px; border-top:1px solid var(--line);}
+  .today-fold-body.en-card{border-inline-start:none;}
 
   /* Task editor modal */
   .modal-overlay{
@@ -1364,10 +1397,6 @@ global.jalaali = {
   .restore-note.danger{color:var(--danger);}
 
   /* today-item extra action buttons */
-  .today-item .item-edit{background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:13px; padding:2px 4px; flex-shrink:0;}
-  .today-item .item-edit:hover{color:var(--accent);}
-  .today-item .item-copy{background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:13px; padding:2px 4px; flex-shrink:0;}
-  .today-item .item-copy:hover{color:var(--freelance);}
 
   .copy-link{
     margin-top:12px; margin-right:8px; background:none; border:1px solid var(--line); color:var(--text-muted); font-size:12px; font-weight:600;
@@ -1642,19 +1671,19 @@ global.jalaali = {
     .sub-actions, .prompt-actions, .win-actions, .idea-actions, .today-item .ti-actions{gap:6px;}
     .sub-actions button, .prompt-actions button, .win-actions button,
     .idea-actions .item-edit, .idea-footer .item-del,
-    .today-item .item-del, .today-item .item-edit{
+    .today-item .item-del, .today-item .item-edit, .today-item .ti-more{
       min-width:40px; min-height:40px; padding:0 8px;
       display:inline-flex; align-items:center; justify-content:center; border-radius:10px;
     }
     .sub-actions button:active, .prompt-actions button:active, .win-actions button:active,
-    .idea-actions button:active, .today-item .ti-actions button:active{background:var(--surface-2, rgba(255,255,255,.06));}
+    .idea-actions button:active, .today-item .ti-actions button:active, .today-item .ti-more:active{background:var(--surface-2, rgba(255,255,255,.06));}
     .sub-actions button[onclick^="delete"], .idea-footer .item-del,
     .today-item .item-del, .win-actions button[onclick^="delete"], .prompt-actions button[onclick^="delete"]{margin-inline-start:8px;}
     /* «مادر» rows: stack the two buttons so the text keeps the width */
     .mother-item .win-actions{flex-direction:column; gap:2px;}
     .mother-item .win-actions button[onclick^="delete"]{margin-inline-start:0;}
     /* 40px buttons centred on the checkbox line (13px) without growing the row */
-    .today-item-row .ti-actions{margin-top:-7px; margin-bottom:-7px;}
+    .today-item-row .ti-actions, .today-item-row .ti-more{margin-top:-7px; margin-bottom:-7px;}
     .en-x{min-width:40px; min-height:40px; margin-top:-7px;}
     .en-reasons .quick-chip{padding:8px 12px;}
   }
@@ -2036,6 +2065,8 @@ let state = {
   tasksFilters: Object.assign(emptyFilters(), { date:null }),
   archiveFilters: { search:'', tagIds:[], dateFrom:null, dateTo:null },
   todayExpanded: {},
+  todayDoneOpen: false,
+  todayFoldShut: {}, // urgent folds the user closed, this visit only
   today: new Date(),
   taskEditor: null, // { mode:'create'|'edit', taskId, draft:{title,notes,tagIds,priority,date,durationMin,subtasks} }
   calendarPage: (function(){
@@ -3389,12 +3420,13 @@ function renderFilterPanel(pageKey, opts){
   const open = !!state.filterPanelOpen[pageKey];
   const count = filterActiveCount(f, hasDate);
   return `
+    ${opts && opts.ownToggle ? '' : `
     <button type="button" class="filter-toggle ${active?'has-active':''}" onclick="toggleFilterPanel('${pageKey}')">
       ${icon('filter',14)}
       <span>فیلتر و مرتب‌سازی</span>
       ${count ? `<span class="filter-count">${toFaDigits(count)}</span>` : ''}
       <span class="filter-caret ${open?'open':''}">${icon('chevronDown',13)}</span>
-    </button>
+    </button>`}
     ${open ? `
     <div class="filter-panel">
       <div class="filter-group">
@@ -5189,20 +5221,16 @@ function renderWeeklyFocus(){
   const tasks = r.focus.chosen.map(id => state.tasks.find(t => t.id === id)).filter(Boolean);
   if(!tasks.length) return '';
   const done = tasks.filter(t => t.done).length;
-  return `
-    <div class="progress-box weekly-focus">
-      <div class="progress-header">
-        <h2 class="section-title">اولویت‌های این هفته</h2>
-        <span class="progress-count ${done === tasks.length ? 'reached' : ''}">${toFaDigits(done)} از ${toFaDigits(tasks.length)}</span>
-      </div>
-      ${tasks.map(t => `
+  return renderTodayFold('focus', {
+    icon:'target', title:'اولویت‌های این هفته', color:'var(--accent)', bodyClass:'weekly-focus',
+    summary:`${toFaDigits(done)} از ${toFaDigits(tasks.length)}${done === tasks.length ? ' ✓' : ''}`,
+    body: tasks.map(t => `
         <label class="focus-row ${t.done ? 'done' : ''}">
           <input type="checkbox" ${t.done ? 'checked' : ''} onchange="toggleTaskDone('${t.id}', event)" />
           <span>${escapeHtml(t.title)}</span>
           <span class="focus-date">${t.date ? formatDateShort(t.date) : 'بعداً'}</span>
-        </label>`).join('')}
-    </div>
-  `;
+        </label>`).join(''),
+  });
 }
 /* Opening the reports page reads everything on it. The ids are remembered for
    this visit so the cards can still say "تازه" after seen_at is written. */
@@ -6321,14 +6349,11 @@ function reminderDueLabel(r){
 function renderReminderAlert(){
   const list = activeReminders();
   if(!list.length) return '';
-  const urgent = list.some(r => ['late','expired','today'].includes(reminderStatus(r)));
-  return `
-    <div class="reminder-card ${urgent ? 'urgent' : ''}">
-      <div class="reminder-card-head">
-        <span class="reminder-card-icon">${icon('bell',15)}</span>
-        <span>یادت نره</span>
-        <button type="button" class="reminder-card-more" onclick="navigateTo('reminders')">همه</button>
-      </div>
+  const due = list.filter(r => ['late','expired','today'].includes(reminderStatus(r))).length;
+  return renderTodayFold('reminders', {
+    icon:'bell', title:'یادت نره', color: due ? 'var(--danger)' : 'var(--accent2)', urgent: due > 0,
+    summary:`${toFaDigits(list.length)} مورد${due ? ` · ${toFaDigits(due)} تا امروز` : ''}`,
+    body: `
       ${list.map(r => `
         <div class="reminder-line ${reminderStatus(r)}">
           <button class="reminder-tick" onclick="completeReminder('${r.id}')" title="${r.kind === 'yearly' ? 'انجام شد — برای سال بعد ثبت می‌شه' : 'انجام شد'}">✓</button>
@@ -6342,8 +6367,8 @@ function renderReminderAlert(){
           </div>
         </div>
       `).join('')}
-    </div>
-  `;
+      <div class="mother-card-actions"><button onclick="navigateTo('reminders')">همه‌ی یادآوری‌ها</button></div>`,
+  });
 }
 
 /* ---------- reminders: full page ---------- */
@@ -6635,16 +6660,6 @@ function rolloverYearlyReminders(){
 }
 
 /* ---------- rendering: daily encouragement ---------- */
-function renderEncouragement(){
-  const e = state.encouragement;
-  if(!e || !e.text) return '';
-  return `
-    <div class="encourage">
-      <span style="color:var(--accent); flex-shrink:0; margin-top:2px;">${icon('bulb',16)}</span>
-      <span class="encourage-text">${escapeHtml(e.text)}</span>
-    </div>
-  `;
-}
 // One text per day. The function stores it server-side and returns the same
 // one all day; the localStorage copy just saves the round trip on reopen.
 async function loadEncouragement(){
@@ -6680,12 +6695,11 @@ function renderWeeklyGoals(){
     return { tag, actual, target: g.weeklyMinutes, pct, reached, reason: g.reason || '' };
   }).filter(Boolean);
   if(rows.length === 0) return '';
-  return `
-    <div class="progress-box">
-      <div class="progress-header">
-        <h2 class="section-title">اهداف هفتگی</h2>
-      </div>
-      ${rows.map(r => `
+  const reached = rows.filter(r => r.reached).length;
+  return renderTodayFold('goals', {
+    icon:'trophy', title:'اهداف هفتگی', color:'var(--freelance)',
+    summary:`${toFaDigits(reached)} از ${toFaDigits(rows.length)} رسیده`,
+    body: rows.map(r => `
         <div class="goal-block">
           <div class="progress-row">
             <span class="progress-label">${escapeHtml(r.tag.name)}</span>
@@ -6694,9 +6708,8 @@ function renderWeeklyGoals(){
           <div class="progress-bar-track"><div class="progress-bar-fill" style="width:${Math.max(3, r.pct)}%; background:${r.reached ? 'var(--freelance)' : r.tag.color}"></div></div>
           ${r.reason ? `<div class="goal-reason" style="--chip-color:${r.tag.color}">${escapeHtml(r.reason)}</div>` : ''}
         </div>
-      `).join('')}
-    </div>
-  `;
+      `).join(''),
+  });
 }
 
 /* ---------- rendering: time-spent-today ---------- */
@@ -6707,7 +6720,7 @@ function renderTimeBadge(todayTasks){
     <div class="streak-badge">
       <span class="streak-flame">${icon('clock',18)}</span>
       <span class="streak-count figure-sm">${formatDuration(total)}</span>
-      <span class="streak-label">برنامه‌ریزی‌شده امروز</span>
+      <span class="streak-label" title="جمع زمانِ کارهای امروز">کارِ امروز</span>
     </div>
   `;
 }
@@ -6715,30 +6728,25 @@ function renderTimeBadge(todayTasks){
 /* ---------- rendering: today view ---------- */
 function renderTodayItem(t, todayStr){
   const expanded = !!state.todayExpanded[t.id];
-  const hasSub = t.subtasks.length > 0 || !!t.notes;
   const isOverdue = t.date !== todayStr;
   return `
     <div class="today-item ${t.done ? 'done' : ''} ${isOverdue ? 'overdue' : ''}">
-      <div class="today-item-row" onclick="${hasSub ? `toggleTodayExpand('${t.id}')` : ''}">
+      <div class="today-item-row" onclick="toggleTodayExpand('${t.id}')">
         ${t.priority ? `<span class="priority-dot ${t.priority}" title="اولویت ${PRIORITY_LABEL[t.priority]}"></span>` : ''}
         <button class="task-check ${t.done ? 'checked' : ''}" onclick="toggleTaskDone('${t.id}', event)">${t.done ? '✓' : ''}</button>
         <div class="ti-main">
           <div class="ti-title-row">
             <span class="ti-title ${t.done ? 'done-text' : ''}">${escapeHtml(t.title)}</span>
             ${t.notes ? `<span class="ti-notes-mark" title="توضیحات دارد">${icon('pencil',12)}</span>` : ''}
-            ${hasSub ? `<span class="expand-arrow ${expanded ? 'open' : ''}">▾</span>` : ''}
           </div>
           <div class="ti-meta-row">
             ${t.tagIds.map(tid => { const tag = state.tags.find(x => x.id===tid); return tag ? `<span class="mini-tag" style="--chip-color:${tag.color}">${escapeHtml(tag.name)}</span>` : ''; }).join('')}
             ${isOverdue ? `<span class="overdue-badge" title="این کار برای ${formatDateShort(t.date)} بود و انجام نشده">عقب‌افتاده · ${formatDateShort(t.date)}</span>` : ''}
             <span class="dur">${t.durationMin ? toFaDigits(t.durationMin) + ' د' : '—'}</span>
+            ${t.subtasks.length ? `<span class="dur" title="زیرکارها">${toFaDigits(t.subtasks.filter(x => x.done).length)} از ${toFaDigits(t.subtasks.length)} زیرکار</span>` : ''}
           </div>
         </div>
-        <div class="ti-actions">
-          <button class="item-edit" onclick="openTaskEditorEdit('${t.id}'); if(event) event.stopPropagation();" title="ویرایش">✎</button>
-          <button class="item-copy" onclick="copyTaskToEditor('${t.id}'); if(event) event.stopPropagation();" title="کپی">${icon('copy',13)}</button>
-          <button class="item-del" onclick="deleteTask('${t.id}', event)">✕</button>
-        </div>
+        <button class="ti-more ${expanded ? 'open' : ''}" aria-label="ویرایش، کپی، حذف" aria-expanded="${expanded}">${icon('dots',16)}</button>
       </div>
       ${expanded ? `
         <div class="today-subtasks">
@@ -6749,6 +6757,11 @@ function renderTodayItem(t, todayStr){
               <span class="subtask-title ${s.done ? 'done-text' : ''}">${escapeHtml(s.title)}</span>
             </div>
           `).join('')}
+          <div class="ti-menu">
+            <button onclick="openTaskEditorEdit('${t.id}')">${icon('pencil',13)} ویرایش</button>
+            <button onclick="copyTaskToEditor('${t.id}')">${icon('copy',13)} کپی</button>
+            <button class="danger" onclick="deleteTask('${t.id}', event)">${icon('close',13)} حذف</button>
+          </div>
         </div>
       ` : ''}
     </div>
@@ -6860,16 +6873,16 @@ function renderMotherTodayCard(){
   if(!motherSettings().showOnToday || motherReadToday()) return '';
   const item = motherItemForDay(new Date());
   if(!item) return '';
-  return `
-    <div class="mother-card">
-      <div class="mother-card-kicker">${icon('heart',14)} یادت باشه — مادر</div>
+  return renderTodayFold('mother', {
+    icon:'heart', title:'مادر', color:'var(--english)',
+    summary:`${item.kind === 'dont' ? 'نکن' : 'بکن'}: ${escapeHtml(item.body)}`,
+    body: `
       <div class="mother-card-text" dir="auto">${renderMotherKind(item.kind)}${escapeHtml(item.body)}</div>
       <div class="mother-card-actions">
         <button onclick="markMotherRead()">${icon('check',14)} خوندم</button>
         <button onclick="navigateTo('mother')">همه‌ی ملاحظه‌ها</button>
-      </div>
-    </div>
-  `;
+      </div>`,
+  });
 }
 function renderMotherKind(kind){
   return kind === 'dont'
@@ -8059,25 +8072,33 @@ function renderEnglishTodayBody(){
 }
 function renderEnglishTodayCard(){
   if(!state.englishSettings && !(state.englishHomework || []).length){
-    return `
-      <div class="mother-card en-card">
-        <div class="mother-card-kicker"><span>${icon('book',14)} انگلیسی</span></div>
+    return renderTodayFold('english', {
+      icon:'book', title:'انگلیسی', color:'var(--python)', bodyClass:'en-card', summary:'روزهای کلاس تنظیم نشده',
+      body: `
         <div class="mother-card-text">روزهای کلاست رو بگو تا تکلیف هر جلسه رو خرد کنم و بذارم روی روزهات.</div>
-        <div class="mother-card-actions"><button onclick="state.englishTab='settings'; navigateTo('english')">تنظیم روزهای کلاس</button></div>
-      </div>`;
+        <div class="mother-card-actions"><button onclick="state.englishTab='settings'; navigateTo('english')">تنظیم روزهای کلاس</button></div>`,
+    });
   }
-  const { streak } = englishStreak();
-  const askFor = enNeedsHomeworkPrompt();
-  const s = englishSettings();
+  const { streak, doneToday } = englishStreak();
+  const asking = enNeedsHomeworkPrompt();
+  const askFor = state.englishPlanning ? null : asking;
   const today = dateKey(new Date());
   const classLater = enIsClassDay(today) && !enClassEndedToday();
-  return `
-    <div class="mother-card en-card">
-      <div class="mother-card-kicker">
-        <span>${icon('book',14)} انگلیسی${classLater ? ` — امروز ساعت ${toFaDigits(enClassTime(enWeekday(today)))} کلاس داری` : ''}</span>
-        <span class="en-kicker-streak ${streak ? '' : 'cold'}" title="روزهای پیاپی تمرین">${icon('flame',13)} ${toFaDigits(streak)}</span>
-      </div>
-      ${askFor && !state.englishPlanning ? `
+  const classLine = classLater ? `امروز ساعت ${toFaDigits(enClassTime(enWeekday(today)))} کلاس داری` : '';
+  const open = enTodayChunks().filter(c => !c.done);
+  const mins = open.reduce((n, c) => n + c.minutes, 0);
+  const summary = [
+    askFor ? 'تکلیف جلسه چی بود؟'
+      : open.length ? `${toFaDigits(open.length)} تکه، ${toFaDigits(mins)} دقیقه`
+      : doneToday ? 'امروز انجام شد ✓' : 'حداقل ۵ دقیقه',
+    classLater ? `کلاس ${toFaDigits(enClassTime(enWeekday(today)))}` : '',
+    `زنجیره ${toFaDigits(streak)}`,
+  ].filter(Boolean).join(' · ');
+  return renderTodayFold('english', {
+    icon:'book', title:'انگلیسی', color:'var(--python)', bodyClass:'en-card', urgent: !!askFor, summary,
+    body: `
+      ${classLine ? `<div class="en-note" style="margin:0 0 8px">${icon('clock',13)} ${classLine}</div>` : ''}
+      ${askFor ? `
         <div class="en-prompt">
           <div class="mother-card-text">کلاسِ ${enDayLabel(askFor)} تموم شد — تکلیف چی بود؟</div>
           <input type="text" id="en-quick-title" data-preserve placeholder="مثلاً: Workbook صفحه‌ی ۲۱ تا ۲۳"
@@ -8089,9 +8110,8 @@ function renderEnglishTodayCard(){
           </div>
         </div>` : ''}
       ${renderEnglishTodayBody()}
-      <div class="mother-card-actions"><button onclick="navigateTo('english')">همه‌ی تکلیف‌ها</button></div>
-    </div>
-  `;
+      <div class="mother-card-actions"><button onclick="navigateTo('english')">همه‌ی تکلیف‌ها</button></div>`,
+  });
 }
 
 function renderEnglishPage(){
@@ -8466,29 +8486,83 @@ function renderToday(){
     return t.completedAt && dateKey(new Date(t.completedAt)) === todayStr; // finished today
   });
   const scheduled = applyFiltersAndSort(todayTasksRaw, 'todayFilters', { dateFilter:false });
+  const open = scheduled.filter(t => !t.done);
+  const done = scheduled.filter(t => t.done);
+  const quote = state.encouragement && state.encouragement.text;
+  const f = state.todayFilters;
+  const filterCount = filterActiveCount(f, false);
+  /* Tasks come first. Everything else is a one-line fold under them — except a
+     fold with something that can't wait, which opens itself above the list. */
+  const folds = [renderReminderAlert(), renderEnglishTodayCard(), renderMotherTodayCard(), renderWeeklyFocus(), renderWeeklyGoals()].filter(Boolean);
+  const urgent = folds.filter(x => x.urgent), rest = folds.filter(x => !x.urgent);
 
   return `
-    <div style="font-size:12px;color:var(--text-muted);margin-bottom:14px;">${wd}</div>
-    ${renderReminderAlert()}
-    <div style="display:flex; flex-wrap:wrap; gap:10px; margin-bottom:16px;">
+    <div class="today-lead">
+      <span class="today-wd">${wd}</span>
+      ${quote ? `<span class="today-quote">${escapeHtml(quote)}</span>` : ''}
+    </div>
+    <div class="today-badges">
       ${renderStreakBadge()}
       ${renderTimeBadge(todayTasksRaw)}
     </div>
     ${renderAIHealthBanner()}
     ${renderUnseenReportNotice()}
-    ${renderMotherTodayCard()}
-    ${renderEnglishTodayCard()}
-    ${renderWeeklyFocus()}
-    ${renderWeeklyGoals()}
-    ${renderEncouragement()}
-    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
-      <h2 class="section-title" style="margin:0;">برنامه امروز</h2>
-      <button type="button" class="print-btn" onclick="window.print()">چاپِ کارهای امروز</button>
+    ${urgent.length ? `<div class="today-folds urgent">${urgent.map(x => x.html).join('')}</div>` : ''}
+    <div class="today-head">
+      <h2 class="section-title">برنامه امروز</h2>
+      <button type="button" class="today-tool ${state.filterPanelOpen.todayFilters || filterCount ? 'on' : ''}" onclick="toggleFilterPanel('todayFilters')" title="فیلتر و مرتب‌سازی" aria-label="فیلتر و مرتب‌سازی">
+        ${icon('filter',16)}${filterCount ? `<span class="filter-count">${toFaDigits(filterCount)}</span>` : ''}
+      </button>
+      <button type="button" class="today-tool" onclick="window.print()" title="چاپِ کارهای امروز" aria-label="چاپِ کارهای امروز">${icon('printer',16)}</button>
     </div>
-    ${renderFilterPanel('todayFilters', { dateFilter:false })}
-    ${scheduled.length === 0 ? `<div class="empty-state">کاری با این فیلترها برای امروز نیست</div>` : scheduled.map(t => renderTodayItem(t, todayStr)).join('')}
+    ${renderFilterPanel('todayFilters', { dateFilter:false, ownToggle:true })}
+    ${scheduled.length === 0 ? `<div class="empty-state">${filterCount ? 'کاری با این فیلترها برای امروز نیست' : 'برای امروز کاری ثبت نشده'}</div>`
+      : open.length === 0 ? `<div class="today-all-done">${icon('check',14)} همه‌ی کارهای امروز انجام شد</div>` : ''}
+    ${open.map(t => renderTodayItem(t, todayStr)).join('')}
+    ${done.length ? `
+      <button type="button" class="today-done-toggle" onclick="state.todayDoneOpen = !state.todayDoneOpen; render()" aria-expanded="${!!state.todayDoneOpen}">
+        <span class="filter-caret ${state.todayDoneOpen ? 'open' : ''}" style="margin:0">${icon('chevronDown',13)}</span>
+        انجام‌شده (${toFaDigits(done.length)})
+      </button>
+      ${state.todayDoneOpen ? done.map(t => renderTodayItem(t, todayStr)).join('') : ''}` : ''}
+    ${rest.length ? `<div class="today-folds">${rest.map(x => x.html).join('')}</div>` : ''}
     ${renderPrintSheet(todayTasksRaw, wd)}
   `;
+}
+
+/* ---------- امروز: folds ----------
+   A fold is a card reduced to one line (title + what's inside), opened with a
+   tap. Which ones are open is remembered on the device. An urgent fold starts
+   open instead and can only be closed for this visit, so it can't be silenced. */
+const TODAY_FOLDS_KEY = 'medar-today-folds';
+function todayFoldPrefs(){
+  try{ return JSON.parse(localStorage.getItem(TODAY_FOLDS_KEY) || '{}') || {}; }catch(_e){ return {}; }
+}
+function todayFoldOpen(id, urgent){
+  return urgent ? !state.todayFoldShut[id] : !!todayFoldPrefs()[id];
+}
+function toggleTodayFold(id, urgent){
+  if(urgent) state.todayFoldShut[id] = !state.todayFoldShut[id];
+  else {
+    const prefs = todayFoldPrefs();
+    prefs[id] = !prefs[id];
+    try{ localStorage.setItem(TODAY_FOLDS_KEY, JSON.stringify(prefs)); }catch(_e){}
+  }
+  render();
+}
+function renderTodayFold(id, o){
+  const urgent = !!o.urgent;
+  const open = todayFoldOpen(id, urgent);
+  return { urgent, html: `
+    <div class="today-fold ${open ? 'open' : ''}" style="--fold-color:${o.color}">
+      <button type="button" class="today-fold-head" onclick="toggleTodayFold('${id}', ${urgent})" aria-expanded="${open}">
+        <span class="today-fold-icon">${icon(o.icon,15)}</span>
+        <span class="today-fold-title">${o.title}</span>
+        <span class="today-fold-sum">${o.summary}</span>
+        <span class="filter-caret ${open ? 'open' : ''}">${icon('chevronDown',13)}</span>
+      </button>
+      ${open ? `<div class="today-fold-body ${o.bodyClass || ''}">${o.body}</div>` : ''}
+    </div>` };
 }
 
 
