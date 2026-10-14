@@ -1369,7 +1369,7 @@ global.jalaali = {
   .login .login-error{color:var(--danger); font-size:13px; text-align:center; min-height:18px;}
   .date-block .sign-out{background:none; border:none; color:var(--text-muted); font-size:11px; cursor:pointer; padding:4px 0 0;}
   .date-block .sign-out:hover{color:var(--danger);}
-  .date-block .header-links{display:flex; gap:12px; justify-content:flex-end; align-items:center;}
+  .date-block .header-links{display:flex; flex-wrap:wrap; gap:12px; justify-content:flex-end; align-items:center;}
   .date-block .push-toggle{background:none; border:none; color:var(--text-muted); font-size:11px; cursor:pointer; padding:4px 0 0; display:inline-flex; align-items:center; gap:4px;}
   .date-block .push-toggle:hover{color:var(--accent);}
   .date-block .push-toggle .dot{width:6px; height:6px; border-radius:50%; background:var(--line-strong);}
@@ -1941,6 +1941,7 @@ function icon(name, size){
   const s = size || 16;
   const open = `<svg class="icn" width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">`;
   const paths = {
+    settings: `<circle cx="12" cy="12" r="3"/><path d="M9 3h6l1 3 3 1 2 5-2 5-3 1-1 3H9l-1-3-3-1-2-5 2-5 3-1z"/>`,
     sun:      `<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>`,
     check:    `<path d="M20 6L9 17l-5-5"/>`,
     plus:     `<path d="M12 5v14M5 12h14"/>`,
@@ -4580,6 +4581,13 @@ function renderMoveTaskPicker(){
 }
 
 /* ---------- rendering: tag manager ---------- */
+function renderSettingsPage(){
+  return `
+    <h2 class="section-title">تنظیمات</h2>
+    <p class="summary-text">تگ‌ها، رنگ‌ها و هدف‌های هفتگی را اینجا مدیریت کن.</p>
+    ${renderTagManager()}
+  `;
+}
 function renderTagManager(){
   return `
     <div class="tag-manager">
@@ -5020,7 +5028,6 @@ function renderTaskCard(task){
 function renderTasksView(){
   const filtered = applyFiltersAndSort(state.tasks.filter(t => !isArchived(t)), 'tasksFilters', { dateFilter:true });
   return `
-    ${renderTagManager()}
     ${renderRecurringManager()}
     ${renderFilterPanel('tasksFilters', { dateFilter:true })}
     ${filtered.length === 0 ? `<div class="empty-state">کاری با این فیلترها پیدا نشد</div>` : filtered.map(renderTaskCard).join('')}
@@ -8804,6 +8811,7 @@ function resetArchiveFilters(){ state.archiveFilters = { search:'', tagIds:[], d
 /* ---------- nav / render ---------- */
 function setView(v){
   if(v === 'reminders') v = 'tasks';
+  if(v === 'settings' && state.view !== 'settings') state.tagManagerOpen = true;
   state.view = v;
   if(v === 'ai-reports') markAIReportsSeen();
   render();
@@ -8847,6 +8855,7 @@ function render(){
         <div class="header-links">
           ${state.pushStatus === 'unsupported' ? '' : `<button class="push-toggle ${state.pushStatus === 'on' ? 'on' : ''}" onclick="togglePushMenu()"><span class="dot"></span>اعلان‌ها</button>`}
           <button class="push-toggle ${backupOverdue() ? 'warn' : ''}" onclick="toggleBackupMenu()" title="${backupOverdue() ? 'مدتیه پشتیبان دانلود نکردی' : ''}"><span class="dot"></span>پشتیبان</button>
+          <button class="push-toggle" onclick="navigateTo('settings')" ${state.view === 'settings' ? 'aria-current="page"' : ''}>${icon('settings',14)} تنظیمات</button>
           <button class="sign-out" onclick="signOut()">خروج</button>
         </div>
       </div>
@@ -8874,6 +8883,7 @@ function render(){
       ${state.view === 'english' ? renderEnglishPage() : ''}
       ${state.view === 'archive' ? renderArchivePage() : ''}
       ${state.view === 'ai-reports' ? renderAIReportsPage() : ''}
+      ${state.view === 'settings' ? renderSettingsPage() : ''}
     </main>
     ${renderTaskEditorModal()}
     ${state.taskCompletionModal ? renderTaskCompletionModal() : ''}
@@ -8935,6 +8945,7 @@ const NAV_GROUPS = [
     { id:'repairs',    label:'تعمیرات خونه',  icon:'wrench' },
   ]},
   { id:'review', label:'مرور', icon:'archive', items:[
+    { id:'settings',   label:'تنظیمات', icon:'settings' },
     { id:'archive',    label:'آرشیو',         icon:'archive' },
     { id:'ai-reports', label:'گزارش هوشمند', icon:'sparkle' },
   ]},
