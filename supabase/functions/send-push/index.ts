@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient, SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import webpush from "npm:web-push@3.6.7";
+import jalaali from "npm:jalaali-js@1.2.8";
 
 /* ---------- اعلان روی گوشی ----------
    Three ways in:
@@ -36,7 +37,7 @@ const b64url = (buf: ArrayBuffer | Uint8Array) =>
 /* Persian digits are bidi class EN, so right after a Latin name they join its
    left-to-right run: «Claude Pro — ۱۴ روز» comes out as «۱۴ — Claude Pro روز».
    A right-to-left mark in front of each number cuts it loose from the name. */
-const bidi = (text: string) => String(text || "").replace(/[۰-۹]+/g, "\u200F$&");
+const bidi = (text: string) => String(text || "").replace(/[۰-۹]+/g, "‏$&");
 const clip = (text: string, max: number) => text.length > max ? text.slice(0, max - 1) + "…" : text;
 const fromB64url = (s: string) => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/")), (c) => c.charCodeAt(0));
 
@@ -322,7 +323,7 @@ async function timedFor(sb: SupabaseClient, uid: string): Promise<Payload[]> {
 async function digestFor(sb: SupabaseClient, uid: string): Promise<Payload[]> {
   const today = localToday();
   const [rem, subs, tasks, backups, review, care, careItems, repairs, maint] = await Promise.all([
-    sb.from("reminders").select("title, kind, date, lead_days").eq("user_id", uid).eq("done", false).neq("kind", "always").not("date", "is", null),
+    sb.from("reminders").select("title, kind, date, lead_days").eq("user_id", uid).eq("done", false).is("migrated_task_id", null).neq("kind", "always").not("date", "is", null),
     sb.from("subscriptions").select("name, next_renewal, notify_days_before").eq("user_id", uid).eq("active", true).not("next_renewal", "is", null),
     sb.from("tasks").select("id", { count: "exact", head: true }).eq("user_id", uid).eq("date", today).eq("done", false),
     sb.from("backups").select("kind, created_at").eq("user_id", uid).order("created_at", { ascending: true }),
@@ -450,6 +451,67 @@ async function sendTo(sb: SupabaseClient, uid: string, payload: Payload) {
   return { devices: (subs || []).length, sent };
 }
 
+/* Minute-based task reminders. Claims expire on failure; successful delivery is
+   marked only after at least one device accepts the push. Stable tags keep retries
+   from stacking notifications on a phone. No reminder is sent for a done task. */
+function nextAnniversary(day: string, today: string): string {
+  let date=day;
+  do {
+    const [y,m,d]=date.split("-").map(Number), j=jalaali.toJalaali(y,m,d);
+    const jy=j.jy+1, jd=Math.min(j.jd,jalaali.jalaaliMonthLength(jy,j.jm));
+    const g=jalaali.toGregorian(jy,j.jm,jd);
+    date=String(g.gy)+"-"+String(g.gm).padStart(2,"0")+"-"+String(g.gd).padStart(2,"0");
+  } while(date<=today);
+  return date;
+}
+async function taskReminderRun(sb: SupabaseClient) {
+  const today=localToday();
+  const {data: annual,error: annualError}=await sb.from("tasks").select("id,date")
+    .eq("done",true).eq("reminder_kind","yearly").eq("annual_renewed",false).not("date","is",null);
+  if(annualError) throw annualError;
+  for(const task of annual || []) {
+    const {error}=await sb.rpc("renew_annual_task",{p_task_id:task.id,p_next_date:nextAnniversary(task.date,today)});
+    if(error) throw error;
+  }
+  // Create a recurring occurrence when its alarm becomes due, even with the app closed.
+  const {data: templates,error: tplError}=await sb.from("recurring_templates").select("id,weekdays,reminder_time,reminder_days_before")
+    .eq("active",true).not("reminder_time","is",null);
+  if(tplError) throw tplError;
+  for(const tpl of templates || []) {
+    const day=addDaysKey(today,tpl.reminder_days_before || 0);
+    if(!(tpl.weekdays || []).includes(weekdayOf(day))) continue;
+    const at=new Date(today+"T"+tpl.reminder_time.slice(0,5)+":00+03:00").toISOString();
+    if(Date.parse(at)>Date.now()) continue;
+    const {error}=await sb.rpc("create_reminded_recurring_task",{p_template_id:tpl.id,p_day:day,p_at:at});
+    if(error) throw error;
+  }
+  const {data: devices,error}=await sb.from("push_subscriptions").select("user_id");
+  if(error) throw error;
+  const results=[];
+  for(const uid of new Set((devices || []).map((s: any)=>s.user_id as string))) {
+    const {data: tasks,error: claimError}=await sb.rpc("claim_task_reminders",{p_user_id:uid});
+    if(claimError){results.push({error:claimError.message});continue;}
+    for(const task of tasks || []) {
+      try {
+        // Recheck immediately before delivery: completion or rescheduling cancels a claim.
+        const {data: current,error: checkError}=await sb.from("tasks").select("done,reminder_at,reminder_claimed_at").eq("id",task.id).maybeSingle();
+        if(checkError) throw checkError;
+        if(!current || current.done || current.reminder_at!==task.reminder_at || current.reminder_claimed_at!==task.reminder_claimed_at) continue;
+        const delivered=await sendTo(sb,uid,{title:"یادآوری کار",body:clip(task.title,160),tag:"medar-task-"+task.id});
+        if(delivered.sent>0){
+          const {error: markError}=await sb.from("tasks").update({reminder_sent_at:new Date().toISOString(),reminder_claimed_at:null})
+            .eq("id",task.id).eq("reminder_at",task.reminder_at).eq("reminder_claimed_at",task.reminder_claimed_at).eq("done",false);
+          if(markError) throw markError;
+        } else {
+          await sb.from("tasks").update({reminder_claimed_at:null}).eq("id",task.id).eq("reminder_claimed_at",task.reminder_claimed_at);
+        }
+        results.push(delivered);
+      } catch(e){console.error("task reminder failed",task.id,e);results.push({error:String(e)});}
+    }
+  }
+  return {annualRenewed:(annual || []).length,results};
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   try {
@@ -472,6 +534,7 @@ Deno.serve(async (req: Request) => {
       }
       const { data: rows, error } = await sb.from("push_subscriptions").select("user_id");
       if (error) throw error;
+      if (action === "tasks") return json(await taskReminderRun(sb));
       if (action !== "digest" && action !== "english") return json({ error: "unknown action" }, 400);
       const results: any[] = [];
       // one account's failure must not stop the cron from reaching the others
