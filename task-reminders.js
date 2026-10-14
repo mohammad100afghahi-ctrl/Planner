@@ -96,3 +96,10 @@ function renderTaskReminderAlert(){
   return renderTodayFold('reminders',{icon:'bell',title:'کارهای یادآوری‌شده',color:'var(--accent)',summary:toFaDigits(list.length)+' کار',
     body:list.map(t=>`<div class="reminder-line"><button class="reminder-tick" onclick="toggleTaskDone('${t.id}',event)" aria-label="انجام کار">${icon('check',14)}</button><div class="reminder-line-main"><button class="edit-link reminder-line-title" onclick="openTaskEditorEdit('${t.id}')">${escapeHtml(t.title)}</button><div class="reminder-line-meta">${escapeHtml(taskReminderLabel(t))}</div></div></div>`).join('')+`<div class="mother-card-actions"><button onclick="navigateTo('tasks')">همهٔ کارها</button></div>`});
 }
+// Keep an already-open Today page current when an alarm time passes.
+let taskReminderVisibleSignature='';
+setInterval(()=>{
+  if(!appStarted || state.view!=='today' || document.hidden || document.querySelector('.modal-overlay')) return;
+  const signature=state.tasks.filter(t=>!t.done && (t.reminderKind==='always' || (t.reminderAt && Date.parse(t.reminderAt)<=Date.now()))).map(t=>t.id).sort().join(',');
+  if(signature!==taskReminderVisibleSignature){taskReminderVisibleSignature=signature;render();}
+},30000);
