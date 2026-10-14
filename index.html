@@ -1694,6 +1694,7 @@ global.jalaali = {
   <div class="loading">در حال بارگذاری…</div>
 </div>
 
+<script src="task-reminders.js"></script>
 <script>
 /* ---------- storage keys ---------- */
 const SUPABASE_URL = 'https://byqowlvyupcusjjyxwaf.supabase.co';
@@ -2249,6 +2250,7 @@ async function loadAll(attempt){
       subtasks: (t.subtasks||[]).map(s => ({ id:s.id, title:s.title, done:!!s.done })),
       date: t.date || '',
       durationMin: t.duration_min,
+      ...taskReminderFromRow(t),
       actualMin: t.actual_min,
       difficulty: t.difficulty,
       recurringTemplateId: t.recurring_template_id,
@@ -2256,7 +2258,7 @@ async function loadAll(attempt){
 
     state.recurringTemplates = recurring.map(r => ({
       id: r.id, title: r.title, notes: r.notes || '', priority: r.priority, durationMin: r.duration_min,
-      weekdays: r.weekdays || [], active: !!r.active,
+      weekdays: r.weekdays || [], active: !!r.active, reminderTime:r.reminder_time, reminderDaysBefore:r.reminder_days_before || 0,
       tagIds: (r.recurring_template_tags||[]).map(tt => tt.tag_id),
     }));
 
@@ -2366,7 +2368,7 @@ async function loadAll(attempt){
     dataLoaded = true;
     usingLocalCopy = false;
     lastSyncNetworkFailed = false;
-    rolloverYearlyReminders();
+    // Annual task reminders are renewed atomically on completion by the server.
     // only against server truth — generating from a stale local copy could
     // mint a second instance another device already created
     generateRecurringInstances();
@@ -2460,7 +2462,7 @@ function startRealtimeSync(){
       state.tasks.unshift({
         id:row.id, title:row.title, notes:row.notes || '', done:!!row.done, completedAt:row.completed_at,
         tagIds:[], priority:row.priority, subtasks:[], date:row.date || '', durationMin:row.duration_min, actualMin:row.actual_min, difficulty:row.difficulty,
-        recurringTemplateId:row.recurring_template_id,
+        recurringTemplateId:row.recurring_template_id, ...taskReminderFromRow(row),
       });
       render();
     },
@@ -2469,6 +2471,7 @@ function startRealtimeSync(){
       if(!t) return;
       const doneChanged = t.done !== !!row.done;
       t.title = row.title; t.notes = row.notes || ''; t.done = !!row.done; t.completedAt = row.completed_at;
+      Object.assign(t, taskReminderFromRow(row));
       t.priority = row.priority; t.date = row.date || ''; t.durationMin = row.duration_min; t.actualMin = row.actual_min; t.difficulty = row.difficulty;
       // only cascade to subtasks when the completion state itself flipped — a plain
       // title/date edit from another device must not wipe in-progress subtask ticks
@@ -2484,13 +2487,14 @@ function startRealtimeSync(){
   registerRealtimeSync(channel, 'recurring_templates', {
     onInsert(row){
       if(state.recurringTemplates.some(t => t.id === row.id)) return;
-      state.recurringTemplates.push({ id:row.id, title:row.title, notes:row.notes || '', priority:row.priority, durationMin:row.duration_min, weekdays:row.weekdays||[], active:!!row.active, tagIds:[] });
+      state.recurringTemplates.push({ id:row.id, title:row.title, notes:row.notes || '', priority:row.priority, durationMin:row.duration_min, weekdays:row.weekdays||[], active:!!row.active, reminderTime:row.reminder_time, reminderDaysBefore:row.reminder_days_before || 0, tagIds:[] });
       render();
     },
     onUpdate(row){
       const t = state.recurringTemplates.find(t => t.id === row.id);
       if(!t) return;
       t.title = row.title; t.notes = row.notes || ''; t.priority = row.priority; t.durationMin = row.duration_min; t.weekdays = row.weekdays||[]; t.active = !!row.active;
+      t.reminderTime = row.reminder_time; t.reminderDaysBefore = row.reminder_days_before || 0;
       render();
     },
     onDelete(old){
@@ -3744,7 +3748,7 @@ function toggleTodayExpand(taskId){ state.todayExpanded[taskId] = !state.todayEx
 /* ---------- task editor modal (create / edit — all settings first, applied on confirm) ---------- */
 function openTaskEditorNew(){
   state.taskEditor = {
-    mode:'create', taskId:null, draft:{ title:'', notes:'', tagIds:[], priority:null, date:'', durationMin:null, subtasks:[], recurring:{ enabled:false, weekdays:[] } },
+    mode:'create', taskId:null, draft:{ title:'', notes:'', tagIds:[], priority:null, date:'', durationMin:null, subtasks:[], ...newTaskReminderDraft(), recurring:{ enabled:false, weekdays:[] } },
     calendarOpen:false, calendarPanel:'grid', calendarViewJY:null, calendarViewJM:null, calendarSelectedDayKey:null,
     isRecurringInstance:false, applyToFutureRecurring:false,
   };
@@ -3752,7 +3756,7 @@ function openTaskEditorNew(){
 }
 function openTaskEditorNewForDate(dateStr){
   state.taskEditor = {
-    mode:'create', taskId:null, draft:{ title:'', notes:'', tagIds:[], priority:null, date:dateStr, durationMin:null, subtasks:[], recurring:{ enabled:false, weekdays:[] } },
+    mode:'create', taskId:null, draft:{ title:'', notes:'', tagIds:[], priority:null, date:dateStr, durationMin:null, subtasks:[], ...newTaskReminderDraft(), recurring:{ enabled:false, weekdays:[] } },
     calendarOpen:false, calendarPanel:'grid', calendarViewJY:null, calendarViewJM:null, calendarSelectedDayKey:null,
     isRecurringInstance:false, applyToFutureRecurring:false,
   };
@@ -3764,7 +3768,7 @@ function openTaskEditorEdit(taskId){
   state.taskEditor = {
     mode:'edit', taskId,
     draft: {
-      title: t.title, notes: t.notes || '', tagIds: [...t.tagIds], priority: t.priority, date: t.date, durationMin: t.durationMin,
+      title: t.title, notes: t.notes || '', tagIds: [...t.tagIds], priority: t.priority, date: t.date, durationMin: t.durationMin, ...taskReminderDraft(t),
       subtasks: t.subtasks.map(s => ({ id:s.id, title:s.title, done:s.done })),
       recurring:{ enabled:false, weekdays:[] },
     },
@@ -3780,7 +3784,7 @@ function copyTaskToEditor(taskId){
   state.taskEditor = {
     mode:'create', taskId:null,
     draft: {
-      title: t.title, notes: t.notes || '', tagIds: [...t.tagIds], priority: t.priority, date: t.date, durationMin: t.durationMin,
+      title: t.title, notes: t.notes || '', tagIds: [...t.tagIds], priority: t.priority, date: t.date, durationMin: t.durationMin, ...taskReminderDraft(t),
       subtasks: t.subtasks.map(s => ({ id:uid(), title:s.title, done:false })),
       recurring:{ enabled:false, weekdays:[] },
     },
@@ -4041,6 +4045,8 @@ async function confirmTaskEditor(){
   const ed = state.taskEditor;
   ed.draft.title = title;
   ed.draft.notes = (ed.draft.notes || '').trim();
+  const reminderRow = taskReminderRow(ed.draft);
+  if(!reminderRow) return;
 
   if(ed.mode === 'create' && ed.draft.recurring.enabled){
     if(ed.draft.recurring.weekdays.length === 0){ return; } // need at least one day picked
@@ -4050,7 +4056,7 @@ async function confirmTaskEditor(){
 
   const taskRow = {
     title: ed.draft.title, notes: ed.draft.notes || null, priority: ed.draft.priority,
-    date: ed.draft.date || null, duration_min: ed.draft.durationMin,
+    date: ed.draft.date || null, duration_min: ed.draft.durationMin, ...reminderRow,
   };
 
   if(ed.mode === 'create'){
@@ -4058,7 +4064,7 @@ async function confirmTaskEditor(){
       id: uid(), title: ed.draft.title, notes: ed.draft.notes, done:false, completedAt:null,
       tagIds: ed.draft.tagIds, priority: ed.draft.priority,
       subtasks: ed.draft.subtasks, date: ed.draft.date, durationMin: ed.draft.durationMin, actualMin: null,
-      recurringTemplateId: null,
+      recurringTemplateId: null, ...taskReminderFromRow(reminderRow),
     };
     state.tasks.unshift(newTask);
     state.taskEditor = null;
@@ -4080,6 +4086,7 @@ async function confirmTaskEditor(){
     const prevSubtasks = t.subtasks;
     const prevDate = t.date;
     t.title = ed.draft.title; t.notes = ed.draft.notes; t.tagIds = ed.draft.tagIds; t.priority = ed.draft.priority;
+    Object.assign(t, taskReminderFromRow(reminderRow));
     t.date = ed.draft.date; t.durationMin = ed.draft.durationMin; t.subtasks = ed.draft.subtasks;
     const applyToFuture = ed.isRecurringInstance && ed.applyToFutureRecurring && ed.recurringTemplateId;
     state.taskEditor = null;
@@ -4130,7 +4137,7 @@ async function createRecurringTemplate(){
   const d = ed.draft;
   const tpl = {
     id: uid(), title: d.title, notes: d.notes, priority: d.priority, durationMin: d.durationMin,
-    weekdays: [...d.recurring.weekdays], active:true, tagIds: [...d.tagIds],
+    weekdays: [...d.recurring.weekdays], active:true, tagIds: [...d.tagIds], reminderTime:d.reminderEnabled ? d.reminderTime : null, reminderDaysBefore:d.reminderDaysBefore || 0,
   };
   state.recurringTemplates.push(tpl);
   state.taskEditor = null;
@@ -4138,7 +4145,7 @@ async function createRecurringTemplate(){
 
   const { error: tplErr } = await sb.from('recurring_templates').insert({
     id: tpl.id, title: tpl.title, notes: tpl.notes || null, priority: tpl.priority, duration_min: tpl.durationMin,
-    weekdays: tpl.weekdays, active: true,
+    weekdays: tpl.weekdays, active: true, reminder_time:tpl.reminderTime, reminder_days_before:tpl.reminderDaysBefore,
   });
   if(tplErr){ writeFailed('create recurring template', tplErr); return; }
   if(tpl.tagIds.length){
@@ -4151,10 +4158,16 @@ async function updateRecurringTemplateFromInstance(templateId, instance){
   const tpl = state.recurringTemplates.find(t => t.id === templateId);
   if(!tpl) return;
   tpl.title = instance.title; tpl.notes = instance.notes || ''; tpl.priority = instance.priority; tpl.durationMin = instance.durationMin; tpl.tagIds = [...instance.tagIds];
+  tpl.reminderTime = null; tpl.reminderDaysBefore = 0;
+  if(instance.reminderAt){
+    const local = new Date(Date.parse(instance.reminderAt)+3*3600000).toISOString();
+    tpl.reminderTime = local.slice(11,16);
+    tpl.reminderDaysBefore = Math.min(30,Math.max(0,Math.round((Date.parse(instance.date)-Date.parse(local.slice(0,10)))/86400000)));
+  }
   render();
 
   const { error: tplErr } = await sb.from('recurring_templates')
-    .update({ title: tpl.title, notes: tpl.notes || null, priority: tpl.priority, duration_min: tpl.durationMin })
+    .update({ title: tpl.title, notes: tpl.notes || null, priority: tpl.priority, duration_min: tpl.durationMin, reminder_time:tpl.reminderTime, reminder_days_before:tpl.reminderDaysBefore })
     .eq('id', templateId);
   if(tplErr) writeFailed('update recurring template', tplErr);
 
@@ -4190,16 +4203,22 @@ async function maybeGenerateTodayForTemplate(tpl){
   const newTask = {
     id: uid(), title: tpl.title, notes: tpl.notes || '', done:false, completedAt:null,
     tagIds: [...tpl.tagIds], priority: tpl.priority, subtasks:[], date: todayStr,
-    durationMin: tpl.durationMin, actualMin: null, recurringTemplateId: tpl.id,
+    durationMin: tpl.durationMin, actualMin: null, recurringTemplateId: tpl.id, reminderAt:recurringTaskReminderAt(tpl, todayStr), reminderKind:"once", reminderLeadDays:0,
   };
   state.tasks.unshift(newTask);
   render();
 
   const { error: taskErr } = await sb.from('tasks').insert({
     id:newTask.id, title:newTask.title, notes:newTask.notes || null, priority:newTask.priority, date:newTask.date,
-    duration_min:newTask.durationMin, done:false, recurring_template_id:tpl.id,
+    duration_min:newTask.durationMin, done:false, recurring_template_id:tpl.id, reminder_at:newTask.reminderAt,
   });
-  if(taskErr){ writeFailed('generate recurring instance', taskErr); return; }
+  if(taskErr){
+    if(taskErr.code === '23505'){
+      state.tasks = state.tasks.filter(t => t.id !== newTask.id);
+      await loadAll(); render(); return;
+    }
+    writeFailed('generate recurring instance', taskErr); return;
+  }
   if(newTask.tagIds.length){
     const { error: tagErr } = await sb.from('task_tags').insert(newTask.tagIds.map(tagId => ({ task_id:newTask.id, tag_id:tagId })));
     if(tagErr) writeFailed('link recurring instance tags', tagErr);
@@ -4716,6 +4735,7 @@ function openRecurringEditor(templateId){
     title: tpl.title,
     priority: tpl.priority,
     durationMin: tpl.durationMin,
+    reminderEnabled:!!tpl.reminderTime, reminderTime:tpl.reminderTime || '09:00', reminderDaysBefore:tpl.reminderDaysBefore || 0,
     weekdays: [...tpl.weekdays],
     tagIds: [...tpl.tagIds],
   };
@@ -4767,11 +4787,12 @@ async function confirmRecurringEditor(){
   if(!tpl){ state.recurringEditor = null; render(); return; }
   tpl.title = title; tpl.priority = ed.priority; tpl.durationMin = ed.durationMin;
   tpl.weekdays = [...ed.weekdays]; tpl.tagIds = [...ed.tagIds];
+  tpl.reminderTime=ed.reminderEnabled ? ed.reminderTime : null; tpl.reminderDaysBefore=ed.reminderDaysBefore || 0;
   state.recurringEditor = null;
   render();
 
   const { error } = await sb.from('recurring_templates')
-    .update({ title: tpl.title, priority: tpl.priority, duration_min: tpl.durationMin, weekdays: tpl.weekdays })
+    .update({ title: tpl.title, priority: tpl.priority, duration_min: tpl.durationMin, weekdays: tpl.weekdays, reminder_time:tpl.reminderTime, reminder_days_before:tpl.reminderDaysBefore })
     .eq('id', tpl.id);
   if(error) writeFailed('update recurring template', error);
 
@@ -4812,6 +4833,7 @@ function renderRecurringEditorModal(){
             `).join('')}
           </div>
         </div>
+        ${renderRecurringReminderFields(ed)}
         <div class="modal-section">
           <span class="modal-section-label">مدت (دقیقه)</span>
           <div class="quick-group">
@@ -4899,6 +4921,7 @@ function renderTaskEditorModal(){
           ${ed.calendarOpen ? renderTaskCalendar() : ''}
         </div>
 
+        ${renderTaskReminderFields(ed)}
         <div class="modal-section">
           <span class="modal-section-label">مدت (دقیقه)</span>
           <div class="quick-group">
@@ -4954,6 +4977,7 @@ function renderTaskCard(task){
         <div class="task-body">
           <input class="task-title ${task.done ? 'done-text' : ''}" type="text" value="${escapeHtml(task.title)}"
             onblur="commitTaskTitle('${task.id}', this.value)" onkeydown="if(event.key==='Enter')this.blur()" />
+          ${renderTaskReminderBadge(task)}
           ${task.notes ? `<div class="task-notes">${escapeHtml(task.notes)}</div>` : ''}
 
           <div class="task-meta-row">
@@ -6753,6 +6777,7 @@ function renderTodayItem(t, todayStr){
         <div class="ti-main">
           <div class="ti-title-row">
             <span class="ti-title ${t.done ? 'done-text' : ''}">${escapeHtml(t.title)}</span>
+            ${renderTaskReminderBadge(t, true)}
             ${t.notes ? `<span class="ti-notes-mark" title="توضیحات دارد">${icon('pencil',12)}</span>` : ''}
           </div>
           <div class="ti-meta-row">
@@ -8527,7 +8552,7 @@ function renderToday(){
   const filterCount = filterActiveCount(f, false);
   /* Tasks come first. Everything else is a one-line fold under them — except a
      fold with something that can't wait, which opens itself above the list. */
-  const folds = [renderReminderAlert(), renderEnglishTodayCard(), renderMotherTodayCard(), renderWeeklyFocus(), renderWeeklyGoals()].filter(Boolean);
+  const folds = [renderTaskReminderAlert(), renderEnglishTodayCard(), renderMotherTodayCard(), renderWeeklyFocus(), renderWeeklyGoals()].filter(Boolean);
   const urgent = folds.filter(x => x.urgent), rest = folds.filter(x => !x.urgent);
 
   return `
@@ -8778,6 +8803,7 @@ function resetArchiveFilters(){ state.archiveFilters = { search:'', tagIds:[], d
 
 /* ---------- nav / render ---------- */
 function setView(v){
+  if(v === 'reminders') v = 'tasks';
   state.view = v;
   if(v === 'ai-reports') markAIReportsSeen();
   render();
@@ -8841,7 +8867,6 @@ function render(){
       ${state.view === 'ideas' ? renderIdeasPage() : ''}
       ${state.view === 'purchases' ? renderPurchasesPage() : ''}
       ${state.view === 'subscriptions' ? renderSubscriptionsPage() : ''}
-      ${state.view === 'reminders' ? renderRemindersPage() : ''}
       ${state.view === 'prompts' ? renderPromptsPage() : ''}
       ${state.view === 'wins' ? renderWinsPage() : ''}
       ${state.view === 'mother' ? renderMotherPage() : ''}
@@ -8894,7 +8919,6 @@ const NAV_GROUPS = [
     { id:'today',     label:'امروز',      icon:'sun' },
     { id:'tasks',     label:'تسک‌ها',      icon:'check' },
     { id:'calendar',  label:'تقویم',       icon:'calendar' },
-    { id:'reminders', label:'یادآوری‌ها',  icon:'bell' },
     { id:'english',   label:'انگلیسی',     icon:'book' },
   ]},
   { id:'notes',  label:'یادداشت‌ها', icon:'bulb', items:[
