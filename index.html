@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<html lang="fa" dir="rtl">
+<html lang="fa" dir="rtl" data-look="c">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>مدار</title>
 <link rel="manifest" href="./manifest.json">
-<meta name="theme-color" content="#0A0E18">
+<meta name="theme-color" content="#F7F3E9">
 <link rel="icon" type="image/png" sizes="32x32" href="./favicon-32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="./favicon-16.png">
 <link rel="apple-touch-icon" href="./apple-touch-icon.png">
@@ -1688,6 +1688,8 @@ global.jalaali = {
     .en-reasons .quick-chip{padding:8px 12px;}
   }
 </style>
+<link rel="stylesheet" href="ui-redesign.css">
+<script src="ui-redesign.js"></script>
 </head>
 <body>
 <div class="app" id="app">
@@ -1941,6 +1943,9 @@ function icon(name, size){
   const s = size || 16;
   const open = `<svg class="icn" width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">`;
   const paths = {
+    chart: `<path d="M4 4v16h16M8 15v-4M12 15V7M16 15v-6"/>`,
+    grid: `<rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/>`,
+    arrowLeft: `<path d="M19 12H5m6-6-6 6 6 6"/>`,
     settings: `<circle cx="12" cy="12" r="3"/><path d="M9 3h6l1 3 3 1 2 5-2 5-3 1-1 3H9l-1-3-3-1-2-5 2-5 3-1z"/>`,
     sun:      `<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>`,
     check:    `<path d="M20 6L9 17l-5-5"/>`,
@@ -2061,13 +2066,14 @@ function emptyFilters(){ return { tagIds:[], priorities:[], sortBy:'default' }; 
 let state = {
   tags: null,
   tasks: null,
-  view: 'today',
+  view: 'info',
   tagManagerOpen: false,
   todayFilters: emptyFilters(),
   tasksFilters: Object.assign(emptyFilters(), { date:null }),
   archiveFilters: { search:'', tagIds:[], dateFrom:null, dateTo:null },
   todayExpanded: {},
   todayDoneOpen: false,
+  todayOverdueOpen: false,
   todayFoldShut: {}, // urgent folds the user closed, this visit only
   today: new Date(),
   taskEditor: null, // { mode:'create'|'edit', taskId, draft:{title,notes,tagIds,priority,date,durationMin,subtasks} }
@@ -2120,7 +2126,7 @@ let state = {
   winEditor: null, // { winId, title, hardship, why, tagIds, happenedOn, calendarOpen, calJY, calJM }
   winsFilterTagIds: [], // show only wins carrying ANY of these tags (empty = all)
   winSos: null, // { order:[winId…], index } while the one-at-a-time view is open
-  streakPanel: false, // the streak detail sheet opened from the badge on امروز
+  streakPanel: false, // streak details opened from Progress
   motherItems: [], // [{ id, kind:'do'|'dont', category, body, createdAt }]
   motherSettings: null, // { why, remindDays:[getDay()…], showOnToday, push } — null until saved once (defaults apply)
   motherEditor: null, // { itemId, kind, category, body }
@@ -4039,10 +4045,10 @@ function editorMoveSubtask(idx, direction){
   [arr[idx], arr[newIdx]] = [arr[newIdx], arr[idx]];
   render();
 }
-async function confirmTaskEditor(){
+async function confirmTaskEditor(quickTitle){
   const titleInput = document.getElementById('editor-title');
-  const title = titleInput.value.trim();
-  if(!title){ titleInput.focus(); return; }
+  const title = (typeof quickTitle === 'string' ? quickTitle : titleInput.value).trim();
+  if(!title){ titleInput?.focus(); return; }
   const ed = state.taskEditor;
   ed.draft.title = title;
   ed.draft.notes = (ed.draft.notes || '').trim();
@@ -4584,8 +4590,9 @@ function renderMoveTaskPicker(){
 function renderSettingsPage(){
   return `
     <h2 class="section-title">تنظیمات</h2>
-    <p class="summary-text">تگ‌ها، رنگ‌ها و هدف‌های هفتگی را اینجا مدیریت کن.</p>
+
     ${renderTagManager()}
+    ${renderAccountSettings()}
   `;
 }
 function renderTagManager(){
@@ -4872,8 +4879,8 @@ function renderTaskEditorModal(){
   const tomorrowStr = dateKey(tomorrowDate());
   return `
     <div class="modal-overlay" onclick="if(event.target===this) closeTaskEditor()">
-      <div class="modal-box">
-        <h3>${ed.mode === 'create' ? 'کار جدید' : 'ویرایش کار'}</h3>
+      <div class="modal-box task-editor-box" role="dialog" aria-modal="true" aria-labelledby="task-editor-heading">
+        <h3 id="task-editor-heading">${ed.mode === 'create' ? 'کار جدید' : 'ویرایش کار'}</h3>
         <input type="text" id="editor-title" class="modal-title-input" placeholder="اسم کار…"
           value="${escapeHtml(d.title)}" oninput="state.taskEditor.draft.title=this.value; updateDurationSuggestionLive();" />
         <textarea id="editor-notes" class="task-notes-input" rows="${Math.min(8, Math.max(2, (d.notes || '').split('\n').length))}" placeholder="توضیحات (اختیاری)…"
@@ -5000,7 +5007,7 @@ function renderTaskCard(task){
           ` : ''}
           ${task.actualMin ? `<div class="actual-time-row">${icon('clock',12)} زمان واقعی: ${formatDuration(task.actualMin)}${task.difficulty ? ` · ${DIFFICULTY_LABEL[task.difficulty]}` : ''}</div>` : ''}
 
-          <div class="subtasks">
+          ${task.subtasks.length ? `<div class="subtasks">
             ${task.subtasks.map(s => `
               <div class="subtask-row">
                 <button class="subtask-check ${s.done ? 'checked' : ''}" onclick="toggleSubtask('${task.id}','${s.id}')">${s.done ? '✓' : ''}</button>
@@ -5012,7 +5019,7 @@ function renderTaskCard(task){
               <input type="text" id="subtask-input-${task.id}" placeholder="ریز کردن این کار…" onkeydown="subtaskKeydown(event,'${task.id}')" />
               <button onclick="addSubtask('${task.id}')">+ افزودن</button>
             </div>
-          </div>
+          </div>` : ''}
 
           <div class="task-actions-row">
             <button class="edit-link" onclick="openTaskEditorEdit('${task.id}')">✎ ویرایش</button>
@@ -5229,7 +5236,7 @@ function renderReplanBox(r){
   const focusBlock = suggested.length ? `
     <div class="review-focus">
       <div class="replan-head">${icon('target',14)} سه اولویت هفته‌ی بعد</div>
-      <div class="replan-reason">تا ${toFaDigits(REVIEW_MAX_FOCUS)} تا انتخاب کن؛ تا مرور بعدی بالای صفحه‌ی امروز می‌مونن.</div>
+      <div class="replan-reason">تا ${toFaDigits(REVIEW_MAX_FOCUS)} تا انتخاب کن؛ تا مرور بعدی در صفحهٔ اطلاعات می‌مونن.</div>
       <ul class="replan-list">
         ${suggested.map(f => {
           const task = state.tasks.find(t => t.id === f.task_id);
@@ -5259,7 +5266,7 @@ function renderReplanBox(r){
     </div>
   `;
 }
-/* The priorities picked in the latest review, pinned on امروز until the next
+/* The priorities picked in the latest review, shown in Progress until the next
    review replaces them (or a week and a bit has passed). */
 function renderWeeklyFocus(){
   const r = state.aiReports.find(r => r.focus && (r.focus.chosen || []).length);
@@ -6775,17 +6782,16 @@ function renderTimeBadge(todayTasks){
 /* ---------- rendering: today view ---------- */
 function renderTodayItem(t, todayStr){
   const expanded = !!state.todayExpanded[t.id];
-  const isOverdue = t.date !== todayStr;
+  const isOverdue = !t.done && t.date && t.date < todayStr;
   return `
     <div class="today-item ${t.done ? 'done' : ''} ${isOverdue ? 'overdue' : ''}">
       <div class="today-item-row" onclick="toggleTodayExpand('${t.id}')">
         ${t.priority ? `<span class="priority-dot ${t.priority}" title="اولویت ${PRIORITY_LABEL[t.priority]}"></span>` : ''}
-        <button class="task-check ${t.done ? 'checked' : ''}" onclick="toggleTaskDone('${t.id}', event)">${t.done ? '✓' : ''}</button>
+        <button class="task-check ${t.done ? 'checked' : ''}" onclick="toggleTaskDone('${t.id}', event)" aria-label="${t.done ? 'بازگرداندن' : 'انجام'} ${escapeAttr(t.title)}" aria-pressed="${t.done}">${t.done ? '✓' : ''}</button>
         <div class="ti-main">
           <div class="ti-title-row">
             <span class="ti-title ${t.done ? 'done-text' : ''}">${escapeHtml(t.title)}</span>
             ${renderTaskReminderBadge(t, true)}
-            ${t.notes ? `<span class="ti-notes-mark" title="توضیحات دارد">${icon('pencil',12)}</span>` : ''}
           </div>
           <div class="ti-meta-row">
             ${t.tagIds.map(tid => { const tag = state.tags.find(x => x.id===tid); return tag ? `<span class="mini-tag" style="--chip-color:${tag.color}">${escapeHtml(tag.name)}</span>` : ''; }).join('')}
@@ -6794,7 +6800,10 @@ function renderTodayItem(t, todayStr){
             ${t.subtasks.length ? `<span class="dur" title="زیرکارها">${toFaDigits(t.subtasks.filter(x => x.done).length)} از ${toFaDigits(t.subtasks.length)} زیرکار</span>` : ''}
           </div>
         </div>
-        <button class="ti-more ${expanded ? 'open' : ''}" aria-label="ویرایش، کپی، حذف" aria-expanded="${expanded}">${icon('dots',16)}</button>
+        <div class="ti-row-actions">
+          <button class="ti-edit" onclick="event.stopPropagation(); openTaskEditorEdit('${t.id}')" aria-label="ویرایش ${escapeAttr(t.title)}" title="ویرایش کار">${icon('pencil',16)}</button>
+          <button class="ti-more ${expanded ? 'open' : ''}" onclick="event.stopPropagation(); toggleTodayExpand('${t.id}')" aria-label="جزئیات و گزینه‌های ${escapeAttr(t.title)}" aria-expanded="${expanded}">${icon('dots',18)}</button>
+        </div>
       </div>
       ${expanded ? `
         <div class="today-subtasks">
@@ -6968,7 +6977,7 @@ function renderMotherPage(){
       <div class="quick-group">
         ${days.map(d => `<span class="quick-chip ${s.remindDays.includes(d)?'active':''}" onclick="toggleMotherDay(${d})">${WEEKDAYS_FA[d]}</span>`).join('')}
       </div>
-      <label class="mother-switch"><input type="checkbox" ${s.showOnToday?'checked':''} onchange="setMotherFlag('showOnToday', this.checked)" /> کارت روی صفحه‌ی «امروز»</label>
+      <label class="mother-switch"><input type="checkbox" ${s.showOnToday?'checked':''} onchange="setMotherFlag('showOnToday', this.checked)" /> کارت روی صفحهٔ «اطلاعات»</label>
       <label class="mother-switch"><input type="checkbox" ${s.push?'checked':''} onchange="setMotherFlag('push', this.checked)" /> توی اعلان صبح (ساعت ۸)</label>
       ${todays ? `<div class="mother-remind-note">امروز روز یادآوریه — ملاحظه‌ی امروز پایین مشخص شده.</div>` : ''}
     </div>
@@ -8538,63 +8547,7 @@ function deleteEnglishChunk(id){
   }, 5000);
 }
 
-function renderToday(){
-  const { wd } = fmtHeaderDate(state.today);
-  const todayStr = dateKey(state.today);
-  /* Today's own tasks, plus any overdue task from a past day — an overdue task
-     stays visible until it's actually finished, and once finished TODAY it stays
-     on today's list for the rest of the day (so you see the completion, and can
-     untick it if it was a misclick) instead of vanishing the instant you tap it. */
-  const todayTasksRaw = state.tasks.filter(t => {
-    if(t.date === todayStr) return true;
-    if(!t.date || t.date >= todayStr) return false;
-    if(!t.done) return true; // still-open overdue task
-    return t.completedAt && dateKey(new Date(t.completedAt)) === todayStr; // finished today
-  });
-  const scheduled = applyFiltersAndSort(todayTasksRaw, 'todayFilters', { dateFilter:false });
-  const open = scheduled.filter(t => !t.done);
-  const done = scheduled.filter(t => t.done);
-  const quote = state.encouragement && state.encouragement.text;
-  const f = state.todayFilters;
-  const filterCount = filterActiveCount(f, false);
-  /* Tasks come first. Everything else is a one-line fold under them — except a
-     fold with something that can't wait, which opens itself above the list. */
-  const folds = [renderTaskReminderAlert(), renderEnglishTodayCard(), renderMotherTodayCard(), renderWeeklyFocus(), renderWeeklyGoals()].filter(Boolean);
-  const urgent = folds.filter(x => x.urgent), rest = folds.filter(x => !x.urgent);
-
-  return `
-    <div class="today-lead">
-      <span class="today-wd">${wd}</span>
-      ${quote ? `<span class="today-quote">${escapeHtml(quote)}</span>` : ''}
-    </div>
-    <div class="today-badges">
-      ${renderStreakBadge()}
-      ${renderTimeBadge(todayTasksRaw)}
-    </div>
-    ${renderAIHealthBanner()}
-    ${renderUnseenReportNotice()}
-    ${urgent.length ? `<div class="today-folds urgent">${urgent.map(x => x.html).join('')}</div>` : ''}
-    <div class="today-head">
-      <h2 class="section-title">برنامه امروز</h2>
-      <button type="button" class="today-tool ${state.filterPanelOpen.todayFilters || filterCount ? 'on' : ''}" onclick="toggleFilterPanel('todayFilters')" title="فیلتر و مرتب‌سازی" aria-label="فیلتر و مرتب‌سازی">
-        ${icon('filter',16)}${filterCount ? `<span class="filter-count">${toFaDigits(filterCount)}</span>` : ''}
-      </button>
-      <button type="button" class="today-tool" onclick="window.print()" title="چاپِ کارهای امروز" aria-label="چاپِ کارهای امروز">${icon('printer',16)}</button>
-    </div>
-    ${renderFilterPanel('todayFilters', { dateFilter:false, ownToggle:true })}
-    ${scheduled.length === 0 ? `<div class="empty-state">${filterCount ? 'کاری با این فیلترها برای امروز نیست' : 'برای امروز کاری ثبت نشده'}</div>`
-      : open.length === 0 ? `<div class="today-all-done">${icon('check',14)} همه‌ی کارهای امروز انجام شد</div>` : ''}
-    ${open.map(t => renderTodayItem(t, todayStr)).join('')}
-    ${done.length ? `
-      <button type="button" class="today-done-toggle" onclick="state.todayDoneOpen = !state.todayDoneOpen; render()" aria-expanded="${!!state.todayDoneOpen}">
-        <span class="filter-caret ${state.todayDoneOpen ? 'open' : ''}" style="margin:0">${icon('chevronDown',13)}</span>
-        انجام‌شده (${toFaDigits(done.length)})
-      </button>
-      ${state.todayDoneOpen ? done.map(t => renderTodayItem(t, todayStr)).join('') : ''}` : ''}
-    ${rest.length ? `<div class="today-folds">${rest.map(x => x.html).join('')}</div>` : ''}
-    ${renderPrintSheet(todayTasksRaw, wd)}
-  `;
-}
+function renderToday(){ return ''; }
 
 /* ---------- امروز: folds ----------
    A fold is a card reduced to one line (title + what's inside), opened with a
@@ -8611,14 +8564,16 @@ function toggleTodayFold(id, urgent){
   if(urgent) state.todayFoldShut[id] = !state.todayFoldShut[id];
   else {
     const prefs = todayFoldPrefs();
-    prefs[id] = !prefs[id];
+    const defaultOpen = state.view === 'info' && ['goals','focus'].includes(id);
+    prefs[id] = !(prefs[id] === undefined ? defaultOpen : prefs[id]);
     try{ localStorage.setItem(TODAY_FOLDS_KEY, JSON.stringify(prefs)); }catch(_e){}
   }
   render();
 }
 function renderTodayFold(id, o){
   const urgent = !!o.urgent;
-  const open = todayFoldOpen(id, urgent);
+  const prefs = todayFoldPrefs();
+  const open = state.view === 'info' && ['goals','focus'].includes(id) && prefs[id] === undefined ? true : todayFoldOpen(id, urgent);
   return { urgent, html: `
     <div class="today-fold ${open ? 'open' : ''}" style="--fold-color:${o.color}">
       <button type="button" class="today-fold-head" onclick="toggleTodayFold('${id}', ${urgent})" aria-expanded="${open}">
@@ -8809,6 +8764,7 @@ function setArchiveDateTo(v){ state.archiveFilters.dateTo = v || null; render();
 function resetArchiveFilters(){ state.archiveFilters = { search:'', tagIds:[], dateFrom:null, dateTo:null }; render(); }
 
 /* ---------- nav / render ---------- */
+let renderAccountSettings, openAccountPanel, renderViewContext;
 function setView(v){
   if(v === 'reminders') v = 'tasks';
   if(v === 'settings' && state.view !== 'settings') state.tagManagerOpen = true;
@@ -8839,38 +8795,23 @@ function render(){
   if(preservedFieldFocused() && !(ev && USER_EVENT_TYPES.has(ev.type))){ renderDeferred = true; return; }
   renderDeferred = false;
   scheduleSnapshot();
-  const { jalali, gregorian } = fmtHeaderDate(state.today);
+  const previousFocus = captureMedarFocus();
   const app = document.getElementById('app');
-  const prevStrip = document.querySelector('.subnav-scroll');
-  const stripScroll = prevStrip ? prevStrip.scrollLeft : 0;
   app.innerHTML = `
-    <header>
-      <div class="brand">
-        <h1>مدار</h1>
-        <div class="sub">سیستم برنامه‌ریزی شخصی</div>
-      </div>
-      <div class="date-block">
-        <div class="jalali">${jalali}</div>
-        <div class="gregorian">${gregorian}</div>
-        <div class="header-links">
-          ${state.pushStatus === 'unsupported' ? '' : `<button class="push-toggle ${state.pushStatus === 'on' ? 'on' : ''}" onclick="togglePushMenu()"><span class="dot"></span>اعلان‌ها</button>`}
-          <button class="push-toggle ${backupOverdue() ? 'warn' : ''}" onclick="toggleBackupMenu()" title="${backupOverdue() ? 'مدتیه پشتیبان دانلود نکردی' : ''}"><span class="dot"></span>پشتیبان</button>
-          <button class="push-toggle" onclick="navigateTo('settings')" ${state.view === 'settings' ? 'aria-current="page"' : ''}>${icon('settings',14)} تنظیمات</button>
-          <button class="sign-out" onclick="signOut()">خروج</button>
-        </div>
-      </div>
-    </header>
+    ${renderDesignHeader()}
     ${state.pushMenuOpen ? renderPushMenu() : ''}
     ${state.backupMenuOpen ? renderBackupMenu() : ''}
 
     ${renderNav()}
-    ${renderSubnav()}
 
     ${renderOfflineBar()}
     ${loadError ? `<div class="empty-state" style="background:var(--surface);border:1px solid var(--danger);border-radius:10px;color:var(--danger);margin-bottom:16px;">اتصال به دیتابیس برقرار نشد — اینترنتت رو چک کن و صفحه رو رفرش کن.</div>` : ''}
 
-    <main>
+    <main id="main-content" tabindex="-1" class="view-${escapeAttr(state.view)}">
+      ${renderViewContext()}
       ${state.view === 'today' ? renderToday() : ''}
+      ${state.view === 'info' ? renderDesignInfo() : ''}
+      ${state.view === 'more' ? renderDesignMore() : ''}
       ${state.view === 'tasks' ? renderTasksView() : ''}
       ${state.view === 'calendar' ? renderCalendarPage() : ''}
       ${state.view === 'ideas' ? renderIdeasPage() : ''}
@@ -8904,114 +8845,25 @@ function render(){
     ${state.maintEditor ? renderMaintEditorModal() : ''}
     ${state.repairDoneModal ? renderRepairDoneModal() : ''}
   `;
-  // every render rebuilds the tabs; if a group ever has more than fit, keep
-  // the strip where it was and bring a newly opened tab into view
-  const strip = document.querySelector('.subnav-scroll');
-  if(strip){
-    strip.classList.toggle('overflowing', strip.scrollWidth > strip.clientWidth + 1);
-    strip.scrollLeft = stripScroll;
-    if(revealActiveTab){
-      revealActiveTab = false;
-      const a = strip.querySelector('button.active');
-      if(a) a.scrollIntoView({block:'nearest', inline:'nearest'});
-    }
-  }
+  syncMedarDialog(previousFocus);
 }
 
-/* ---------- navigation ----------
-   Sections are grouped by what they're for. Phones and tablets show the groups
-   in the bar and the current group's sections as tabs under the header, so a new
-   section only adds a tab to its group and the bar never gets more crowded.
-   Laptops list every section in the sidebar. To add a section, add it to the
-   group it belongs in; add a new group only if nothing fits (phones hold 5). */
+/* Stable destinations shared by phone and laptop. */
 const NAV_GROUPS = [
-  { id:'plan',   label:'برنامه‌ریزی', icon:'calendar', items:[
-    { id:'today',     label:'امروز',      icon:'sun' },
-    { id:'tasks',     label:'تسک‌ها',      icon:'check' },
-    { id:'calendar',  label:'تقویم',       icon:'calendar' },
-    { id:'english',   label:'انگلیسی',     icon:'book' },
-  ]},
-  { id:'notes',  label:'یادداشت‌ها', icon:'bulb', items:[
-    { id:'ideas',     label:'ایده‌ها',      icon:'bulb' },
-    { id:'prompts',   label:'پرامپت‌ها',   icon:'prompt' },
-  ]},
-  { id:'money',  label:'هزینه‌ها', icon:'card', items:[
-    { id:'purchases',     label:'خریدها',    icon:'cart' },
-    { id:'subscriptions', label:'اشتراک‌ها', icon:'card' },
-  ]},
-  { id:'wins',   label:'زندگی', icon:'heart', items:[
-    { id:'wins',       label:'تونستم',        icon:'trophy' },
-    { id:'mother',     label:'مادر',          icon:'heart' },
-    { id:'repairs',    label:'تعمیرات خونه',  icon:'wrench' },
-  ]},
-  { id:'review', label:'مرور', icon:'archive', items:[
-    { id:'settings',   label:'تنظیمات', icon:'settings' },
-    { id:'archive',    label:'آرشیو',         icon:'archive' },
-    { id:'ai-reports', label:'گزارش هوشمند', icon:'sparkle' },
-  ]},
+  {id:'info',label:'اطلاعات',icon:'chart',items:[{id:'info'},{id:'mother'}]},
+  {id:'work',label:'کارها',icon:'check',items:[{id:'today'},{id:'tasks'}]},
+  {id:'calendar',label:'تقویم',icon:'calendar',items:[{id:'calendar'}]},
+  {id:'english',label:'انگلیسی',icon:'book',items:[{id:'english'}]},
+  {id:'more',label:'بیشتر',icon:'grid',items:['more','ideas','prompts','purchases','subscriptions','repairs','archive','settings','ai-reports','wins'].map(id=>({id}))},
 ];
 const groupOfView = v => NAV_GROUPS.find(g => g.items.some(i => i.id === v)) || NAV_GROUPS[0];
-// the section last opened in each group, so tapping a group returns you there
 const lastViewInGroup = {};
-function navigateTo(view){
-  if(state.view !== view) window.scrollTo(0, 0);
-  lastViewInGroup[groupOfView(view).id] = view;
-  revealActiveTab = true;
-  setView(view);
-}
+let navigateTo;
 function openGroup(groupId){
-  const g = NAV_GROUPS.find(g => g.id === groupId);
-  navigateTo(lastViewInGroup[g.id] || g.items[0].id);
+  const g=NAV_GROUPS.find(g=>g.id===groupId);
+  if(g)navigateTo(lastViewInGroup[g.id]||g.items[0].id);
 }
-let revealActiveTab = false;
-function renderNav(){
-  const current = groupOfView(state.view);
-  return `
-    <nav class="main-nav" aria-label="بخش‌ها">
-      <div class="nav-groups">
-        ${NAV_GROUPS.map(g => `
-          <button class="nav-group-btn ${g === current ? 'active' : ''}" onclick="openGroup('${g.id}')"
-            ${g === current ? 'aria-current="true"' : ''}>
-            <span class="nav-icon">${icon(g.icon, 22)}</span>
-            <span>${g.label}</span>
-          </button>
-        `).join('')}
-      </div>
-      <div class="nav-scroll">
-        ${NAV_GROUPS.map(g => `
-          <div class="nav-group" role="group" aria-label="${g.label}">
-            <div class="nav-group-title" aria-hidden="true">${g.label}</div>
-            ${g.items.map(n => `
-              <button class="nav-item ${state.view===n.id ? 'active' : ''}" onclick="navigateTo('${n.id}')"
-                ${state.view===n.id ? 'aria-current="page"' : ''}>
-                <span class="nav-icon">${icon(n.icon, 18)}</span>
-                <span>${n.label}</span>
-              </button>
-            `).join('')}
-          </div>
-        `).join('')}
-      </div>
-      <button class="nav-add" onclick="openTaskEditorNew()" aria-label="افزودن تسک">
-        <span class="nav-icon">${icon('plus', 18)}</span>
-        <span>افزودن</span>
-      </button>
-    </nav>
-  `;
-}
-function renderSubnav(){
-  const g = groupOfView(state.view);
-  if(g.items.length < 2) return '';
-  return `
-    <div class="subnav">
-      <div class="subnav-scroll" role="tablist" aria-label="${g.label}">
-        ${g.items.map(n => `
-          <button role="tab" class="${state.view===n.id ? 'active' : ''}" aria-selected="${state.view===n.id}"
-            onclick="navigateTo('${n.id}')">${n.label}</button>
-        `).join('')}
-      </div>
-    </div>
-  `;
-}
+function renderNav(){ return ''; }
 function renderTaskCompletionModal(){
   const m = state.taskCompletionModal;
   const t = m.chunkId ? (state.englishChunks || []).find(c => c.id === m.chunkId) : state.tasks.find(t => t.id === m.taskId);
@@ -9567,6 +9419,7 @@ async function signOut(){
   try{ await offlineDB.clear('outbox'); await offlineDB.del('kv', 'snapshot'); }catch(_e){}
   await sb.auth.signOut();
 }
+installMedarPresentation();
 sb.auth.onAuthStateChange((event, session) => {
   // supabase-js warns against awaiting its own calls inside this callback,
   // so hand off to the next tick before loadAll() starts querying

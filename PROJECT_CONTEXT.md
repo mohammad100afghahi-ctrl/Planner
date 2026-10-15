@@ -56,3 +56,12 @@ Read current files rather than assuming stored notes remain current. Reconcile u
 
 - Claude's redesign (3ed5a17: new theme, four-tab nav, «بخش‌ها» hub, week view) was reverted at the user's request; the previous look and grouped navigation are back.
 - Kept: the service worker stays cache-first for instant launch, and the page reloads into a new release once it installs (or when the app goes to background mid-edit). Install bypasses the HTTP cache.
+
+## Living redesign release — 2026-10-15
+
+- User selected the Living visual direction and authorized publication after reviewing it. Release is based on current origin/main f8bd496 on dedicated codex/living-release.
+- Information becomes home with actual weekly goals/notices and Mother/English daily cards. Today and All tasks share Tasks; Calendar, English and compact More remain direct destinations. Complete original modules, native handlers, data fields and backend behavior are retained.
+- New ui-redesign.js/css provide the warm light/forest presentation and responsive navigation. Empty subtask forms are hidden; full editor fields remain available. Task dialog gains keyboard focus containment and accessible controls.
+- Manifest palette updated; service worker v54 caches both new assets and preserves upstream cache reload and update guards. No database/schema/service changes.
+- See DESIGN_SYSTEM.md and REDESIGN_FEATURE_INVENTORY.md for design and feature-preservation scope. Isolated mock frontend regression instructions are in tests/README.md; live service/device behavior remains outside those checks.
+- Release checks passed: 18 screen states at eight widths (320, 360, 390, 700, 768, 994, 1280, 1440), core task/calendar/module and keyboard workflows; no page errors, horizontal overflow or unexpected service requests. Inline scripts, presentation/reminder/service-worker scripts and manifest parse; whitespace check passed.
