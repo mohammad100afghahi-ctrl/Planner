@@ -9806,8 +9806,27 @@ sb.auth.onAuthStateChange((event, session) => {
   else if(event === 'INITIAL_SESSION') renderLogin();
 });
 
-/* ---------- PWA: register the app-shell service worker ---------- */
+/* ---------- PWA: register the app-shell service worker ----------
+   The worker serves the cached copy first so the app opens instantly, and
+   fetches the new release in the background. Once that release takes over
+   (controllerchange) the page reloads into it — right away if nothing is being
+   typed or edited, otherwise the next time the app goes to the background — so
+   an update shows within seconds instead of on the next launch. */
 if('serviceWorker' in navigator){
+  const hadController = !!navigator.serviceWorker.controller;
+  let updatePending = false;
+  const editing = () => !!(preservedFieldFocused() || document.querySelector('.modal-overlay')
+    || (document.activeElement && /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName)));
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if(!hadController || updatePending) return; // first install: nothing old on screen
+    updatePending = true;
+    if(!editing()) location.reload();
+  });
+  document.addEventListener('visibilitychange', () => {
+    if(document.visibilityState === 'hidden' && updatePending) location.reload();
+    // a PWA can sit open for days; look for a new release whenever it comes back
+    if(document.visibilityState === 'visible') navigator.serviceWorker.getRegistration().then(r => r && r.update()).catch(() => {});
+  });
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('./sw.js').catch(e => console.error('SW register failed', e));
   });
