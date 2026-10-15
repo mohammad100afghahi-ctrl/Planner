@@ -52,9 +52,7 @@ Read current files rather than assuming stored notes remain current. Reconcile u
 - Verification: all inline/frontend JS and stripped TypeScript parse; mobile browser checks with mocked writes cover earlier alarm, create/edit/disable, completion badge and removed tab. Transactional live SQL tests rolled back all fixtures and passed claim deduplication, reschedule, completed-task exclusion, annual cloning/ownership and RPC permissions. Security advisors reported only pre-existing backup/auth warnings. Actual delivery to the user's phone has not been tested.
 - Release packaging excludes the pre-existing uncommitted app-map UI changes/assets while retaining them in this checkout. The service worker release is v46 and caches task-reminders.js.
 
-## Redesign (Claude) — 2026-10-15
+## Redesign reverted — 2026-10-15
 
-- Calm neutral-dark palette in `:root` (single amber accent, muted tag colours); Markazi Text dropped, Vazirmatn only. Shared look lives in the «calm layer» near the end of the stylesheet (`.group-list`, `.group-label`, `.dashed-btn`).
-- Navigation is now four destinations + add: امروز · برنامه · انگلیسی · بخش‌ها (`PRIMARY_NAV`). Every other section is a tile on «بخش‌ها» (`view:'hub'`, with search) — add new sections to `NAV_GROUPS` there. Laptops also list them in the sidebar. The old group bar and sub-tabs are gone.
-- «برنامه» = `week` (new, starts tomorrow) / `tasks` (list; hides today's and overdue tasks unless a date filter is set) / `calendar`, switched by `renderPlanSwitch()`. Today's tasks live only on امروز.
-- Header is `renderPageHead()` (page title, date + streak on امروز, settings gear with backup-warning dot). Push, backup and sign-out moved into «تنظیمات».
+- Claude's redesign (3ed5a17: new theme, four-tab nav, «بخش‌ها» hub, week view) was reverted at the user's request; the previous look and grouped navigation are back.
+- Kept: the service worker stays cache-first for instant launch, and the page reloads into a new release once it installs (or when the app goes to background mid-edit). Install bypasses the HTTP cache.
