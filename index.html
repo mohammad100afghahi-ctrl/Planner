@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>مدار</title>
 <link rel="manifest" href="./manifest.json">
-<meta name="theme-color" content="#0A0E18">
+<meta name="theme-color" content="#0F1012">
 <link rel="icon" type="image/png" sizes="32x32" href="./favicon-32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="./favicon-16.png">
 <link rel="apple-touch-icon" href="./apple-touch-icon.png">
@@ -14,7 +14,7 @@
 <meta name="apple-mobile-web-app-title" content="مدار">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800&family=Markazi+Text:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 /* Vendored from jalaali-js v2.0.1 (https://github.com/jalaali/jalaali-js)
@@ -364,34 +364,33 @@ global.jalaali = {
 </script>
 <style>
   :root{
-    /* ---- palette: an ink-and-hairline logbook, not a glowing panel ----
-       One signal colour (amber) marks anything that is "now": today, the
-       streak, the add button. One alert colour marks overdue. Everything
-       else is neutral ink so the numbers can carry the page. */
-    --bg:#0A0D14;
-    --surface:#141A25;
-    --surface-2:#1C2431;
-    --surface-3:#28323F;
-    --line: rgba(148,166,196,0.15);
-    --line-strong: rgba(148,166,196,0.30);
-    --text:#E7EAF1;
-    --text-muted:#8592A6;
-    --accent:#F2B134;
-    --accent2:#7C8CFF;
-    --danger:#DF5C6E;
-    --python:#56BECE;
-    --english:#BE76C4;
-    --freelance:#71CC8D;
-    --fitness:#DF5C6E;
-    --gray-tag:#8592A6;
-    --display:'Markazi Text', 'Vazirmatn', serif;
-    /* flat surfaces: a hairline and a whisper of lift, nothing more */
+    /* ---- palette: calm, neutral dark ----
+       One ground, one raised surface (plus two steps for controls), hairlines
+       at 7% white. Amber is the only signal colour: today, the streak, the add
+       button. Tag colours are muted so the text, not the chips, carries a row. */
+    --bg:#0F1012;
+    --surface:#17181B;
+    --surface-2:#1E2024;
+    --surface-3:#2A2C31;
+    --line: rgba(255,255,255,0.07);
+    --line-strong: rgba(255,255,255,0.14);
+    --text:#ECEDEF;
+    --text-muted:#8C8F97;
+    --accent:#D9A85B;
+    --accent2:#8FA8E8;
+    --danger:#D9707C;
+    --python:#6FB3BF;
+    --english:#B88BC0;
+    --freelance:#7FB894;
+    --fitness:#D9707C;
+    --gray-tag:#8C8F97;
+    --display:'Vazirmatn', sans-serif;
     --glass-blur: none;
     --glass-fill: var(--surface);
     --glass-fill-2: var(--surface-2);
     --glass-fill-3: var(--surface-3);
-    --glass-shadow: 0 1px 2px rgba(0,0,0,0.30);
-    --glass-shadow-sm: 0 1px 2px rgba(0,0,0,0.24);
+    --glass-shadow: none;
+    --glass-shadow-sm: none;
     --chip-shine: none;
     color-scheme: dark;
   }
@@ -405,137 +404,93 @@ global.jalaali = {
     -webkit-font-smoothing:antialiased;
     position:relative;
   }
-  body::before{
-    content:'';
-    position:fixed; inset:0; z-index:0; pointer-events:none;
-    background:linear-gradient(180deg, rgba(148,166,196,0.05), transparent 220px);
-  }
   .app{position:relative; z-index:1;}
   .mono{font-family:'JetBrains Mono', monospace; direction:ltr; display:inline-block;}
   button, input, textarea, select{font-family:inherit;}
 
-  .app{max-width:800px; margin:0 auto; padding:26px 16px 90px;}
-
-  header{display:flex; align-items:flex-end; justify-content:space-between; margin-bottom:20px; padding-bottom:16px; border-bottom:1px solid var(--line);}
-  .brand h1{font-family:var(--display); font-size:34px; font-weight:700; line-height:1; letter-spacing:0;}
-  .brand .sub{font-size:11.5px; color:var(--text-muted); font-weight:500; margin-top:3px;}
-  .date-block{text-align:left;}
-  .date-block .jalali{font-family:var(--display); font-size:20px; line-height:1.1; color:var(--text); font-weight:600;}
-  .date-block .gregorian{font-size:11px; color:var(--text-muted); margin-top:3px;}
+  .app{max-width:720px; margin:0 auto; padding:calc(28px + env(safe-area-inset-top, 0px)) 20px 90px;}
 
   /* ---- navigation ----
-     Sections are grouped by what they're for (NAV_GROUPS). New sections join a
-     group, so the bars never get more crowded than the number of groups:
-       phones (≤640)      bottom bar of groups + the group's sections as tabs up top
-       tablets (641–1099) the same groups in a right-hand rail, tabs up top
-       laptops (≥1100)    full sidebar listing every section, no tabs needed */
-  nav.main-nav{display:flex; background:var(--surface);}
-  .nav-groups{display:flex;}
-  .nav-scroll{display:none;}
-  .nav-group-title{display:block; font-size:12px; font-weight:600; color:var(--text-muted); padding:0 12px 6px; opacity:.8;}
-  .nav-item, .nav-group-btn{
+     Four destinations + the add button (PRIMARY_NAV):
+       phones (≤640)      bottom bar, add button raised in the middle
+       tablets (641–1099) the same five in a right-hand rail
+       laptops (≥1100)    sidebar: the four, then every section by group */
+  nav.main-nav{display:flex; background:var(--bg);}
+  .nav-brand, .nav-sections{display:none;}
+  .nav-btn, .nav-item{
     position:relative; background:transparent; border:none; color:var(--text-muted);
-    font-family:inherit; font-weight:600; cursor:pointer; white-space:nowrap;
+    font-family:inherit; font-weight:500; cursor:pointer; white-space:nowrap;
     display:flex; align-items:center; transition:background .15s, color .15s;
   }
-  .nav-item:hover:not(.active), .nav-group-btn:hover:not(.active){color:var(--text); background:var(--surface-2);}
-  .nav-item.active, .nav-group-btn.active{color:var(--text);}
-  .nav-item.active{background:var(--surface-3);}
-  .nav-item.active .nav-icon, .nav-group-btn.active .nav-icon{color:var(--accent);}
-  .nav-item:focus-visible, .nav-group-btn:focus-visible, .nav-add:focus-visible, .subnav button:focus-visible{
-    outline:2px solid var(--accent); outline-offset:-2px;
-  }
+  .nav-btn:hover:not(.active), .nav-item:hover:not(.active){color:var(--text);}
+  .nav-btn.active, .nav-item.active{color:var(--text); font-weight:600;}
+  .nav-btn.active .nav-icon, .nav-item.active .nav-icon{color:var(--accent);}
+  .nav-btn:focus-visible, .nav-item:focus-visible, .nav-add:focus-visible{outline:2px solid var(--accent); outline-offset:-2px;}
   .nav-icon{display:inline-flex; align-items:center; justify-content:center;}
   .nav-add{
     display:flex; align-items:center; justify-content:center; gap:8px;
     background:var(--accent); color:#16120A; border:none; cursor:pointer;
-    font-family:inherit; font-weight:800;
+    font-family:inherit; font-weight:700;
   }
-  .nav-add:hover{opacity:.92;}
+  .nav-add:hover{filter:brightness(1.06);}
 
-  /* the current group's sections, as tabs under the header */
-  .subnav{
-    position:sticky; top:0; z-index:30; margin:0 -16px 18px; padding:8px 16px;
-    background:var(--bg); border-bottom:1px solid var(--line);
-  }
-  .subnav-scroll{display:flex; gap:6px; overflow-x:auto; scrollbar-width:none; overscroll-behavior-x:contain;}
-  .subnav-scroll::-webkit-scrollbar{display:none;}
-  .subnav button{
-    flex:1 0 auto; justify-content:center; min-height:40px; padding:8px 14px; border-radius:10px;
-    background:transparent; border:1px solid transparent; color:var(--text-muted);
-    font-family:inherit; font-size:14px; font-weight:600; cursor:pointer; white-space:nowrap;
-    display:inline-flex; align-items:center; gap:7px;
-  }
-  .subnav button:hover:not(.active){color:var(--text); background:var(--surface-2);}
-  .subnav button.active{background:var(--surface-3); border-color:var(--line-strong); color:var(--text);}
-  /* only when a group has more tabs than fit: fade the far edge as a hint */
-  .subnav-scroll.overflowing{
-    -webkit-mask-image:linear-gradient(to left, transparent 0, #000 32px);
-            mask-image:linear-gradient(to left, transparent 0, #000 32px);
-    padding-inline-end:24px;
-  }
-
-  /* phones: bottom bar of groups */
   @media (max-width: 640px){
     nav.main-nav{
-      position:fixed; bottom:0; left:0; right:0; z-index:45; gap:4px;
-      padding:6px 6px calc(6px + env(safe-area-inset-bottom, 0px));
-      border-top:1px solid var(--line); box-shadow:0 -4px 16px -8px rgba(0,0,0,.7);
+      position:fixed; bottom:0; left:0; right:0; z-index:45;
+      display:grid; grid-template-columns:repeat(5, minmax(0, 1fr)); align-items:center;
+      padding:6px 8px calc(6px + env(safe-area-inset-bottom, 0px));
+      border-top:1px solid var(--line);
     }
-    .nav-groups{flex:1; gap:4px;}
-    .nav-group-btn{
-      flex:1 1 0; min-width:0; min-height:56px; padding:6px 2px; border-radius:12px;
-      flex-direction:column; justify-content:center; gap:5px; font-size:12.5px;
-    }
-    .nav-group-btn.active{background:var(--surface-3);}
-    .nav-group-btn.active::after{
-      content:''; position:absolute; top:0; left:28%; right:28%; height:2px;
-      background:var(--accent); border-radius:0 0 2px 2px;
-    }
-    .nav-add{
-      flex:0 0 60px; flex-direction:column; gap:5px; border-radius:12px;
-      background:transparent; color:var(--accent); font-size:12.5px; font-weight:700;
-    }
-    .nav-add .nav-icon{width:30px; height:30px; border-radius:50%; background:var(--accent); color:#16120A;}
-    /* leave room so the bottom bar never covers the last item
-       (the undo-toast offset lives at the end of this stylesheet so it
-        isn't overridden by the later base rule) */
+    .nav-btn{flex-direction:column; justify-content:center; gap:4px; min-height:56px; font-size:11.5px;}
+    .nav-add{justify-self:center; width:52px; height:52px; border-radius:50%;}
+    .nav-add-label{display:none;}
     body{padding-bottom:calc(84px + env(safe-area-inset-bottom, 0px));}
   }
-
-  /* tablets and up: nav moves to a rail on the right edge */
   @media (min-width: 641px){
     nav.main-nav{
-      position:fixed; top:0; bottom:0; right:0; z-index:45; flex-direction:column; gap:12px;
-      width:96px; padding:16px 8px; border-left:1px solid var(--line); overflow-y:auto; scrollbar-width:thin;
+      position:fixed; top:0; bottom:0; right:0; z-index:45; flex-direction:column; gap:6px;
+      width:88px; padding:20px 10px; border-left:1px solid var(--line); overflow-y:auto; scrollbar-width:thin;
     }
-    body{padding-right:96px;}
-    .nav-add{order:-1; flex-direction:column; gap:4px; min-height:56px; border-radius:12px; font-size:12.5px;}
-    .nav-groups{flex-direction:column; gap:4px;}
-    .nav-group-btn{
-      flex-direction:column; justify-content:center; gap:5px; min-height:64px;
-      padding:8px 4px; border-radius:12px; font-size:12.5px;
-    }
-    .nav-group-btn.active{background:var(--surface-3);}
-    .nav-group-btn.active::before, .nav-item.active::before{
-      content:''; position:absolute; right:-8px; top:12px; bottom:12px; width:3px;
-      background:var(--accent); border-radius:3px 0 0 3px;
-    }
+    body{padding-right:88px;}
+    .nav-btn{flex-direction:column; justify-content:center; gap:5px; min-height:64px; border-radius:14px; font-size:12px;}
+    .nav-btn.active{background:var(--surface);}
+    .nav-add{order:-1; width:52px; height:52px; border-radius:50%; align-self:center; margin-bottom:10px;}
+    .nav-add-label{display:none;}
+  }
+  @media (min-width: 1100px){
+    nav.main-nav{width:248px; padding:26px 16px; gap:2px;}
+    body{padding-right:248px;}
+    .nav-brand{display:block; order:-2; font-size:20px; font-weight:700; padding:0 12px 18px;}
+    .nav-add{order:-1; width:auto; height:44px; border-radius:12px; margin:0 0 16px; align-self:stretch;}
+    .nav-add-label{display:inline; font-size:14px;}
+    .nav-btn{flex-direction:row; justify-content:flex-start; gap:12px; min-height:42px; padding:0 12px; border-radius:10px; font-size:14px;}
+    .nav-sections{display:flex; flex-direction:column; gap:18px; margin-top:18px; padding-top:18px; border-top:1px solid var(--line);}
+    .nav-group{display:flex; flex-direction:column; gap:2px;}
+    .nav-group-title{font-size:12px; color:var(--text-muted); padding:0 12px 6px;}
+    .nav-item{gap:12px; min-height:38px; padding:0 12px; border-radius:10px; font-size:13.5px;}
+    .nav-item.active{background:var(--surface);}
   }
 
-  /* laptops: full sidebar, every section listed, tabs not needed */
-  @media (min-width: 1100px){
-    nav.main-nav{width:240px; padding:22px 14px; gap:20px;}
-    body{padding-right:240px;}
-    .nav-add{flex-direction:row; min-height:44px; font-size:14px; border-radius:10px;}
-    .nav-groups{display:none;}
-    .nav-scroll{display:flex; flex-direction:column; gap:16px;}
-    .nav-group{display:flex; flex-direction:column; gap:2px;}
-    .nav-group + .nav-group{border-top:1px solid var(--line); padding-top:16px;}
-    .nav-item{gap:12px; min-height:42px; padding:8px 12px; border-radius:10px; font-size:14px;}
-    .nav-item.active::before{right:-14px; top:9px; bottom:9px;}
-    .subnav{display:none;}
+  /* ---- page heading ---- */
+  .page-head{display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom:22px;}
+  .ph-text{display:flex; flex-direction:column; gap:2px; min-width:0;}
+  .ph-kicker{font-size:13px; color:var(--text-muted);}
+  .page-head h1{font-size:30px; font-weight:700; line-height:1.25; letter-spacing:-.3px;}
+  .ph-actions{display:flex; align-items:center; gap:8px; flex-shrink:0;}
+  .ph-btn{
+    position:relative; width:44px; height:44px; border-radius:50%; border:none; cursor:pointer;
+    background:var(--surface); color:var(--text); display:inline-flex; align-items:center; justify-content:center;
   }
+  .ph-btn:hover{background:var(--surface-2);}
+  .ph-btn.on{color:var(--accent);}
+  .ph-btn:disabled{opacity:.35; cursor:default;}
+  .ph-btn.sm{width:36px; height:36px; background:transparent; color:var(--text-muted);}
+  .ph-btn.sm:hover{background:var(--surface); color:var(--text);}
+  .ph-btn.warn::after{content:''; position:absolute; top:9px; left:9px; width:8px; height:8px; border-radius:50%; background:var(--danger); box-shadow:0 0 0 2px var(--bg);}
+  .page-head .streak-badge{height:44px; padding:0 12px; border-radius:22px;}
+  .page-head .streak-badge .streak-label, .page-head .streak-badge .streak-chev, .page-head .streak-badge .streak-freeze.empty{display:none;}
+  /* the page already says what it is in .page-head */
+  main > h2.section-title:first-child, main > .seg + h2.section-title{display:none;}
 
   /* archive sub-tabs */
   .archive-tabs{display:flex; gap:6px; margin-bottom:14px;}
@@ -1367,13 +1322,6 @@ global.jalaali = {
   .login button{background:var(--accent); color:#12161C; border:none; border-radius:10px; font-size:15px; font-weight:700; padding:12px; cursor:pointer;}
   .login button:disabled{opacity:.6; cursor:default;}
   .login .login-error{color:var(--danger); font-size:13px; text-align:center; min-height:18px;}
-  .date-block .sign-out{background:none; border:none; color:var(--text-muted); font-size:11px; cursor:pointer; padding:4px 0 0;}
-  .date-block .sign-out:hover{color:var(--danger);}
-  .date-block .header-links{display:flex; flex-wrap:wrap; gap:12px; justify-content:flex-end; align-items:center;}
-  .date-block .push-toggle{background:none; border:none; color:var(--text-muted); font-size:11px; cursor:pointer; padding:4px 0 0; display:inline-flex; align-items:center; gap:4px;}
-  .date-block .push-toggle:hover{color:var(--accent);}
-  .date-block .push-toggle .dot{width:6px; height:6px; border-radius:50%; background:var(--line-strong);}
-  .date-block .push-toggle.on .dot{background:var(--accent);}
   .push-menu{
     position:relative; margin:0 auto 16px 0; max-width:360px;
     background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:14px 16px;
@@ -1384,7 +1332,6 @@ global.jalaali = {
   .push-menu button.primary{background:var(--accent); color:#12161C; border-color:var(--accent);}
   .push-menu button.danger:hover{border-color:var(--danger); color:var(--danger);}
   .push-menu button:disabled{opacity:.6; cursor:default;}
-  .date-block .push-toggle.warn .dot{background:var(--danger);}
   .backup-list{margin:0 0 12px; border-top:1px solid var(--line);}
   .backup-row{display:flex; align-items:center; gap:8px; padding:8px 0; border-bottom:1px solid var(--line); font-size:12.5px;}
   .backup-row .backup-when{flex:1; min-width:0;}
@@ -1603,7 +1550,7 @@ global.jalaali = {
      Flat ink panels separated by hairlines. No blur, no gradients, no rim
      highlights — depth is carried by the hairline and a 1px shadow, so the
      only things that glow on this page are the ones that mean something. */
-  nav, .add-task-btn, .progress-box, .tag-manager, .filter-panel, .task-card, .today-item,
+  .add-task-btn, .progress-box, .tag-manager, .filter-panel, .task-card, .today-item,
   .modal-box, .task-calendar, .cal-day-task, .streak-badge, .cal-nav, .cal-back,
   .date-picker-btn, .reset-filters-btn, .new-tag-row button, .modal-add-subtask button,
   .modal-actions button, .pomo-task-pick-row, .archive-search-input{
@@ -1654,6 +1601,136 @@ global.jalaali = {
   .streak-count, .progress-box .goal-hours, .cal-day-total strong, .planned-total strong{
     font-family:var(--display); font-variant-numeric:tabular-nums;
   }
+
+
+  /* ============ calm layer ============
+     One ground, one surface, hairlines inside a group instead of a border
+     around every row, and one amber for "now". Rows that belong together sit in
+     a .group-list; small grey labels (.group-label) name a group. */
+  .group-label{font-size:13px; font-weight:500; color:var(--text-muted); margin:26px 0 10px;}
+  .group-list{background:var(--surface); border-radius:16px; overflow:hidden;}
+  .group-list > * + *{border-top:1px solid var(--line);}
+  .dashed-btn{
+    display:block; width:100%; min-height:44px; margin:14px 0; padding:10px 14px; cursor:pointer;
+    background:transparent; border:1px dashed var(--line-strong); border-radius:12px;
+    color:var(--text-muted); font-family:inherit; font-size:13px;
+  }
+  .dashed-btn:hover{color:var(--text); border-color:var(--text-muted);}
+  .sr-only{position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap;}
+
+  h2.section-title{font-family:inherit; font-size:15px; font-weight:600; margin:26px 0 12px;}
+  .task-card, .today-item, .tag-manager, .progress-box, .filter-panel, .idea-card, .add-idea-box,
+  .add-purchase-box, .task-calendar, .cal-day-task, .modal-box, .push-menu{border-radius:16px; border-color:var(--line);}
+  .task-check{border-radius:50%; width:22px; height:22px; border-color:var(--text-muted);}
+  .task-check.checked{color:#16120A;}
+  .modal-box{background:var(--surface); box-shadow:0 20px 60px rgba(0,0,0,.5);}
+  .modal-overlay{background:rgba(0,0,0,.55);}
+
+  /* امروز */
+  .today-quote{font-size:14px; line-height:1.9; color:var(--text-muted); margin:-8px 0 20px;}
+  .today-progress{margin-bottom:6px;}
+  .tp-row{display:flex; justify-content:space-between; gap:12px; font-size:13px; color:var(--text-muted); margin-bottom:8px;}
+  .tp-row strong{color:var(--text); font-weight:600;}
+  .tp-track{height:4px; border-radius:2px; background:var(--surface-2); overflow:hidden;}
+  .tp-fill{height:100%; border-radius:2px; background:var(--accent); transition:width .3s;}
+  .today-head{margin:26px 0 10px;}
+  .today-head .group-label{margin:0; flex:1;}
+  .today-tool{width:34px; height:34px; border:none; border-radius:50%;}
+  .today-tool:hover, .today-tool.on{background:var(--surface); border:none;}
+  .today-list .today-item{background:none; border:none; border-radius:0; margin:0; box-shadow:none;}
+  .today-list > .today-item + .today-item{border-top:1px solid var(--line);}
+  .today-list .today-item.overdue:not(.done){border-inline-start:none;}
+  .today-list .today-item.overdue:not(.done) .task-check{border-color:var(--danger);}
+  .today-item-row{padding:14px 16px; gap:12px;}
+  .today-item .ti-title{font-weight:500;}
+  .today-item .mini-tag{background:none; border:none; padding:0; gap:5px; color:var(--text-muted); font-weight:500;}
+  .today-item .mini-tag::before{content:''; width:6px; height:6px; border-radius:50%; background:var(--chip-color);}
+  .today-done-toggle{margin:6px 0; font-weight:500;}
+  .today-folds{margin-top:0;}
+  .today-fold{background:none; border:none; border-radius:0; margin:0;}
+  .today-folds:not(.urgent) .today-fold + .today-fold{border-top:1px solid var(--line);}
+  .today-folds:not(.urgent) .today-fold-head{padding:13px 4px; font-size:14px;}
+  .today-fold-title{font-weight:500;}
+  .today-folds.urgent .today-fold{background:var(--surface); border-radius:16px; margin-bottom:8px;}
+  .today-fold-body{border-top:none; padding:4px 4px 14px;}
+  .today-folds.urgent .today-fold-body{padding:4px 16px 14px;}
+
+  /* برنامه */
+  .seg{display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:4px; padding:4px; margin-bottom:18px; background:var(--surface); border-radius:12px;}
+  .seg button{height:38px; border:none; border-radius:9px; background:transparent; color:var(--text-muted); font-family:inherit; font-size:13.5px; cursor:pointer;}
+  .seg button.on{background:var(--surface-3); color:var(--text); font-weight:600;}
+  .week-strip{display:grid; grid-template-columns:repeat(7, minmax(0, 1fr)); gap:4px; margin-bottom:6px;}
+  .ws-day{
+    display:flex; flex-direction:column; align-items:center; gap:3px; padding:8px 0; min-height:64px;
+    background:transparent; border:none; border-radius:12px; color:var(--text-muted); font-family:inherit; cursor:pointer;
+  }
+  .ws-day:hover{background:var(--surface);}
+  .ws-wd{font-size:11px;}
+  .ws-num{font-size:16px; color:var(--text);}
+  .ws-dot{width:5px; height:5px; border-radius:50%; background:var(--text-muted);}
+  .ws-dot.none{visibility:hidden;}
+  .ws-day.today{background:var(--accent); color:#16120A;}
+  .ws-day.today .ws-num{color:#16120A; font-weight:700;}
+  .ws-day.today .ws-dot{background:#16120A;}
+  .week-nav{display:flex; align-items:center; justify-content:space-between; margin:8px 0 4px; font-size:13px; color:var(--text-muted);}
+  .week-nav .ph-btn{background:transparent;}
+  .plan-day-head{display:flex; align-items:center; gap:8px; margin:20px 0 8px;}
+  .plan-day-title{flex:1; text-align:start; background:none; border:none; padding:6px 0; color:var(--text-muted); font-family:inherit; font-size:13px; font-weight:500; cursor:pointer;}
+  .plan-day-title:hover{color:var(--text);}
+  .plan-day-sum{font-size:12px; color:var(--text-muted);}
+  .plan-row{display:flex; align-items:center; gap:12px; padding:0 16px; min-height:52px;}
+  .plan-row .task-check{margin:0;}
+  .plan-row-main{flex:1; min-width:0; display:flex; align-items:center; gap:8px; padding:14px 0; background:none; border:none; color:var(--text); font-family:inherit; font-size:14.5px; text-align:start; cursor:pointer;}
+  .plan-row-title{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .plan-row.done .plan-row-title{text-decoration:line-through; color:var(--text-muted);}
+  .plan-row.preview .plan-row-title{color:var(--text-muted);}
+  .plan-repeat{width:22px; display:inline-flex; justify-content:center; color:var(--text-muted);}
+  .plan-row-dur{font-size:12px; color:var(--text-muted); flex-shrink:0;}
+  .tag-dot{width:6px; height:6px; border-radius:50%; flex-shrink:0;}
+  .plan-day.empty .plan-day-head{margin:6px 0 0;}
+  .plan-day.empty .plan-day-title{opacity:.6;}
+
+  /* ماه */
+  .task-calendar{background:none; border:none; padding:0;}
+  .cal-cell, .cal-cell:not(.empty){background:transparent; border-color:transparent; border-radius:12px;}
+  .cal-cell:not(.empty):hover{background:var(--surface); border-color:transparent;}
+  .cal-cell.today{background:var(--surface); border-color:var(--accent);}
+  .cal-cell.today .cal-daynum{background:var(--accent); color:#16120A; box-shadow:none;}
+  .cal-nav{background:var(--surface); border:none; border-radius:10px;}
+
+  /* بخش‌ها */
+  .hub-search{display:flex; align-items:center; gap:10px; height:48px; padding:0 14px; border-radius:14px; background:var(--surface); color:var(--text-muted);}
+  .hub-search input{flex:1; min-width:0; height:100%; border:none; background:transparent; color:var(--text); font-size:14.5px; padding:0;}
+  .hub-search input:focus{border:none;}
+  #hub-results{margin-top:14px;}
+  .hub-grid{display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:8px;}
+  @media (min-width: 641px){ .hub-grid{grid-template-columns:repeat(3, minmax(0, 1fr));} }
+  .hub-tile{
+    display:flex; flex-direction:column; align-items:flex-start; gap:8px; min-height:84px; padding:14px;
+    background:var(--surface); border:none; border-radius:16px; color:var(--text); font-family:inherit; text-align:start; cursor:pointer;
+  }
+  .hub-tile:hover{background:var(--surface-2);}
+  .hub-tile-icon{color:var(--tile-color);}
+  .hub-tile-name{font-size:14.5px; font-weight:500;}
+  .hub-tile-sub{font-size:12px; color:var(--text-muted); margin-top:-6px; min-height:1em;}
+  .search-hit{display:flex; align-items:center; gap:10px; width:100%; padding:13px 16px; background:none; border:none; color:var(--text); font-family:inherit; font-size:14px; text-align:start; cursor:pointer;}
+  .search-hit + .search-hit{border-top:1px solid var(--line);}
+  .search-hit:hover{background:var(--surface-2);}
+  .search-kind{font-size:11.5px; color:var(--accent); flex-shrink:0; min-width:44px;}
+  .search-text{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .search-sub{font-size:12px; color:var(--text-muted); flex-shrink:0;}
+
+  /* تنظیمات */
+  .settings-row{display:flex; align-items:center; gap:12px; width:100%; min-height:52px; padding:0 16px; background:none; border:none; color:var(--text); font-family:inherit; font-size:14.5px; cursor:pointer; text-align:start;}
+  .settings-row + .settings-row{border-top:1px solid var(--line);}
+  .settings-row:hover{background:var(--surface-2);}
+  .settings-row .icn{color:var(--text-muted);}
+  .settings-row-label{flex:1;}
+  .settings-row-val{font-size:12.5px; color:var(--text-muted);}
+  .settings-row-val.ok{color:var(--freelance);}
+  .settings-row-val.warn{color:var(--danger);}
+  .settings-list + .push-menu{margin:10px 0 0; max-width:none;}
+  .sign-out-btn{margin-top:28px; color:var(--danger);}
 
   /* ---- phone bottom-bar offset ----
      Must stay at the end of the stylesheet: media queries add no specificity,
@@ -1954,6 +2031,10 @@ function icon(name, size){
     clock:    `<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>`,
     filter:   `<path d="M3 5h18l-7 8v6l-4 2v-8z"/>`,
     chevronDown: `<path d="M6 9l6 6 6-6"/>`,
+    chevronLeft: `<path d="M15 6l-6 6 6 6"/>`,
+    chevronRight: `<path d="M9 6l6 6-6 6"/>`,
+    grid:     `<rect x="4" y="4" width="6" height="6" rx="1.5"/><rect x="14" y="4" width="6" height="6" rx="1.5"/><rect x="4" y="14" width="6" height="6" rx="1.5"/><rect x="14" y="14" width="6" height="6" rx="1.5"/>`,
+    search:   `<circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>`,
     card:     `<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18"/>`,
     pause:    `<path d="M9 5v14M15 5v14"/>`,
     play:     `<path d="M7 5l12 7-12 7z"/>`,
@@ -4584,8 +4665,22 @@ function renderMoveTaskPicker(){
 function renderSettingsPage(){
   return `
     <h2 class="section-title">تنظیمات</h2>
-    <p class="summary-text">تگ‌ها، رنگ‌ها و هدف‌های هفتگی را اینجا مدیریت کن.</p>
+    <div class="group-list settings-list">
+      ${state.pushStatus === 'unsupported' ? '' : `
+        <button type="button" class="settings-row" onclick="togglePushMenu()" aria-expanded="${!!state.pushMenuOpen}">
+          ${icon('bell', 18)}<span class="settings-row-label">اعلان‌ها</span>
+          <span class="settings-row-val ${state.pushStatus === 'on' ? 'ok' : ''}">${state.pushStatus === 'on' ? 'روشن' : 'خاموش'}</span>
+        </button>`}
+      <button type="button" class="settings-row" onclick="toggleBackupMenu()" aria-expanded="${!!state.backupMenuOpen}">
+        ${icon('download', 18)}<span class="settings-row-label">پشتیبان</span>
+        ${backupOverdue() ? `<span class="settings-row-val warn">مدتیه پشتیبان نگرفتی</span>` : ''}
+      </button>
+    </div>
+    ${state.pushMenuOpen ? renderPushMenu() : ''}
+    ${state.backupMenuOpen ? renderBackupMenu() : ''}
+    <h2 class="group-label">تگ‌ها و هدف‌های هفتگی</h2>
     ${renderTagManager()}
+    <button type="button" class="dashed-btn sign-out-btn" onclick="signOut()">خروج از حساب</button>
   `;
 }
 function renderTagManager(){
@@ -5026,11 +5121,18 @@ function renderTaskCard(task){
 }
 
 function renderTasksView(){
-  const filtered = applyFiltersAndSort(state.tasks.filter(t => !isArchived(t)), 'tasksFilters', { dateFilter:true });
+  /* امروز's own (and overdue) tasks live on امروز; the list shows them only
+     when a date is picked in the filter */
+  const todayStr = dateKey(state.today);
+  const onToday = t => !state.tasksFilters.date && t.date && (t.date === todayStr || (t.date < todayStr && !t.done));
+  const filtered = applyFiltersAndSort(state.tasks.filter(t => !isArchived(t) && !onToday(t)), 'tasksFilters', { dateFilter:true });
+  const hidden = state.tasks.filter(t => !isArchived(t) && onToday(t)).length;
   return `
     ${renderRecurringManager()}
     ${renderFilterPanel('tasksFilters', { dateFilter:true })}
-    ${filtered.length === 0 ? `<div class="empty-state">کاری با این فیلترها پیدا نشد</div>` : filtered.map(renderTaskCard).join('')}
+    ${hidden ? `<button type="button" class="dashed-btn" onclick="navigateTo('today')">${toFaDigits(hidden)} کار امروز و عقب‌افتاده توی «امروز» هست</button>` : ''}
+    ${filtered.length === 0 ? `<div class="empty-state">کاری با این فیلترها پیدا نشد</div>`
+      : `<div class="group-list today-list">${filtered.map(t => renderTodayItem(t, todayStr, { showDate:true })).join('')}</div>`}
   `;
 }
 
@@ -6773,9 +6875,9 @@ function renderTimeBadge(todayTasks){
 }
 
 /* ---------- rendering: today view ---------- */
-function renderTodayItem(t, todayStr){
+function renderTodayItem(t, todayStr, { showDate } = {}){
   const expanded = !!state.todayExpanded[t.id];
-  const isOverdue = t.date !== todayStr;
+  const isOverdue = !!t.date && t.date < todayStr && !t.done;
   return `
     <div class="today-item ${t.done ? 'done' : ''} ${isOverdue ? 'overdue' : ''}">
       <div class="today-item-row" onclick="toggleTodayExpand('${t.id}')">
@@ -6790,6 +6892,7 @@ function renderTodayItem(t, todayStr){
           <div class="ti-meta-row">
             ${t.tagIds.map(tid => { const tag = state.tags.find(x => x.id===tid); return tag ? `<span class="mini-tag" style="--chip-color:${tag.color}">${escapeHtml(tag.name)}</span>` : ''; }).join('')}
             ${isOverdue ? `<span class="overdue-badge" title="این کار برای ${formatDateShort(t.date)} بود و انجام نشده">عقب‌افتاده · ${formatDateShort(t.date)}</span>` : ''}
+            ${showDate && !isOverdue ? `<span class="dur">${t.date ? formatDateShort(t.date) : 'بی‌تاریخ'}</span>` : ''}
             <span class="dur">${t.durationMin ? toFaDigits(t.durationMin) + ' د' : '—'}</span>
             ${t.subtasks.length ? `<span class="dur" title="زیرکارها">${toFaDigits(t.subtasks.filter(x => x.done).length)} از ${toFaDigits(t.subtasks.length)} زیرکار</span>` : ''}
           </div>
@@ -8562,36 +8665,39 @@ function renderToday(){
   const folds = [renderTaskReminderAlert(), renderEnglishTodayCard(), renderMotherTodayCard(), renderWeeklyFocus(), renderWeeklyGoals()].filter(Boolean);
   const urgent = folds.filter(x => x.urgent), rest = folds.filter(x => !x.urgent);
 
+  const total = scheduled.length, doneN = done.length;
+  const leftMin = open.reduce((m, t) => m + (t.durationMin || 0), 0);
   return `
-    <div class="today-lead">
-      <span class="today-wd">${wd}</span>
-      ${quote ? `<span class="today-quote">${escapeHtml(quote)}</span>` : ''}
-    </div>
-    <div class="today-badges">
-      ${renderStreakBadge()}
-      ${renderTimeBadge(todayTasksRaw)}
-    </div>
+    ${quote ? `<p class="today-quote">${escapeHtml(quote)}</p>` : ''}
+    ${total ? `
+      <div class="today-progress">
+        <div class="tp-row">
+          <span><strong>${toFaDigits(doneN)} از ${toFaDigits(total)}</strong> کار انجام شد</span>
+          ${leftMin ? `<span>${formatDuration(leftMin)} مانده</span>` : ''}
+        </div>
+        <div class="tp-track"><div class="tp-fill" style="width:${Math.round(doneN / total * 100)}%"></div></div>
+      </div>` : ''}
     ${renderAIHealthBanner()}
     ${renderUnseenReportNotice()}
     ${urgent.length ? `<div class="today-folds urgent">${urgent.map(x => x.html).join('')}</div>` : ''}
     <div class="today-head">
-      <h2 class="section-title">برنامه امروز</h2>
+      <h2 class="group-label">کارهای امروز</h2>
       <button type="button" class="today-tool ${state.filterPanelOpen.todayFilters || filterCount ? 'on' : ''}" onclick="toggleFilterPanel('todayFilters')" title="فیلتر و مرتب‌سازی" aria-label="فیلتر و مرتب‌سازی">
-        ${icon('filter',16)}${filterCount ? `<span class="filter-count">${toFaDigits(filterCount)}</span>` : ''}
+        ${icon('filter',15)}${filterCount ? `<span class="filter-count">${toFaDigits(filterCount)}</span>` : ''}
       </button>
-      <button type="button" class="today-tool" onclick="window.print()" title="چاپِ کارهای امروز" aria-label="چاپِ کارهای امروز">${icon('printer',16)}</button>
+      <button type="button" class="today-tool" onclick="window.print()" title="چاپِ کارهای امروز" aria-label="چاپِ کارهای امروز">${icon('printer',15)}</button>
     </div>
     ${renderFilterPanel('todayFilters', { dateFilter:false, ownToggle:true })}
     ${scheduled.length === 0 ? `<div class="empty-state">${filterCount ? 'کاری با این فیلترها برای امروز نیست' : 'برای امروز کاری ثبت نشده'}</div>`
       : open.length === 0 ? `<div class="today-all-done">${icon('check',14)} همه‌ی کارهای امروز انجام شد</div>` : ''}
-    ${open.map(t => renderTodayItem(t, todayStr)).join('')}
+    ${open.length ? `<div class="group-list today-list">${open.map(t => renderTodayItem(t, todayStr)).join('')}</div>` : ''}
     ${done.length ? `
       <button type="button" class="today-done-toggle" onclick="state.todayDoneOpen = !state.todayDoneOpen; render()" aria-expanded="${!!state.todayDoneOpen}">
         <span class="filter-caret ${state.todayDoneOpen ? 'open' : ''}" style="margin:0">${icon('chevronDown',13)}</span>
-        انجام‌شده (${toFaDigits(done.length)})
+        ${toFaDigits(done.length)} کار انجام‌شده
       </button>
-      ${state.todayDoneOpen ? done.map(t => renderTodayItem(t, todayStr)).join('') : ''}` : ''}
-    ${rest.length ? `<div class="today-folds">${rest.map(x => x.html).join('')}</div>` : ''}
+      ${state.todayDoneOpen ? `<div class="group-list today-list">${done.map(t => renderTodayItem(t, todayStr)).join('')}</div>` : ''}` : ''}
+    ${rest.length ? `<h2 class="group-label rest-label">بقیه‌ی امروز</h2><div class="today-folds">${rest.map(x => x.html).join('')}</div>` : ''}
     ${renderPrintSheet(todayTasksRaw, wd)}
   `;
 }
@@ -8839,40 +8945,21 @@ function render(){
   if(preservedFieldFocused() && !(ev && USER_EVENT_TYPES.has(ev.type))){ renderDeferred = true; return; }
   renderDeferred = false;
   scheduleSnapshot();
-  const { jalali, gregorian } = fmtHeaderDate(state.today);
   const app = document.getElementById('app');
-  const prevStrip = document.querySelector('.subnav-scroll');
-  const stripScroll = prevStrip ? prevStrip.scrollLeft : 0;
   app.innerHTML = `
-    <header>
-      <div class="brand">
-        <h1>مدار</h1>
-        <div class="sub">سیستم برنامه‌ریزی شخصی</div>
-      </div>
-      <div class="date-block">
-        <div class="jalali">${jalali}</div>
-        <div class="gregorian">${gregorian}</div>
-        <div class="header-links">
-          ${state.pushStatus === 'unsupported' ? '' : `<button class="push-toggle ${state.pushStatus === 'on' ? 'on' : ''}" onclick="togglePushMenu()"><span class="dot"></span>اعلان‌ها</button>`}
-          <button class="push-toggle ${backupOverdue() ? 'warn' : ''}" onclick="toggleBackupMenu()" title="${backupOverdue() ? 'مدتیه پشتیبان دانلود نکردی' : ''}"><span class="dot"></span>پشتیبان</button>
-          <button class="push-toggle" onclick="navigateTo('settings')" ${state.view === 'settings' ? 'aria-current="page"' : ''}>${icon('settings',14)} تنظیمات</button>
-          <button class="sign-out" onclick="signOut()">خروج</button>
-        </div>
-      </div>
-    </header>
-    ${state.pushMenuOpen ? renderPushMenu() : ''}
-    ${state.backupMenuOpen ? renderBackupMenu() : ''}
 
     ${renderNav()}
-    ${renderSubnav()}
+    ${renderPageHead()}
 
     ${renderOfflineBar()}
     ${loadError ? `<div class="empty-state" style="background:var(--surface);border:1px solid var(--danger);border-radius:10px;color:var(--danger);margin-bottom:16px;">اتصال به دیتابیس برقرار نشد — اینترنتت رو چک کن و صفحه رو رفرش کن.</div>` : ''}
 
     <main>
       ${state.view === 'today' ? renderToday() : ''}
-      ${state.view === 'tasks' ? renderTasksView() : ''}
-      ${state.view === 'calendar' ? renderCalendarPage() : ''}
+      ${state.view === 'week' ? renderWeekPage() : ''}
+      ${state.view === 'tasks' ? renderPlanSwitch() + renderTasksView() : ''}
+      ${state.view === 'calendar' ? renderPlanSwitch() + renderCalendarPage() : ''}
+      ${state.view === 'hub' ? renderHubPage() : ''}
       ${state.view === 'ideas' ? renderIdeasPage() : ''}
       ${state.view === 'purchases' ? renderPurchasesPage() : ''}
       ${state.view === 'subscriptions' ? renderSubscriptionsPage() : ''}
@@ -8904,114 +8991,258 @@ function render(){
     ${state.maintEditor ? renderMaintEditorModal() : ''}
     ${state.repairDoneModal ? renderRepairDoneModal() : ''}
   `;
-  // every render rebuilds the tabs; if a group ever has more than fit, keep
-  // the strip where it was and bring a newly opened tab into view
-  const strip = document.querySelector('.subnav-scroll');
-  if(strip){
-    strip.classList.toggle('overflowing', strip.scrollWidth > strip.clientWidth + 1);
-    strip.scrollLeft = stripScroll;
-    if(revealActiveTab){
-      revealActiveTab = false;
-      const a = strip.querySelector('button.active');
-      if(a) a.scrollIntoView({block:'nearest', inline:'nearest'});
-    }
-  }
 }
 
 /* ---------- navigation ----------
-   Sections are grouped by what they're for. Phones and tablets show the groups
-   in the bar and the current group's sections as tabs under the header, so a new
-   section only adds a tab to its group and the bar never gets more crowded.
-   Laptops list every section in the sidebar. To add a section, add it to the
-   group it belongs in; add a new group only if nothing fits (phones hold 5). */
+   Four destinations, always in the same place: امروز (doing), برنامه (arranging:
+   week / list / month), انگلیسی, and بخش‌ها — a page of tiles for every other
+   section. Phones get them as a bottom bar with the add button in the middle;
+   tablets as a rail; laptops as a sidebar that also lists every section. A new
+   section goes into a NAV_GROUPS group and shows up on بخش‌ها by itself. */
+const PLAN_VIEWS = ['week', 'tasks', 'calendar'];
+const PRIMARY_NAV = [
+  { id:'today',   label:'امروز',   icon:'sun' },
+  { id:'plan',    label:'برنامه',  icon:'calendar' },
+  { id:'english', label:'انگلیسی', icon:'book' },
+  { id:'hub',     label:'بخش‌ها',  icon:'grid' },
+];
 const NAV_GROUPS = [
-  { id:'plan',   label:'برنامه‌ریزی', icon:'calendar', items:[
-    { id:'today',     label:'امروز',      icon:'sun' },
-    { id:'tasks',     label:'تسک‌ها',      icon:'check' },
-    { id:'calendar',  label:'تقویم',       icon:'calendar' },
-    { id:'english',   label:'انگلیسی',     icon:'book' },
+  { id:'life',   label:'زندگی', items:[
+    { id:'mother',     label:'مادر',          icon:'heart',   color:'var(--fitness)' },
+    { id:'repairs',    label:'تعمیرات خونه',  icon:'wrench',  color:'var(--accent)' },
+    { id:'wins',       label:'تونستم',        icon:'trophy',  color:'var(--freelance)' },
   ]},
-  { id:'notes',  label:'یادداشت‌ها', icon:'bulb', items:[
-    { id:'ideas',     label:'ایده‌ها',      icon:'bulb' },
-    { id:'prompts',   label:'پرامپت‌ها',   icon:'prompt' },
+  { id:'money',  label:'پول', items:[
+    { id:'purchases',     label:'خریدها',    icon:'cart', color:'var(--python)' },
+    { id:'subscriptions', label:'اشتراک‌ها', icon:'card', color:'var(--python)' },
   ]},
-  { id:'money',  label:'هزینه‌ها', icon:'card', items:[
-    { id:'purchases',     label:'خریدها',    icon:'cart' },
-    { id:'subscriptions', label:'اشتراک‌ها', icon:'card' },
-  ]},
-  { id:'wins',   label:'زندگی', icon:'heart', items:[
-    { id:'wins',       label:'تونستم',        icon:'trophy' },
-    { id:'mother',     label:'مادر',          icon:'heart' },
-    { id:'repairs',    label:'تعمیرات خونه',  icon:'wrench' },
-  ]},
-  { id:'review', label:'مرور', icon:'archive', items:[
-    { id:'settings',   label:'تنظیمات', icon:'settings' },
-    { id:'archive',    label:'آرشیو',         icon:'archive' },
-    { id:'ai-reports', label:'گزارش هوشمند', icon:'sparkle' },
+  { id:'notes',  label:'یادداشت و مرور', items:[
+    { id:'ideas',      label:'ایده‌ها',       icon:'bulb',    color:'var(--english)' },
+    { id:'prompts',    label:'پرامپت‌ها',    icon:'prompt',  color:'var(--english)' },
+    { id:'ai-reports', label:'گزارش هوشمند', icon:'sparkle', color:'var(--accent)' },
+    { id:'archive',    label:'آرشیو',         icon:'archive', color:'var(--text-muted)' },
   ]},
 ];
-const groupOfView = v => NAV_GROUPS.find(g => g.items.some(i => i.id === v)) || NAV_GROUPS[0];
-// the section last opened in each group, so tapping a group returns you there
-const lastViewInGroup = {};
+const VIEW_TITLES = {
+  today:'امروز', week:'برنامه', tasks:'برنامه', calendar:'برنامه', english:'انگلیسی', hub:'بخش‌ها', settings:'تنظیمات',
+  ...Object.fromEntries(NAV_GROUPS.flatMap(g => g.items.map(i => [i.id, i.label]))),
+};
+const primaryOfView = v => PLAN_VIEWS.includes(v) ? 'plan'
+  : PRIMARY_NAV.some(p => p.id === v) ? v : 'hub';
+let lastPlanView = 'week';
 function navigateTo(view){
+  if(view === 'plan') view = lastPlanView;
+  if(PLAN_VIEWS.includes(view)) lastPlanView = view;
   if(state.view !== view) window.scrollTo(0, 0);
-  lastViewInGroup[groupOfView(view).id] = view;
-  revealActiveTab = true;
   setView(view);
 }
-function openGroup(groupId){
-  const g = NAV_GROUPS.find(g => g.id === groupId);
-  navigateTo(lastViewInGroup[g.id] || g.items[0].id);
-}
-let revealActiveTab = false;
 function renderNav(){
-  const current = groupOfView(state.view);
+  const current = primaryOfView(state.view);
+  const btn = p => `
+    <button class="nav-btn ${p.id === current ? 'active' : ''}" onclick="navigateTo('${p.id}')"
+      ${p.id === current ? 'aria-current="page"' : ''}>
+      <span class="nav-icon">${icon(p.icon, 22)}</span>
+      <span>${p.label}</span>
+    </button>`;
   return `
     <nav class="main-nav" aria-label="بخش‌ها">
-      <div class="nav-groups">
-        ${NAV_GROUPS.map(g => `
-          <button class="nav-group-btn ${g === current ? 'active' : ''}" onclick="openGroup('${g.id}')"
-            ${g === current ? 'aria-current="true"' : ''}>
-            <span class="nav-icon">${icon(g.icon, 22)}</span>
-            <span>${g.label}</span>
-          </button>
-        `).join('')}
-      </div>
-      <div class="nav-scroll">
+      <div class="nav-brand">مدار</div>
+      ${btn(PRIMARY_NAV[0])}${btn(PRIMARY_NAV[1])}
+      <button class="nav-add" onclick="openTaskEditorNew()" aria-label="افزودن کار">
+        <span class="nav-icon">${icon('plus', 22)}</span><span class="nav-add-label">کار تازه</span>
+      </button>
+      ${btn(PRIMARY_NAV[2])}${btn(PRIMARY_NAV[3])}
+      <div class="nav-sections">
         ${NAV_GROUPS.map(g => `
           <div class="nav-group" role="group" aria-label="${g.label}">
             <div class="nav-group-title" aria-hidden="true">${g.label}</div>
             ${g.items.map(n => `
               <button class="nav-item ${state.view===n.id ? 'active' : ''}" onclick="navigateTo('${n.id}')"
                 ${state.view===n.id ? 'aria-current="page"' : ''}>
-                <span class="nav-icon">${icon(n.icon, 18)}</span>
-                <span>${n.label}</span>
-              </button>
-            `).join('')}
-          </div>
-        `).join('')}
+                <span class="nav-icon">${icon(n.icon, 17)}</span><span>${n.label}</span>
+              </button>`).join('')}
+          </div>`).join('')}
       </div>
-      <button class="nav-add" onclick="openTaskEditorNew()" aria-label="افزودن تسک">
-        <span class="nav-icon">${icon('plus', 18)}</span>
-        <span>افزودن</span>
-      </button>
     </nav>
   `;
 }
-function renderSubnav(){
-  const g = groupOfView(state.view);
-  if(g.items.length < 2) return '';
+function renderSubnav(){ return ''; }
+
+/* the page's own heading: what this is, plus the date on امروز; settings sits
+   top-left everywhere and carries the backup warning dot */
+function renderPageHead(){
+  const v = state.view;
+  const { jalali } = fmtHeaderDate(state.today);
+  const wd = WEEKDAYS_FA[state.today.getDay()];
   return `
-    <div class="subnav">
-      <div class="subnav-scroll" role="tablist" aria-label="${g.label}">
-        ${g.items.map(n => `
-          <button role="tab" class="${state.view===n.id ? 'active' : ''}" aria-selected="${state.view===n.id}"
-            onclick="navigateTo('${n.id}')">${n.label}</button>
-        `).join('')}
+    <header class="page-head">
+      <div class="ph-text">
+        ${v === 'today' ? `<span class="ph-kicker">${wd}، ${jalali}</span>` : ''}
+        <h1>${VIEW_TITLES[v] || 'مدار'}</h1>
       </div>
+      <div class="ph-actions">
+        ${v === 'today' ? renderStreakBadge() : ''}
+        <button type="button" class="ph-btn ${backupOverdue() ? 'warn' : ''} ${v === 'settings' ? 'on' : ''}" onclick="navigateTo('settings')" aria-label="تنظیمات" title="${backupOverdue() ? 'مدتیه پشتیبان دانلود نکردی' : 'تنظیمات'}">${icon('settings', 19)}</button>
+      </div>
+    </header>
+  `;
+}
+
+function renderPlanSwitch(){
+  const modes = [['week','هفته'], ['tasks','فهرست'], ['calendar','ماه']];
+  return `
+    <div class="seg" role="tablist" aria-label="نمای برنامه">
+      ${modes.map(([id, label]) => `<button type="button" role="tab" aria-selected="${state.view === id}" class="${state.view === id ? 'on' : ''}" onclick="navigateTo('${id}')">${label}</button>`).join('')}
     </div>
   `;
 }
+
+/* ---------- برنامه › هفته ----------
+   امروز lives on its own page, so this starts tomorrow: seven days ahead, then
+   the next seven with the arrows. The strip's today cell just jumps to امروز. */
+function shiftPlanWeek(delta){ state.planWeekOffset = Math.max(0, (state.planWeekOffset || 0) + delta); render(); }
+function planRow(t){
+  const tags = t.tagIds.map(tid => state.tags.find(x => x.id === tid)).filter(Boolean);
+  return `
+    <div class="plan-row ${t.done ? 'done' : ''}">
+      <button class="task-check ${t.done ? 'checked' : ''}" onclick="toggleTaskDone('${t.id}', event)" aria-label="${t.done ? 'برگردون' : 'انجام شد'}">${t.done ? '✓' : ''}</button>
+      <button type="button" class="plan-row-main" onclick="openTaskEditorEdit('${t.id}')">
+        <span class="plan-row-title">${escapeHtml(t.title)}</span>
+        ${renderTaskReminderBadge(t, true)}
+        ${tags.slice(0,2).map(tag => `<span class="tag-dot" style="background:${tag.color}" title="${escapeHtml(tag.name)}"></span>`).join('')}
+        ${t.durationMin ? `<span class="plan-row-dur">${toFaDigits(t.durationMin)} د</span>` : ''}
+      </button>
+    </div>`;
+}
+function renderWeekPage(){
+  const offset = state.planWeekOffset || 0;
+  const today = new Date(state.today); today.setHours(0,0,0,0);
+  const days = [];
+  for(let i = 1; i <= 7; i++){ const d = new Date(today); d.setDate(d.getDate() + offset * 7 + i); days.push(d); }
+  const short = d => ['ی','د','س','چ','پ','ج','ش'][d.getDay()];
+  const strip = [new Date(today), ...days.slice(0, 6)];
+  const undated = state.tasks.filter(t => !t.date && !t.done).length;
+  return `
+    ${renderPlanSwitch()}
+    ${offset === 0 ? `
+      <div class="week-strip">
+        ${strip.map((d, i) => {
+          const key = dateKey(d);
+          const n = state.tasks.filter(t => t.date === key && !t.done).length + (i ? getRecurringPreviewsForDate(key).length : 0);
+          return `<button type="button" class="ws-day ${i === 0 ? 'today' : ''}" onclick="${i === 0 ? `navigateTo('today')` : `calendarPageShowDay('${key}'); navigateTo('calendar')`}" aria-label="${i === 0 ? 'امروز' : WEEKDAYS_FA[d.getDay()]}">
+            <span class="ws-wd">${short(d)}</span><span class="ws-num">${toFaDigits(window.jalaali.toJalaali(d).jd)}</span>
+            <span class="ws-dot ${n ? '' : 'none'}"></span>
+          </button>`;
+        }).join('')}
+      </div>` : ''}
+    <div class="week-nav">
+      <button type="button" class="ph-btn" onclick="shiftPlanWeek(-1)" ${offset ? '' : 'disabled'} aria-label="هفته‌ی قبل">${icon('chevronRight', 18)}</button>
+      <span>${offset === 0 ? 'هفت روز آینده' : `${formatDateShort(dateKey(days[0]))} تا ${formatDateShort(dateKey(days[6]))}`}</span>
+      <button type="button" class="ph-btn" onclick="shiftPlanWeek(1)" aria-label="هفته‌ی بعد">${icon('chevronLeft', 18)}</button>
+    </div>
+    ${days.map((d, i) => {
+      const key = dateKey(d);
+      const tasks = state.tasks.filter(t => t.date === key)
+        .sort((a, b) => (a.done - b.done) || ((PRIORITY_RANK[a.priority] ?? 3) - (PRIORITY_RANK[b.priority] ?? 3)));
+      const previews = getRecurringPreviewsForDate(key);
+      const mins = tasks.filter(t => !t.done).reduce((s, t) => s + (t.durationMin || 0), 0) + previews.reduce((s, p) => s + (p.durationMin || 0), 0);
+      const label = (offset === 0 && i === 0) ? `فردا، ${WEEKDAYS_FA[d.getDay()]}` : `${WEEKDAYS_FA[d.getDay()]} ${formatDateShort(key)}`;
+      return `
+        <section class="plan-day ${tasks.length || previews.length ? '' : 'empty'}">
+          <div class="plan-day-head">
+            <button type="button" class="plan-day-title" onclick="calendarPageShowDay('${key}'); navigateTo('calendar')">${label}</button>
+            ${mins ? `<span class="plan-day-sum">${formatDuration(mins)}</span>` : ''}
+            <button type="button" class="ph-btn sm" onclick="openTaskEditorNewForDate('${key}')" aria-label="کار تازه برای ${WEEKDAYS_FA[d.getDay()]}">${icon('plus', 16)}</button>
+          </div>
+          ${tasks.length || previews.length ? `
+            <div class="group-list">
+              ${tasks.map(planRow).join('')}
+              ${previews.map(p => `
+                <div class="plan-row preview">
+                  <span class="plan-repeat">${icon('repeat', 14)}</span>
+                  <button type="button" class="plan-row-main" onclick="openRecurringEditor('${p.id}')">
+                    <span class="plan-row-title">${escapeHtml(p.title)}</span>
+                    ${p.durationMin ? `<span class="plan-row-dur">${toFaDigits(p.durationMin)} د</span>` : ''}
+                  </button>
+                </div>`).join('')}
+            </div>` : ''}
+        </section>`;
+    }).join('')}
+    ${undated ? `<button type="button" class="dashed-btn" onclick="navigateTo('tasks')">کارهای بی‌تاریخ (${toFaDigits(undated)})</button>` : ''}
+  `;
+}
+
+/* ---------- بخش‌ها ----------
+   Every section that isn't in the bar, as tiles under the group it belongs to,
+   plus one search over the things you write down. The results box is filled in
+   place so typing never rebuilds the page (that would drop the keyboard). */
+function hubTileSub(id){
+  const n = x => toFaDigits(x);
+  const count = (arr, unit) => arr && arr.length ? `${n(arr.length)} ${unit}` : '';
+  switch(id){
+    case 'mother': return count(state.motherItems, 'مورد');
+    case 'repairs': { const open = (state.homeRepairs || []).filter(r => r.status !== 'done').length; return open ? `${n(open)} مورد باز` : 'چیزی باز نیست'; }
+    case 'wins': return count(state.wins, 'ثبت');
+    case 'purchases': { const left = state.purchases.filter(p => !p.bought).length; return left ? `${n(left)} مانده` : 'لیست خالیه'; }
+    case 'subscriptions': return count(state.subscriptions, 'اشتراک');
+    case 'ideas': return count(state.ideas, 'ایده');
+    case 'prompts': return count(state.prompts, 'پرامپت');
+    case 'ai-reports': return state.aiReports.length ? 'مرور هفتگی' : '';
+    case 'archive': return 'کارهای گذشته';
+  }
+  return '';
+}
+function renderHubPage(){
+  return `
+    <label class="hub-search">
+      ${icon('search', 18)}
+      <span class="sr-only">جستجو</span>
+      <input type="search" id="hub-q" placeholder="جستجو در کارها، ایده‌ها، پرامپت‌ها، خریدها…" oninput="hubSearch(this.value)" autocomplete="off" data-preserve />
+    </label>
+    <div id="hub-results"></div>
+    <div id="hub-groups">
+      ${NAV_GROUPS.map(g => `
+        <section class="hub-group">
+          <h2 class="group-label">${g.label}</h2>
+          <div class="hub-grid">
+            ${g.items.map(n => `
+              <button type="button" class="hub-tile" onclick="navigateTo('${n.id}')" style="--tile-color:${n.color}">
+                <span class="hub-tile-icon">${icon(n.icon, 20)}</span>
+                <span class="hub-tile-name">${n.label}</span>
+                <span class="hub-tile-sub">${hubTileSub(n.id)}</span>
+              </button>`).join('')}
+          </div>
+        </section>`).join('')}
+    </div>
+  `;
+}
+function hubSearch(q){
+  const box = document.getElementById('hub-results'), groups = document.getElementById('hub-groups');
+  if(!box) return;
+  q = (q || '').trim().toLowerCase();
+  groups.hidden = !!q;
+  if(!q){ box.innerHTML = ''; return; }
+  const has = s => (s || '').toLowerCase().includes(q);
+  const cut = s => escapeHtml((s || '').replace(/\s+/g, ' ').slice(0, 80));
+  const hits = [
+    ...state.tasks.filter(t => has(t.title) || has(t.notes)).slice(0, 8)
+      .map(t => ({ kind:'کار', text:t.title, sub:t.date ? formatDateShort(t.date) : 'بی‌تاریخ', go:`openTaskEditorEdit('${t.id}')` })),
+    ...state.ideas.filter(i => has(i.body)).slice(0, 5).map(i => ({ kind:'ایده', text:i.body, go:`navigateTo('ideas')` })),
+    ...state.prompts.filter(p => has(p.title) || has(p.body)).slice(0, 5).map(p => ({ kind:'پرامپت', text:p.title || p.body, go:`navigateTo('prompts')` })),
+    ...state.purchases.filter(p => has(p.title)).slice(0, 5).map(p => ({ kind:'خرید', text:p.title, go:`navigateTo('purchases')` })),
+    ...state.wins.filter(w => has(w.title) || has(w.why)).slice(0, 5).map(w => ({ kind:'تونستم', text:w.title, go:`navigateTo('wins')` })),
+  ];
+  box.innerHTML = hits.length ? `
+    <div class="group-list">
+      ${hits.map(h => `
+        <button type="button" class="search-hit" onclick="${h.go}">
+          <span class="search-kind">${h.kind}</span>
+          <span class="search-text">${cut(h.text)}</span>
+          ${h.sub ? `<span class="search-sub">${h.sub}</span>` : ''}
+        </button>`).join('')}
+    </div>` : `<div class="empty-state">چیزی پیدا نشد</div>`;
+}
+
 function renderTaskCompletionModal(){
   const m = state.taskCompletionModal;
   const t = m.chunkId ? (state.englishChunks || []).find(c => c.id === m.chunkId) : state.tasks.find(t => t.id === m.taskId);
