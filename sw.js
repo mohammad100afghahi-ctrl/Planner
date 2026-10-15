@@ -1,7 +1,7 @@
 /* App-shell cache for مدار.
    Bump CACHE_NAME (e.g. medar-shell-v2) whenever index.html/manifest/icons change,
    so returning visitors pick up the new version instead of a stale cached copy. */
-const CACHE_NAME = 'medar-shell-v49';
+const CACHE_NAME = 'medar-shell-v50';
 const APP_SHELL = [
   './',
   './index.html',
@@ -53,26 +53,6 @@ self.addEventListener('fetch', (event) => {
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
   if (url.origin !== self.location.origin && !VENDOR_HOSTS.includes(url.hostname)) return;
-  /* The page itself goes network-first, so a new release shows on the first
-     open instead of the second. A slow or absent network falls back to the
-     cached copy after 3s, so opening offline still starts at once-ish. */
-  if (req.mode === 'navigate') {
-    const network = fetch(req).then((res) => {
-      if (res && res.ok) {
-        const copy = res.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(req, copy));
-      }
-      return res;
-    });
-    const fallback = new Promise((resolve) => setTimeout(resolve, 3000))
-      .then(() => caches.match(req, { ignoreSearch: true }));
-    event.respondWith(
-      Promise.race([network.catch(() => caches.match(req, { ignoreSearch: true })), fallback])
-        .then((res) => res || network)
-        .catch(() => caches.match('./index.html'))
-    );
-    return;
-  }
   event.respondWith(
     caches.match(req).then((cached) => {
       const network = fetch(req)
