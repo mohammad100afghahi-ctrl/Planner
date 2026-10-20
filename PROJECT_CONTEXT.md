@@ -62,3 +62,12 @@ Read current files rather than assuming stored notes remain current. Reconcile u
 - User explicitly requested undoing the redesign work from this conversation and restoring the previous interface, including the published site.
 - Reverted Living release 5b844c0 (PR #3), restoring the exact application files from f8bd496: original dark theme, grouped navigation, Today layout and complete existing pages. Removed the redesign presentation assets, design documents and regression fixtures added by that release.
 - Service worker cache is v55 so installed apps update to the restored UI instead of continuing to show cached v54. All prior update guards remain. No database, user data, schema or backend service changes. Earlier task-reminder/settings features are part of the pre-redesign baseline and remain.
+
+## UX Pilot faithful implementation — 2026-10-20 (Claude, branch claude/uxpilot-faithful, not published)
+
+- Rebuilt the whole interface from the approved UX Pilot exports (desktop page mH0ZsrpvMbhWW6yWbrGc, mobile PdVsvpfrFUmm9hQ6mY3p; local export in ~/.codex/visualizations/…/madar-design). The previous run's uxpilot.js/uxpilot.css/design-qa.md and its fixtures were removed; they were not a faithful reference.
+- UI now lives in ui-shell.js (helpers, nav, frames, render), ui-today.js, ui-tasks.js (tasks, editor, calendar), ui-pages.js (English, repairs, purchases, subscriptions, ideas, prompts, wins, mother), ui-system.js (settings, archive, AI reports). index.html keeps state, data, Supabase, realtime, reminders, backups, push; its old render functions and <style> are gone. Load order: ui.css → tailwind.css; task-reminders.js and ui-*.js before the main inline script (auth callback needs renderLogin).
+- tailwind.css is a static build of every class in the sources — regenerate with tools/tailwind-build.html (in a browser, via tests/ui-harness/serve.py) whenever new Tailwind classes are used. Icons: Font Awesome 6.4.0 (cdnjs), font Vazirmatn.
+- Desktop layout from 1200px, phone layout below (JS media query, two separate templates). Every open editor carries .modal-overlay so SW reload and reminder refresh wait.
+- Small logic additions only: quickAddTodayTask, rejectAllChanges, purchases.createdAt mapped, state.userEmail. No database, auth, backup, push or reminder logic changes. sw.js cache v57.
+- tests/ui-harness: mock Supabase + sample fixture + side-by-side compare page; no backend access.
