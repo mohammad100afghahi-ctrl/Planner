@@ -58,43 +58,46 @@ function recurringTaskReminderAt(tpl, day){
   base.setUTCDate(base.getUTCDate()-(tpl.reminderDaysBefore || 0));
   return new Date(base.toISOString().slice(0,10)+'T'+tpl.reminderTime.slice(0,5)+':00+03:00').toISOString();
 }
+/* The approved editor has no reminder or repeat fields, so they sit in their
+   own block under the subtasks, built from the editor's own parts. */
 function renderTaskReminderFields(ed){
   const d=ed.draft, weekly=d.recurring.enabled;
   const timezone=Intl.DateTimeFormat().resolvedOptions().timeZone;
-  return `<div class="modal-section">
-    <label class="recurring-toggle"><input type="checkbox" ${d.reminderEnabled?'checked':''} onchange="taskReminderToggle(this.checked)">${icon('bell',15)} این کار یادآوری داشته باشد</label>
-    ${d.reminderEnabled ? `<div class="quick-group" style="margin-top:10px">
-      ${!weekly ? `<label>نوع <select aria-label="نوع یادآوری" onchange="state.taskEditor.draft.reminderKind=this.value;render()">${Object.entries(REMINDER_KIND_LABEL).map(([k,v])=>`<option value="${k}" ${d.reminderKind===k?'selected':''}>${v}</option>`).join('')}</select></label>` : ''}
-      ${weekly ? `<label>چند روز قبل <input class="num-text" type="number" min="0" max="30" aria-label="روزهای قبل از تسک" value="${d.reminderDaysBefore || 0}" onchange="state.taskEditor.draft.reminderDaysBefore=Math.min(30,Math.max(0,Number(this.value)||0))"></label>` : d.reminderKind!=='always' ? `<button type="button" class="date-picker-btn" onclick="taskReminderCalendarToggle()">${icon('calendar',13)} ${d.reminderDate ? formatDateShort(d.reminderDate) : 'تاریخ هشدار'}</button>` : ''}
-      ${weekly || d.reminderKind!=='always' ? `<label>ساعت <input type="time" aria-label="ساعت هشدار" value="${escapeHtml(d.reminderTime)}" onchange="state.taskEditor.draft.reminderTime=this.value"></label>` : ''}
-    </div>
-    ${!weekly && ed.reminderCalendarOpen && d.reminderKind!=='always' ? renderPickCalendar({jy:ed.reminderJY,jm:ed.reminderJM,date:d.reminderDate,prev:'taskReminderCalendarPrev',next:'taskReminderCalendarNext',pick:'taskReminderCalendarPick'}) : ''}
-    <div class="reminder-kind-hint">${d.reminderKind==='always' && !weekly ? 'تا انجام کار، در بخش امروز نمایش داده می‌شود.' : weekly ? 'در هر نوبت تکرار، به وقت بغداد هشدار داده می‌شود.' : `زمان هشدار جدا از تاریخ انجام کار است؛ به وقت دستگاه (${escapeHtml(timezone)}).`}
-    ${!weekly && d.reminderKind==='yearly' ? ' پس از انجام، نوبت بعد در همان روز شمسی سال آینده ساخته می‌شود.' : ''}</div>
-    ${state.pushStatus!=='on' && (weekly || d.reminderKind!=='always') ? `<div class="reminder-kind-hint">برای دریافت هشدار روی گوشی، «اعلان روی گوشی» را در تنظیمات روشن کن.</div>` : ''}` : ''}
-  </div>`;
+  const box='w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm font-black text-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500/50 focus:outline-none transition-all';
+  const hint=d.reminderKind==='always' && !weekly ? 'تا انجام کار، در بخش امروز نمایش داده می‌شود.'
+    : weekly ? 'در هر نوبت تکرار، به وقت بغداد هشدار داده می‌شود.'
+    : `زمان هشدار جدا از تاریخ انجام کار است؛ به وقت دستگاه (${escapeHtml(timezone)}).`;
+  return `
+    ${toggleRow(fa('bell','text-indigo-400 ml-1')+' یادآوری','این کار یادآوری داشته باشد', d.reminderEnabled, `taskReminderToggle(${!d.reminderEnabled})`)}
+    ${d.reminderEnabled ? `<div class="space-y-4 bg-indigo-600/5 border border-indigo-500/20 p-4 rounded-2xl">
+      ${!weekly ? field('نوع یادآوری', segmented(Object.entries(REMINDER_KIND_LABEL), d.reminderKind, k => `state.taskEditor.draft.reminderKind='${k}'; render()`)) : ''}
+      <div class="grid grid-cols-2 gap-4">
+        ${weekly ? field('چند روز قبل', `<input class="${box}" type="number" min="0" max="30" aria-label="روزهای قبل از تسک" value="${d.reminderDaysBefore || 0}" onchange="state.taskEditor.draft.reminderDaysBefore=Math.min(30,Math.max(0,Number(this.value)||0))">`)
+          : d.reminderKind!=='always' ? field('تاریخ هشدار', `<button type="button" onclick="taskReminderCalendarToggle()" class="${box} flex items-center justify-between"><span>${d.reminderDate ? formatDateShort(d.reminderDate) : 'انتخاب از تقویم'}</span>${fa('calendar-day','text-indigo-500')}</button>`) : ''}
+        ${weekly || d.reminderKind!=='always' ? field('ساعت هشدار', `<input type="time" aria-label="ساعت هشدار" value="${escapeHtml(d.reminderTime)}" onchange="state.taskEditor.draft.reminderTime=this.value" class="${box}">`) : ''}
+      </div>
+      ${!weekly && ed.reminderCalendarOpen && d.reminderKind!=='always' ? renderPickCalendar({jy:ed.reminderJY,jm:ed.reminderJM,date:d.reminderDate,prev:'taskReminderCalendarPrev',next:'taskReminderCalendarNext',pick:'taskReminderCalendarPick'}) : ''}
+      <p class="text-[10px] text-slate-400 leading-relaxed">${hint}${!weekly && d.reminderKind==='yearly' ? ' پس از انجام، نوبت بعد در همان روز شمسی سال آینده ساخته می‌شود.' : ''}</p>
+      ${state.pushStatus!=='on' && (weekly || d.reminderKind!=='always') ? `<p class="text-[10px] text-amber-400/80 leading-relaxed">برای دریافت هشدار روی گوشی، «اعلان‌های مرورگر» را در تنظیمات روشن کن.</p>` : ''}
+    </div>` : ''}`;
 }
 function renderRecurringReminderFields(ed){
-  return `<div class="modal-section"><label class="recurring-toggle"><input type="checkbox" ${ed.reminderEnabled?'checked':''} onchange="recurringEditorCapture();state.recurringEditor.reminderEnabled=this.checked;render()">${icon('bell',15)} این کار یادآوری داشته باشد</label>
-    ${ed.reminderEnabled ? `<div class="quick-group" style="margin-top:10px"><label>ساعت <input type="time" aria-label="ساعت هشدار تکرارشونده" value="${escapeHtml(ed.reminderTime.slice(0,5))}" onchange="state.recurringEditor.reminderTime=this.value"></label><label>چند روز قبل <input type="number" min="0" max="30" class="num-text" aria-label="روزهای قبل از تسک" value="${ed.reminderDaysBefore}" onchange="state.recurringEditor.reminderDaysBefore=Math.min(30,Math.max(0,Number(this.value)||0))"></label></div><div class="reminder-kind-hint">در هر نوبت تکرار، به وقت بغداد هشدار داده می‌شود.</div>` : ''}</div>`;
+  const box='w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm font-black text-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500/50 focus:outline-none transition-all';
+  return `
+    ${toggleRow(fa('bell','text-indigo-400 ml-1')+' یادآوری','این کار یادآوری داشته باشد', ed.reminderEnabled, `recurringEditorCapture();state.recurringEditor.reminderEnabled=${!ed.reminderEnabled};render()`)}
+    ${ed.reminderEnabled ? `<div class="space-y-4 bg-indigo-600/5 border border-indigo-500/20 p-4 rounded-2xl">
+      <div class="grid grid-cols-2 gap-4">
+        ${field('ساعت هشدار', `<input type="time" aria-label="ساعت هشدار تکرارشونده" value="${escapeHtml(ed.reminderTime.slice(0,5))}" onchange="state.recurringEditor.reminderTime=this.value" class="${box}">`)}
+        ${field('چند روز قبل', `<input type="number" min="0" max="30" aria-label="روزهای قبل از تسک" value="${ed.reminderDaysBefore}" onchange="state.recurringEditor.reminderDaysBefore=Math.min(30,Math.max(0,Number(this.value)||0))" class="${box}">`)}
+      </div>
+      <p class="text-[10px] text-slate-400 leading-relaxed">در هر نوبت تکرار، به وقت بغداد هشدار داده می‌شود.</p>
+    </div>` : ''}`;
 }
 function taskReminderLabel(t){
   if(t.reminderKind==='always') return 'یادآوری تا انجام کار';
   if(!t.reminderAt) return '';
   const dt=new Date(t.reminderAt);
   return 'یادآوری '+formatDateShort(dateKey(dt))+'، '+toFaDigits(String(dt.getHours()).padStart(2,'0')+':'+String(dt.getMinutes()).padStart(2,'0'))+(t.reminderKind==='yearly'?' · سالانه':'');
-}
-function renderTaskReminderBadge(t, compact){
-  const label=taskReminderLabel(t);
-  if(!label || t.done) return '';
-  return `<span class="summary-text" title="${escapeHtml(label)}">${icon('bell',13)}${compact?'':` ${escapeHtml(label)}`}</span>`;
-}
-function renderTaskReminderAlert(){
-  const list=state.tasks.filter(t=>!t.done && (t.reminderKind==='always' || (t.reminderAt && Date.parse(t.reminderAt)<=Date.now())));
-  if(!list.length) return '';
-  list.sort((a,b)=>(Date.parse(a.reminderAt)||0)-(Date.parse(b.reminderAt)||0));
-  return renderTodayFold('reminders',{icon:'bell',title:'کارهای یادآوری‌شده',color:'var(--accent)',summary:toFaDigits(list.length)+' کار',
-    body:list.map(t=>`<div class="reminder-line"><button class="reminder-tick" onclick="toggleTaskDone('${t.id}',event)" aria-label="انجام کار">${icon('check',14)}</button><div class="reminder-line-main"><button class="edit-link reminder-line-title" onclick="openTaskEditorEdit('${t.id}')">${escapeHtml(t.title)}</button><div class="reminder-line-meta">${escapeHtml(taskReminderLabel(t))}</div></div></div>`).join('')+`<div class="mother-card-actions"><button onclick="navigateTo('tasks')">همهٔ کارها</button></div>`});
 }
 // Keep an already-open Today page current when an alarm time passes.
 let taskReminderVisibleSignature='';

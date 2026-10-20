@@ -1,0 +1,23 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+html,body{margin:0;background:#111;overflow:hidden}
+.row{display:flex;gap:0}
+.win{overflow:hidden;position:relative;box-sizing:border-box}
+.win+.win{border-left:2px solid #ff00ff}
+iframe{border:0;position:absolute;top:0;left:0}
+.lbl{position:absolute;z-index:2;top:2px;left:4px;font:10px monospace;color:#f0f;background:#000a;padding:0 3px}
+</style></head><body><script>
+/* ?ref=…&app=…&x=…&y=…&w=…&h=…&pw=1440&ph=900 — each window shows the
+   region (x,y,w,h) of a pw×ph page at 1:1, reference on the left. */
+const q = new URLSearchParams(location.search);
+const pw = +(q.get('pw') || 1440), ph = +(q.get('ph') || 900);
+const x = +(q.get('x') || 0), y = +(q.get('y') || 0), w = +(q.get('w') || 400), h = +(q.get('h') || 500), sc = +(q.get('s') || 1);
+const win = (src, label) => `<div class="win" style="width:${w}px;height:${h}px"><span class="lbl">${label}</span><iframe src="${src}" style="width:${pw}px;height:${ph}px;left:${-x*sc}px;top:${-y*sc}px;transform:scale(${sc});transform-origin:0 0"></iframe></div>`;
+document.body.innerHTML = `<div class="row">${win(q.get('ref'), 'REF')}${win(q.get('app') || '/app', 'APP')}</div>`;
+// pages that scroll inside: ?sy=… scrolls the app's main pane and the reference's matching pane
+const sy = +(q.get('sy') || 0);
+if(sy) setTimeout(() => document.querySelectorAll('iframe').forEach(f => {
+  const d = f.contentDocument; if(!d) return;
+  const el = d.querySelector('[data-scroll="main"]') || d.querySelector('main .overflow-y-auto') || d.scrollingElement;
+  if(el) el.scrollTop = sy;
+}), 2500);
+</script></body></html>
