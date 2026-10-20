@@ -1,0 +1,539 @@
+/* Presentation tokens and layouts from the approved UX Pilot dark designs. */
+:root{
+  --bg:#020617;--surface:#0f172a;--surface-2:#111b2e;--surface-3:#1e293b;
+  --line:#1e293b;--line-strong:#334155;--text:#f1f5f9;--text-muted:#94a3b8;
+  --accent:#818cf8;--accent2:#6366f1;--danger:#fb7185;--python:#fbbf24;
+  --english:#c084fc;--freelance:#34d399;--fitness:#fb7185;--gray-tag:#94a3b8;
+  --display:'Vazirmatn',sans-serif;--glass-fill:var(--surface);--glass-fill-2:var(--surface-2);
+  --glass-fill-3:var(--surface-3);--glass-shadow:none;--glass-shadow-sm:none;
+  --ux-sidebar:256px;--ux-header:80px;
+}
+html{scroll-padding-top:100px;scrollbar-color:#334155 #020617}
+[hidden]{display:none!important}
+body.ux-app{background:var(--bg);padding:0;padding-inline-start:var(--ux-sidebar);font-size:14px;line-height:1.65;height:100dvh;overflow:hidden}
+body.ux-app::before{display:none}
+.ux-app .app{max-width:none;margin:0;padding:0;min-height:0;height:100dvh;display:flex;flex-direction:column}
+.ux-app button{font-family:inherit;cursor:pointer}
+.ux-app button:disabled{cursor:default;opacity:.5}
+.ux-app :is(button,a,input,select,textarea):focus-visible{outline:2px solid #a5b4fc;outline-offset:3px}
+.ux-app :is(input,textarea)::placeholder{color:#94a3b8;opacity:.8}
+.ux-app :is(input,textarea,select){accent-color:#6366f1;color-scheme:dark}
+.ux-app .icn{vertical-align:middle}
+.ux-primary,.ux-secondary,.ux-icon-button,.ux-text-button{display:inline-flex;align-items:center;justify-content:center;gap:8px;border-radius:12px;font:600 13px/1.5 'Vazirmatn',sans-serif;transition:background .15s,color .15s,border-color .15s}
+.ux-primary{background:#4f46e5;color:white;border:1px solid #6366f1;padding:11px 18px;min-height:44px;box-shadow:0 5px 16px #312e8126}
+.ux-primary:hover{background:#6366f1}
+.ux-secondary{border:1px solid var(--line-strong);background:var(--surface);color:#cbd5e1;padding:10px 14px;min-height:42px}
+.ux-secondary:hover{background:var(--surface-3)}
+.ux-icon-button{height:40px;min-width:40px;padding:9px;border:1px solid transparent;background:transparent;color:var(--text-muted)}
+.ux-icon-button:hover,.ux-icon-button.active{background:#6366f11a;color:#a5b4fc;border-color:#6366f133}
+.ux-text-button{background:none;border:0;color:#a5b4fc;padding:6px 0;text-align:start}
+.ux-text-button:hover{color:white}
+.ux-danger:hover{color:var(--danger);background:#fb718512}
+.ux-square{width:38px;min-height:38px;padding:8px;border-radius:10px}
+.ux-sidebar{position:fixed;inset:0 0 0 auto;z-index:45;width:var(--ux-sidebar);border-inline-end:1px solid var(--line);background:#020617;display:flex;flex-direction:column;padding:24px 20px 20px}
+.ux-brand{display:flex;align-items:center;gap:12px;text-align:start;padding:0 8px 24px;border:0;background:none;color:white;flex-shrink:0}
+.ux-brand img{border-radius:12px}
+.ux-brand .ux-brand-mark{display:grid;place-items:center;width:40px;height:40px;flex-shrink:0;background:#4f46e5;border-radius:12px;color:white}
+.ux-brand span{font-size:27px;font-weight:800;letter-spacing:-1px}
+.ux-sidebar-sections{overflow:auto;scrollbar-width:thin;flex:1;padding-bottom:16px;background:none;border:0;box-shadow:none}
+.ux-nav-group{margin-bottom:22px}
+.ux-nav-group h2{font-size:11px;font-weight:500;color:#94a3b8;padding:0 14px;margin:0 0 8px;line-height:1.5}
+.ux-nav-link{display:flex;align-items:center;gap:12px;width:100%;border:1px solid transparent;border-radius:12px;padding:8px 14px;margin:2px 0;background:none;color:#94a3b8;min-height:38px;font:500 14px/1.5 'Vazirmatn',sans-serif;text-align:start}
+.ux-nav-link:hover{background:#0f172a;color:#f1f5f9}
+.ux-nav-link.active{border-color:#6366f126;background:#6366f114;color:#a5b4fc;font-weight:700}
+.ux-nav-link.active .icn{color:#818cf8}
+.ux-sidebar-add{width:100%;margin-top:12px;flex-shrink:0}
+.ux-mobile-nav{display:none;border:0;box-shadow:none}
+.ux-header{height:var(--ux-header);flex-shrink:0;position:sticky;top:0;z-index:35;display:flex;align-items:center;justify-content:space-between;padding:0 32px;margin:0;background:#020617f5;border-bottom:1px solid var(--line);backdrop-filter:blur(12px)}
+.ux-header-heading{display:flex;gap:14px;align-items:center;min-width:0}
+.ux-header-icon{display:grid;place-items:center;width:40px;height:40px;flex-shrink:0;border-radius:12px;color:#a5b4fc;background:#6366f112}
+.ux-app[data-view="today"] .ux-header-icon,.ux-app[data-view="tasks"] .ux-header-icon,.ux-app[data-view="calendar"] .ux-header-icon{display:none}
+.ux-header h1{font-family:var(--display);font-size:20px;line-height:1.5;font-weight:800;margin:0;color:#f8fafc;letter-spacing:-.4px}
+.ux-header p{font-size:11px;color:#94a3b8;margin:2px 0 0}
+.ux-header-actions{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.ux-header-summary{display:flex;align-items:center;gap:12px;margin-inline-end:12px}
+.ux-header-summary button,.ux-header-summary>span{display:flex;align-items:center;gap:7px;background:#0f172a;border:1px solid #1e293b;border-radius:10px;padding:8px 11px;color:#a5b4fc;font:600 11px/1.6 'Vazirmatn',sans-serif}
+.ux-header-summary button{color:#fbbf24}
+.ux-header-actions>.ux-icon-button{background:#0f172a;border-color:#1e293b}
+.ux-header-actions .is-on{color:#a5b4fc}
+.ux-header-actions .is-warning{color:#fbbf24}
+.ux-account{display:flex;align-items:center;gap:10px;border-inline-start:1px solid var(--line);padding-inline-start:16px;margin-inline-start:8px;font-size:11px}
+.ux-account-mark{display:grid;place-items:center;width:36px;height:36px;border-radius:12px;background:#1e293b;color:#a5b4fc}
+.ux-account>div{display:flex;flex-direction:column;gap:2px}
+.ux-account button{font-size:10px;color:#94a3b8;background:none;border:0;text-align:start}
+.ux-content{padding:30px 32px 48px;max-width:1600px;margin:0 auto;min-width:0;min-height:0;flex:1;width:100%;overflow:auto;scrollbar-width:thin;overscroll-behavior:contain}
+.ux-content>*{min-width:0}
+.ux-content>h2.section-title:first-child{display:none}
+.ux-content h2.section-title{font-size:20px;font-weight:750;line-height:1.6}
+.ux-app .summary-text{color:#94a3b8;font-size:12px;line-height:1.7}
+.ux-app .empty-state{color:#94a3b8;font-size:13px;line-height:1.8}
+.ux-empty{border:1px dashed #334155;border-radius:20px;padding:36px 24px!important;margin:18px 0;text-align:center;background:#0f172a40}
+.ux-card{border:1px solid #1e293b;background:#0f172a80;border-radius:24px;padding:24px}
+.ux-card-title{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px}
+.ux-card-title h2,.ux-card-title h3{font-size:14px;font-weight:750;color:#e2e8f0;margin:0;line-height:1.5}
+.ux-card-title .ux-text-button{font-size:11px}
+.ux-today-stats{display:none;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-bottom:28px}
+.ux-replan-card{display:flex;gap:16px;padding:24px;border:1px solid #6366f133;border-radius:24px;background:#6366f112;margin-bottom:28px}
+.ux-replan-symbol{display:grid;place-items:center;flex:0 0 44px;height:44px;background:#4f46e5;color:white;border-radius:14px}
+.ux-replan-card h2{font-size:16px;font-weight:750;margin:0 0 8px}
+.ux-replan-card p{font-size:12px;color:#94a3b8;line-height:1.9;margin:0 0 16px}
+.ux-replan-card small{display:block;font-size:10px;color:#94a3b8;margin-top:12px}
+.ux-stat{display:flex;align-items:center;justify-content:space-between;gap:14px;text-align:start;background:#0f172a80;border:1px solid #1e293b;border-radius:18px;padding:17px 20px;color:#a5b4fc;min-width:0}
+.ux-stat>span{display:flex;align-items:center;gap:9px;font-size:12px;color:#a5b4fc}
+.ux-stat strong{font-size:23px;white-space:nowrap;color:#e2e8f0}
+.ux-stat small{font-size:11px;font-weight:500;color:#94a3b8}
+.ux-stat-streak{color:#fbbf24}
+.ux-stat-streak>span{color:#fbbf24}
+.ux-stat-done>span{color:#34d399}
+.ux-today-columns{display:grid;grid-template-columns:minmax(0,1fr) 285px;gap:28px;align-items:start}
+.ux-today-main,.ux-today-rail{min-width:0}
+.ux-today-rail{display:flex;flex-direction:column;gap:20px}
+.ux-list-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:4px 0 18px}
+.ux-list-heading h2{font-size:16px;line-height:1.6;font-weight:750;margin:0}
+.ux-list-heading>span{font-size:11px;color:#94a3b8}
+.ux-list-heading>div{display:flex;gap:4px}
+.ux-overdue{margin:0 0 28px}
+.ux-overdue .ux-list-heading h2{color:#fb7185;font-size:13px}
+.ux-app .today-item{border:1px solid #1e293b;border-radius:18px;background:#0f172a80;margin-bottom:12px;box-shadow:none;overflow:hidden}
+.ux-app .today-item-row{padding:18px;gap:12px;min-height:78px;align-items:center}
+.ux-app .today-item.overdue{border-color:#fb71851a;background:#fb718507}
+.ux-app .today-item-row>.priority-dot{display:none}
+.ux-app .ti-title{font-weight:650;font-size:14px;line-height:1.8;color:#e2e8f0}
+.ux-app .ti-main{min-width:0}
+.ux-app .ti-title-row{gap:8px;flex-wrap:wrap;line-height:1.7}
+.ux-app .ti-meta-row{margin-top:6px;gap:8px;flex-wrap:wrap;font-size:11px}
+.ux-app .dur{color:#94a3b8;font-size:11px}
+.ux-app .mini-tag{font-size:10px;border-radius:6px;padding:2px 6px;line-height:1.6}
+.ux-app .ti-more{color:#94a3b8;min-width:32px;min-height:32px;margin:0;padding:6px;align-self:center;transform:none}
+.ux-app .task-check{border:1.5px solid #475569;width:21px;height:21px;flex:0 0 21px;border-radius:7px;display:inline-flex;align-items:center;justify-content:center;background:transparent;color:white;position:relative}
+.ux-app .task-check.checked{background:#10b981;border-color:#10b981;color:#020617}
+.ux-app .task-check::after{content:'';position:absolute;inset:-9px}
+.ux-app .today-item.done{opacity:.65}
+.ux-app .today-item.done .ti-title{color:#94a3b8}
+.ux-app .today-subtasks{padding:0 18px 18px;margin-inline-start:32px}
+.ux-app .ti-menu{border-top:1px solid #1e293b;padding-top:12px;gap:8px}
+.ux-app .ti-menu button{border-radius:8px;min-height:36px}
+.ux-app .today-done-toggle{margin:26px 0 16px;color:#94a3b8;background:none;border:0;display:flex;align-items:center;gap:8px;font-size:12px}
+.ux-quick-add{display:flex;align-items:center;background:#0f172a;border:1px solid #334155;border-radius:16px;padding:10px;margin:0 0 18px;gap:10px}
+.ux-quick-add input{flex:1;min-width:0;border:0;background:none;font-size:13px;padding:6px 4px;color:white;outline:none}
+.ux-quick-add button{width:38px;height:38px;border-radius:10px;background:#4f46e5;border:1px solid #6366f1;color:white;display:grid;place-items:center;flex-shrink:0}
+.ux-week{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:2px}
+.ux-week button{display:flex;flex-direction:column;align-items:center;gap:9px;position:relative;min-width:0;min-height:66px;border:1px solid transparent;border-radius:10px;padding:8px 1px;background:none;color:#cbd5e1}
+.ux-week span{font-size:10px;color:#94a3b8}
+.ux-week b{font-size:12px}
+.ux-week button.active{background:#4f46e5;border-color:#6366f1;color:white}
+.ux-week button.active span{color:#c7d2fe}
+.ux-week i{height:3px;width:3px;background:#a5b4fc;border-radius:50%;position:absolute;bottom:3px}
+.ux-streak-card{background:#f59e0b05;border-color:#f59e0b20;position:relative;padding-top:24px}
+.ux-streak-card h3{font-size:13px;color:#fbbf24;margin:0 0 12px}
+.ux-streak-card strong{display:block;font-size:28px;font-weight:800;color:#f8fafc}
+.ux-streak-card small{font-size:13px;font-weight:500}
+.ux-streak-card p{font-size:11px;color:#94a3b8;line-height:1.9;margin:12px 0}
+.ux-card-symbol{position:absolute;left:22px;top:22px;color:#f59e0b}
+.ux-encouragement{font-size:12px;line-height:2;color:#94a3b8;border-inline-start:2px solid #6366f1;padding:4px 16px;margin:4px 0}
+.ux-app .today-fold{border:1px solid #1e293b;background:#0f172a80;border-radius:20px;box-shadow:none;overflow:hidden;margin:0}
+.ux-today-main>.today-fold{margin-bottom:20px}
+.ux-app .today-fold-head{padding:18px;display:flex;flex-wrap:wrap;gap:10px;text-align:start;min-height:65px;align-items:center}
+.ux-app .today-fold-title{font-size:13px;color:#e2e8f0;font-weight:700}
+.ux-app .today-fold-sum{font-size:11px;color:#94a3b8;min-width:0;line-height:1.8;white-space:normal}
+.ux-today-rail .today-fold-sum{flex-basis:100%;order:3}
+.ux-today-rail .today-fold:has(.en-card){border-color:#fbbf2426;background:#fbbf2405}
+.ux-today-rail .today-fold:has(.mother-card-text){border-color:#c084fc26;background:#c084fc05}
+.ux-app .today-fold-body{padding:0 18px 18px}
+.ux-app .today-fold-head>.filter-caret{margin-inline-start:auto}
+.ux-app .mother-card-text{font-size:12px}
+.ux-app .mother-card-actions{display:flex;flex-wrap:wrap;gap:8px}
+.ux-app .mother-card-actions button{padding:8px 12px;min-height:36px;font-size:12px;border-radius:9px}
+.ux-page-toolbar{display:flex;justify-content:space-between;align-items:center;gap:16px;margin:0 0 24px}
+.ux-page-toolbar>div{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.ux-count{font-size:15px;font-weight:700;color:#e2e8f0}
+.ux-task-row{position:relative;display:flex;gap:15px;align-items:flex-start;border:1px solid #1e293b;border-radius:18px;padding:20px;background:#0f172a70;margin-bottom:12px;transition:border-color .15s,background .15s}
+.ux-task-row:hover{border-color:#6366f14d;background:#0f172a}
+.ux-task-row.selected{border-color:#6366f14d;background:#6366f10c;border-inline-start:3px solid #6366f1}
+.ux-task-row>.task-check{margin-top:4px}
+.ux-task-row-main{flex:1;min-width:0}
+.ux-task-title{padding:0;border:0;background:none;color:#e2e8f0;line-height:1.9;font-size:14px;font-weight:650;text-align:start;overflow-wrap:anywhere}
+.ux-task-title:hover{color:#a5b4fc}
+.ux-task-meta{display:flex;align-items:center;flex-wrap:wrap;gap:10px;font-size:11px;color:#94a3b8;margin-top:8px}
+.ux-task-meta>span{display:inline-flex;align-items:center;gap:4px}
+.ux-task-tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}
+.ux-task-row .summary-text{display:block;margin-top:7px;font-size:11px}
+.ux-row-actions{display:flex;gap:0;align-items:center}
+.ux-row-actions .ux-icon-button{min-width:32px;height:32px;padding:7px}
+.ux-priority{display:inline-flex;align-items:center;border-radius:6px;padding:2px 7px;font-size:10px;font-weight:700;background:#33415566;color:#cbd5e1}
+.ux-priority.high{color:#fb7185;background:#fb718510}
+.ux-priority.medium{color:#fbbf24;background:#fbbf2410}
+.ux-priority.low{color:#a5b4fc;background:#6366f114}
+.ux-app .filter-panel{border:1px solid #1e293b;border-radius:16px;background:#0f172a60;margin-bottom:20px;padding:16px}
+.ux-app .filter-chip,.ux-app .quick-chip,.ux-app .pick-chip{border-radius:9px;line-height:1.6;font-size:12px;min-height:32px;padding:6px 10px}
+.ux-app .filter-chip.active,.ux-app .quick-chip.active{background:#6366f11a;border-color:#6366f14d;color:#c7d2fe}
+.ux-app .filter-group-label{font-size:11px}
+.ux-app .filter-group{gap:8px}
+.ux-app .recurring-manager{background:#0f172a80;border:1px solid #1e293b;border-radius:16px;overflow:hidden;margin-bottom:18px}
+.ux-app .recurring-manager-header{padding:14px 18px}
+.ux-app .recurring-manager h3{font-size:13px}
+.ux-app .recurring-manager-body{padding:0 18px 18px}
+.ux-content[data-view="calendar"]{padding:0;max-width:none}
+.ux-calendar{display:grid;grid-template-columns:minmax(0,1fr) 300px;min-height:calc(100dvh - var(--ux-header))}
+.ux-calendar-main{min-width:0}
+.ux-calendar-toolbar{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:22px 28px;border-bottom:1px solid #1e293b;min-height:86px}
+.ux-calendar-toolbar h2{font-size:20px;font-weight:800;margin:0}
+.ux-calendar-toolbar p{font-size:11px;color:#94a3b8;margin:4px 0 0}
+.ux-calendar-controls{display:flex;gap:6px;align-items:center}
+.ux-next .icn{transform:rotate(180deg)}
+.ux-calendar-weekdays,.ux-calendar-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr))}
+.ux-calendar-weekdays{background:#0f172a80;border-bottom:1px solid #1e293b}
+.ux-calendar-weekdays>span{padding:14px 0;font-size:11px;color:#94a3b8;text-align:center}
+.ux-calendar-weekdays>span:last-child{color:#fb7185}
+.ux-calendar-cell{border:0;border-bottom:1px solid #1e293b;border-inline-end:1px solid #1e293b;min-height:124px;min-width:0;padding:12px 10px;color:#cbd5e1;background:#020617;text-align:start;display:flex;flex-direction:column;align-items:stretch;position:relative}
+.ux-calendar-cell:hover{background:#0f172a}
+.ux-calendar-cell.friday{background:#fb718504}
+.ux-calendar-cell.friday .ux-day-number{color:#fb7185}
+.ux-calendar-cell.selected{background:#6366f10d;box-shadow:inset 0 0 0 1.5px #6366f1;z-index:1}
+.ux-calendar-cell.empty{background:#0f172a25}
+.ux-day-number{display:flex;align-items:center;justify-content:space-between;font-size:13px;line-height:1.6;font-weight:700;gap:3px}
+.ux-day-number small{font-size:9px;line-height:1.5;color:#c7d2fe;background:#4f46e5;padding:1px 3px;border-radius:4px}
+.ux-calendar-cell.today .ux-day-number{color:#a5b4fc}
+.ux-calendar-entries{display:flex;flex-direction:column;gap:5px;margin-top:12px;min-width:0}
+.ux-calendar-entry{font-size:10px;padding:3px 5px;border-radius:5px;background:#6366f11a;color:#c7d2fe;text-overflow:ellipsis;overflow:hidden;white-space:nowrap}
+.ux-calendar-entry.preview{border:1px dashed #475569;background:none;color:#94a3b8}
+.ux-calendar-more{font-size:10px;color:#94a3b8}
+.ux-calendar-dot{display:none}
+.ux-day-panel{background:#0f172a80;border-inline-start:1px solid #1e293b;padding:24px 20px;min-width:0}
+.ux-day-label{font-size:11px;color:#94a3b8;margin:-12px 0 24px}
+.ux-day-task{background:#020617;border:1px solid #1e293b;padding:16px;border-radius:16px;margin:0 0 12px}
+.ux-day-task>div{display:flex;align-items:start;justify-content:space-between;gap:12px}
+.ux-day-task .ux-task-title{font-size:12px;font-weight:650}
+.ux-day-task>.summary-text{font-size:11px;line-height:1.8;margin-top:10px;display:block}
+.ux-day-task p{font-size:11px;color:#94a3b8;margin:8px 0 0;line-height:1.8}
+.ux-day-task.preview{border-style:dashed;background:#02061755}
+.ux-day-task .ux-text-button{font-size:11px;margin-top:10px}
+.ux-day-summary{text-align:center;border:1px solid #6366f126;background:#6366f107;border-radius:16px;padding:16px;color:#94a3b8;font-size:11px;margin-top:24px}
+.ux-day-summary strong{display:block;color:#a5b4fc;font-size:12px;margin-top:6px;font-weight:600}
+.ux-move-task{font-size:11px;width:100%;margin-top:12px}
+.ux-app .modal-overlay{z-index:80;background:#020617bf;backdrop-filter:blur(5px);padding:28px}
+.ux-app .modal-box{border:1px solid #334155;background:#020617;border-radius:24px;box-shadow:0 24px 80px #0007;padding:28px;max-height:calc(100dvh - 56px);width:min(100%,580px);overflow:auto;scrollbar-width:thin}
+.ux-app .modal-box h3{font-family:var(--display);font-size:19px;font-weight:750;line-height:1.6;color:white;margin-bottom:24px}
+.ux-app .modal-section{margin-bottom:24px}
+.ux-app .modal-section-label{font-size:11px;color:#94a3b8;font-weight:600;margin-bottom:10px}
+.ux-app .modal-title-input,.ux-app .task-notes-input{background:#0f172a;border:1px solid #1e293b;border-radius:16px;color:#e2e8f0;padding:14px 16px;font-size:14px;line-height:1.8;min-width:0;width:100%}
+.ux-app .modal-title-input{font-weight:700}
+.ux-app .task-notes-input{margin-top:14px;min-height:94px;resize:vertical}
+.ux-app .modal-actions{display:flex;gap:12px;position:sticky;bottom:-28px;background:#020617;padding:20px 0 0;border-top:1px solid #1e293b;margin:28px 0 0;z-index:2}
+.ux-app .modal-actions button{min-height:44px;border-radius:12px;padding:12px 20px;font-size:13px}
+.ux-app .modal-actions .confirm{background:#4f46e5;color:white;border:1px solid #6366f1}
+.ux-app .modal-actions .cancel{background:#0f172a;color:#cbd5e1;border:1px solid #334155}
+.ux-editor-close{position:absolute;left:20px;top:20px;background:#0f172a}
+.ux-app .ux-task-editor{position:relative;display:flex;flex-direction:column;padding:0;overflow:hidden}
+.ux-editor-heading{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:20px 28px;border-bottom:1px solid #1e293b;flex-shrink:0;min-height:80px}
+.ux-editor-heading h2{font-size:17px;font-weight:750;line-height:1.6;margin:0;color:#f1f5f9}
+.ux-editor-fields{overflow:auto;flex:1;min-height:0;scrollbar-width:thin;padding:28px 32px 36px;display:flex;flex-direction:column;gap:28px}
+.ux-field{display:flex;flex-direction:column;gap:10px;min-width:0;font-size:12px}
+.ux-field>span:first-child{font-size:11px;line-height:1.8;font-weight:600;color:#94a3b8}
+.ux-editor-fields .task-notes-input{margin:0;min-height:110px}
+.ux-editor-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:22px;align-items:start}
+.ux-editor-tags{display:flex;gap:6px;flex-wrap:wrap;min-height:44px;align-items:center;background:#0f172a;border:1px solid #1e293b;border-radius:14px;padding:7px}
+.ux-editor-tags .pick-chip{font-size:11px;padding:4px 6px;min-height:26px;margin:0}
+.ux-priority-picker{display:flex;padding:4px;gap:2px;background:#0f172a;border:1px solid #1e293b;border-radius:14px;min-height:44px;align-items:stretch}
+.ux-priority-picker .priority-chip{flex:1;min-width:0;padding:6px 3px;font-size:11px;text-align:center;margin:0;border-color:transparent;border-radius:9px}
+.ux-priority-picker .priority-chip.high.active{background:#fb71851f;color:#fda4af;border-color:#fb718533}
+.ux-priority-picker .priority-chip.medium.active{background:#fbbf241a;color:#fcd34d;border-color:#fbbf2433}
+.ux-priority-picker .priority-chip.low.active{background:#6366f11a;color:#a5b4fc;border-color:#6366f133}
+.ux-quick-dates{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px}
+.ux-quick-dates button{padding:6px 3px;min-height:32px;border:1px solid #1e293b;border-radius:8px;background:#0f172a;color:#94a3b8;font-size:10px}
+.ux-quick-dates button.active{background:#4f46e5;color:white;border-color:#6366f1}
+.ux-editor-fields .ux-duration-input{width:100%;max-width:none;text-align:start;min-height:44px;border-radius:14px;padding:12px;font-size:14px;background:#0f172a}
+.ux-editor-fields .date-picker-btn{min-height:44px;border-radius:14px;justify-content:space-between;font-size:12px}
+.ux-app .ux-task-editor .modal-actions{position:static;flex-shrink:0;margin:0;bottom:auto;padding:20px 28px;flex-direction:row}
+.ux-app .ux-task-editor .modal-actions .confirm{flex:1}
+.ux-app .ux-task-editor .modal-actions .cancel{flex:0 0 auto}
+.ux-editor-divider{border-top:1px solid #1e293b;padding-top:24px}
+.ux-editor-fields .modal-section{margin:0}
+.ux-task-editor .modal-section .quick-group>label{display:flex;flex-direction:column;gap:7px;flex:1 1 42%;min-width:0}
+.ux-task-editor .modal-section .quick-group>label>select,.ux-task-editor .modal-section .quick-group>label>input{width:100%;min-width:0}
+.ux-editor-subtasks{display:flex;flex-direction:column;gap:8px}
+.ux-app .ux-editor-subtasks .modal-subtask-row{margin:0;padding:12px;flex-wrap:nowrap;gap:10px;min-width:0}
+.ux-subtask-title{flex:1;min-width:0;overflow-wrap:anywhere;font-size:12px;line-height:1.8}
+.ux-editor-subtasks input[type=checkbox]{flex-shrink:0}
+.ux-editor-subtasks .subtask-del{padding:6px;min-width:30px;min-height:30px;display:grid;place-items:center}
+.ux-editor-weekdays{display:flex;gap:5px;flex-wrap:wrap}
+.ux-app .priority-chip,.ux-app .recurring-toggle,.ux-app .apply-future-check{font-size:12px;line-height:1.7}
+.ux-app .modal-subtask-row{border:1px solid #1e293b;background:#0f172a66;border-radius:12px;padding:10px;gap:8px;min-height:44px;line-height:1.8;flex-wrap:wrap}
+.ux-app .modal-add-subtask{gap:8px}
+.ux-app .modal-add-subtask input{min-width:0}
+.ux-app .reminder-kind-hint{font-size:11px;color:#94a3b8;line-height:1.9}
+.ux-app .task-calendar{background:#0f172a;border:1px solid #334155;border-radius:16px;padding:16px;max-width:100%}
+.ux-app .cal-cell{min-width:0}
+.ux-app .quick-group{flex-wrap:wrap;gap:8px}
+.ux-app .date-picker-btn{font-size:12px;min-height:38px;border-radius:10px;padding:9px 12px}
+.ux-app :is(.modal-box input:not([type=checkbox],[type=color],[type=file]),.modal-box select){min-height:38px;max-width:100%;border-color:#334155;border-radius:10px}
+.ux-app .progress-bar-track{height:5px;background:#1e293b;border-radius:5px}
+.ux-app .progress-label,.ux-app .progress-count{font-size:11px;line-height:1.8}
+.ux-app .goal-block{margin-bottom:15px}
+.ux-app .archive-tabs{gap:8px;margin-bottom:24px;flex-wrap:wrap}
+.ux-app .archive-tabs button{border:1px solid #1e293b;background:#0f172a80;border-radius:12px;min-height:42px;font-size:12px;white-space:nowrap}
+.ux-app .archive-tabs button.active{background:#6366f118;border-color:#6366f14d;color:#a5b4fc}
+.ux-app .add-task-btn{background:#4f46e5;color:white;border:1px solid #6366f1;border-radius:12px;font-size:13px;min-height:44px;padding:11px 18px;width:auto}
+.ux-app .ux-card-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,285px),1fr));gap:20px;align-items:start;margin-top:24px}
+.ux-app .ux-card-grid>:is(.idea-card,.prompt-card){margin:0;height:100%;min-width:0;border-radius:22px;padding:22px;background:#0f172a66;border-color:#1e293b}
+.ux-app .idea-body,.ux-app .prompt-body{font-size:13px;line-height:2.1;overflow-wrap:anywhere}
+.ux-app .add-idea-box{border-radius:24px;padding:24px;background:#020617;border-color:#1e293b}
+.ux-app .add-idea-box textarea{background:none;border:0;min-height:100px;padding:4px;font-size:14px;line-height:2}
+.ux-app .idea-footer{margin-top:22px;gap:10px;align-items:end}
+.ux-app .idea-actions{gap:4px}
+.ux-app .idea-actions button{min-height:34px;min-width:30px}
+.ux-app .idea-thumb{width:110px;height:110px;border-radius:12px}
+.ux-app .add-idea-btn{background:#4f46e5;color:white;border:1px solid #6366f1;border-radius:10px}
+.ux-app .idea-img-btn{background:#0f172a;color:#cbd5e1;border-color:#334155;border-radius:10px}
+.ux-app .prompt-title{font-size:15px;line-height:1.8}
+.ux-app .prompt-filters{display:flex;gap:8px;flex-wrap:wrap;margin:18px 0}
+.ux-app .archive-search-input{background:#0f172a;border:1px solid #334155;border-radius:12px;padding:12px 16px;max-width:100%;font-size:13px}
+.ux-app .sub-row,.ux-app .purchase-row,.ux-app .repair-row,.ux-app .maint-row,.ux-app .mother-item,.ux-app .en-hw,.ux-app .en-chunk{border:1px solid #1e293b;border-radius:18px;background:#0f172a66;box-shadow:none;padding:20px;margin-bottom:14px;min-width:0}
+.ux-app .sub-row.overdue,.ux-app .sub-row.due{border-color:#fb718533;background:#fb718505}
+.ux-app .sub-name{font-size:15px;font-weight:700;line-height:1.8}
+.ux-app .sub-meta{font-size:12px;line-height:1.9;color:#94a3b8;gap:10px;flex-wrap:wrap}
+.ux-app .sub-actions{gap:6px}
+.ux-app :is(.sub-actions,.win-actions,.prompt-actions) button{min-width:34px;min-height:36px;border-radius:10px;padding:8px;color:#94a3b8}
+.ux-app .sub-actions button:hover{background:#6366f11a;color:#c7d2fe}
+.ux-app .add-purchase-box{background:#0f172a66;border:1px solid #1e293b;border-radius:20px;padding:22px}
+.ux-app .add-purchase-box>input{border-radius:12px;padding:12px 14px;background:#020617;font-size:14px}
+.ux-app .add-purchase-row button{color:white;background:#4f46e5;border-radius:10px;min-height:40px}
+.ux-app .purchases-total{text-align:start;border:1px solid #6366f133;border-radius:16px;background:#6366f10a;color:#c7d2fe;padding:18px;font-size:13px;margin:20px 0}
+.ux-app .wins-hero{border:1px solid #fbbf2426;border-radius:24px;padding:28px;background:#fbbf2405;margin-bottom:24px}
+.ux-app .wins-count{font-family:var(--display);font-size:44px;color:#fbbf24}
+.ux-app .win-card{background:#0f172a66;border:1px solid #1e293b;border-radius:22px;padding:24px;box-shadow:none}
+.ux-app .win-title{font-size:16px;line-height:1.9;color:#f1f5f9;font-weight:700}
+.ux-app .win-hardship,.ux-app .win-why{font-size:13px;line-height:2;color:#94a3b8;margin-top:16px}
+.ux-app .win-date{font-size:11px;color:#94a3b8}
+.ux-app .mother-why,.ux-app .mother-remind,.ux-app .en-week,.ux-app .tag-manager,.ux-app .repair-stats,.ux-app .ai-report{background:#0f172a66;border:1px solid #1e293b;border-radius:22px;padding:24px;box-shadow:none}
+.ux-app .mother-why{border-color:#c084fc26;background:#c084fc05;margin-bottom:24px}
+.ux-app .mother-why-text{font-size:15px;line-height:2.1}
+.ux-app .mother-remind{margin-bottom:24px}
+.ux-app .mother-item-body{font-size:13px;line-height:2}
+.ux-app .mother-switch{line-height:1.8;font-size:13px;margin:14px 0}
+.ux-app .mother-remind-note,.ux-app .mother-footnote{font-size:12px;color:#94a3b8;line-height:2}
+.ux-app .mother-cat-title{font-size:14px;margin:26px 0 14px;color:#cbd5e1}
+.ux-app .repair-stats{gap:20px;padding:24px;margin-bottom:24px}
+.ux-app .repair-stat b{font-size:28px;font-weight:800;color:#f1f5f9}
+.ux-app .repair-stat span{font-size:12px;color:#94a3b8;margin-top:5px}
+.ux-app .repair-stat.hot b{color:#fb7185}
+.ux-app .en-week{margin-bottom:18px;padding:20px}
+.ux-app .en-day{border-radius:12px;font-size:12px}
+.ux-app .tag-manager-header{padding:0}
+.ux-app .tag-manager-body{padding:22px 0 0}
+.ux-app .tag-manager h3{font-size:16px;font-family:var(--display)}
+.ux-app .tag-goal-row{padding:12px 0;border-bottom:1px solid #1e293b}
+.ux-app .goal-reason-input{font-size:12px;width:100%;border-radius:10px;padding:10px}
+.ux-app .ai-report{margin-bottom:24px}
+.ux-app .ai-report-text{font-size:14px;line-height:2.2}
+.ux-app .replan-box{background:#6366f107;border-color:#6366f133;border-radius:18px;padding:22px}
+.ux-app .replan-change{border-color:#1e293b;border-radius:14px;padding:16px;background:#02061780}
+.ux-app .push-menu,.ux-app .backup-menu{position:fixed;top:88px;left:32px;width:min(420px,calc(100vw - 32px));z-index:65;background:#0f172a;border:1px solid #334155;border-radius:20px;padding:22px;box-shadow:0 18px 60px #0007;max-height:calc(100dvh - 120px);overflow:auto}
+.ux-app .offline-bar{margin:16px 32px 0;border-radius:12px}
+.ux-app .undo-toast{border:1px solid #334155;background:#0f172a;border-radius:16px;z-index:100}
+.ux-sections-backdrop{position:fixed;inset:0;z-index:100;background:#020617c9;display:flex;align-items:end;justify-content:center;padding:24px 16px calc(24px + env(safe-area-inset-bottom,0px))}
+.ux-sections{width:min(100%,480px);max-height:85dvh;overflow:auto;background:#0f172a;border:1px solid #334155;border-radius:26px;padding:24px;scrollbar-width:thin;outline:none}
+.ux-section-top{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:20px}
+.ux-section-top h2{font-size:19px;font-weight:750}
+.ux-menu-group{margin-top:20px}
+.ux-menu-group h3{font-size:12px;color:#94a3b8;font-weight:500;margin:0 0 8px}
+.ux-menu-group>div{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.ux-menu-group .ux-nav-link{padding:12px;font-size:13px;background:#020617;border-color:#1e293b;min-height:52px}
+.ux-app.signed-out{padding:0;display:grid;place-items:center;min-height:100dvh;background:#020617}
+.ux-app.signed-out .app{display:grid;place-items:center;width:100%;padding:24px}
+.ux-app .login{width:min(100%,400px);padding:36px;border:1px solid #1e293b;background:#0f172a66;border-radius:28px;margin:0;box-shadow:none}
+.ux-app .login h1{font-family:var(--display);font-size:34px;font-weight:800;color:#e2e8f0}
+.ux-app .login .sub{font-size:13px;color:#94a3b8;line-height:1.8;margin:12px 0 28px}
+.ux-app .login input{border:1px solid #334155;background:#020617;border-radius:12px;padding:14px;font-size:16px}
+.ux-app .login button{background:#4f46e5;color:white;border:1px solid #6366f1;border-radius:12px;min-height:48px}
+@media(min-width:1300px){
+  .ux-task-editing .ux-content[data-view="tasks"]{padding-inline-end:584px;max-width:none}
+  .ux-task-editing .ux-header{padding-inline-end:584px}
+  .ux-task-editing .ux-header-actions{display:none}
+  .ux-task-editing .ux-task-overlay{inset:0 auto 0 0;width:560px;display:block;padding:0;background:#020617;backdrop-filter:none;border-inline-start:1px solid #1e293b}
+  .ux-task-editing .ux-task-editor{border:0;border-radius:0;box-shadow:none;width:100%;max-height:none;height:100%;padding:0}
+  .ux-task-editing .ux-row-actions{flex-direction:column}
+}
+@media(max-width:1199px) and (min-width:901px){
+  :root{--ux-sidebar:220px}
+  .ux-sidebar{padding:22px 14px}
+  .ux-today-columns{grid-template-columns:minmax(0,1fr) 240px;gap:20px}
+  .ux-content{padding:26px 24px}
+  .ux-calendar{grid-template-columns:minmax(0,1fr) 250px}
+  .ux-calendar-cell{padding:10px 6px;min-height:110px}
+  .ux-stat{padding:14px 12px;flex-wrap:wrap;gap:6px}
+  .ux-day-panel{padding:20px 14px}
+}
+@media(max-width:900px){
+  :root{--ux-sidebar:0px;--ux-header:76px}
+  body.ux-app{padding-inline-start:0;padding-bottom:calc(80px + env(safe-area-inset-bottom,0px))}
+  .ux-app:not(.signed-out) .app{height:calc(100dvh - 74px - env(safe-area-inset-bottom,0px))}
+  .ux-sidebar{display:none}
+  .ux-header{padding:0 20px}
+  .ux-header h1{font-size:18px}
+  .ux-header p{font-size:11px}
+  .ux-header-icon{display:none}
+  .ux-account{display:none}
+  .ux-header-summary{display:none}
+  .ux-content{padding:24px 20px 32px;max-width:760px}
+  .ux-mobile-nav{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:3px;position:fixed;inset:auto 0 0;z-index:55;background:#020617f5;backdrop-filter:blur(12px);border-top:1px solid #1e293b;padding:8px 12px calc(8px + env(safe-area-inset-bottom,0px));min-height:74px}
+  .ux-mobile-link{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-width:0;min-height:52px;padding:6px 2px;border:0;border-radius:12px;background:none;color:#94a3b8;font-size:11px;font-weight:650;position:relative}
+  .ux-mobile-link.active{color:#a5b4fc;background:#6366f10d}
+  .ux-mobile-link.active::before{content:'';height:2px;background:#818cf8;position:absolute;top:-8px;left:24%;right:24%;border-radius:0 0 3px 3px}
+  .ux-today-columns{grid-template-columns:minmax(0,1fr) 250px;gap:20px}
+  .ux-stat{padding:14px 12px;flex-wrap:wrap;gap:4px}
+  .ux-stat strong{font-size:22px}
+  .ux-stat>span{font-size:11px}
+  .ux-calendar{grid-template-columns:minmax(0,1fr)}
+  .ux-day-panel{border-inline-start:0;border-top:1px solid #1e293b;padding:24px;background:#0f172a66}
+  .ux-calendar-cell{min-height:90px}
+  .ux-calendar-toolbar{padding:20px}
+  .ux-calendar-weekdays>span{font-size:10px}
+  .ux-app .undo-toast{bottom:calc(92px + env(safe-area-inset-bottom,0px))}
+  .ux-app .push-menu,.ux-app .backup-menu{top:84px;left:16px;max-height:calc(100dvh - 180px)}
+}
+@media(max-width:640px){
+  :root{--ux-header:76px}
+  .ux-header{padding:0 18px}
+  .ux-header h1{font-size:16px}
+  .ux-header p{max-width:210px;font-size:10px;line-height:1.7}
+  .ux-header-actions{gap:6px}
+  .ux-header-actions .ux-icon-button{min-width:36px;width:36px;height:36px;padding:8px;border-radius:11px}
+  .ux-content{padding:22px 18px 30px}
+  .ux-today-stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:24px}
+  .ux-stat-streak{display:none}
+  .ux-stat{flex-direction:column;align-items:start;padding:16px;gap:8px;border-radius:18px}
+  .ux-stat>span{font-size:11px;gap:7px}
+  .ux-stat strong{font-size:22px}
+  .ux-stat-done{background:#10b98107;border-color:#10b98126}
+  .ux-today-columns{display:flex;flex-direction:column;gap:24px}
+  .ux-today-main,.ux-today-rail{width:100%}
+  .ux-today-rail{gap:18px}
+  .ux-today-rail .ux-mini-calendar{display:none}
+  .ux-streak-card{padding:20px}
+  .ux-streak-card strong{font-size:25px}
+  .ux-list-heading{margin-bottom:14px}
+  .ux-list-heading h2{font-size:14px}
+  .ux-app .today-item{border-radius:17px}
+  .ux-app .today-item-row{padding:16px 13px;gap:11px;min-height:84px}
+  .ux-app .ti-title{font-size:13px;line-height:1.9}
+  .ux-app .ti-meta-row{font-size:11px;gap:6px;line-height:1.8}
+  .ux-app .mini-tag{font-size:10px}
+  .ux-app .ti-more{min-width:28px;padding:4px}
+  .ux-app .today-subtasks{padding:0 14px 16px;margin-inline-start:28px}
+  .ux-app .task-check{width:20px;height:20px;flex-basis:20px}
+  .ux-app .today-fold-head{padding:18px;gap:10px}
+  .ux-app .today-fold-body{padding:0 18px 18px}
+  .ux-app .today-fold-title{font-size:13px}
+  .ux-app .today-fold-sum{font-size:12px;line-height:1.9}
+  .ux-app .today-fold-head .today-fold-sum{flex-basis:100%;order:3}
+  .ux-app .mother-card-text,.ux-app .en-card{font-size:13px;line-height:1.9}
+  .ux-card{padding:20px}
+  .ux-page-toolbar{gap:12px;margin-bottom:20px}
+  .ux-page-toolbar>div{display:flex;flex-direction:column;align-items:start;gap:3px}
+  .ux-count{font-size:14px}
+  .ux-primary{font-size:12px;padding:10px 14px;min-height:44px}
+  .ux-task-row{padding:17px 14px;gap:11px;flex-wrap:wrap}
+  .ux-task-row-main{min-width:0;flex:1}
+  .ux-task-title{font-size:13px}
+  .ux-row-actions{width:100%;justify-content:end;border-top:1px solid #1e293b;padding-top:8px;margin-top:4px;gap:8px}
+  .ux-row-actions .ux-icon-button{min-width:40px;height:36px}
+  .ux-task-meta{gap:7px;font-size:11px}
+  .ux-task-tags{gap:5px}
+  .ux-app .filter-panel{padding:14px;border-radius:14px}
+  .ux-app .filter-group{gap:8px}
+  .ux-app .filter-chip{min-height:36px;font-size:12px}
+  .ux-calendar-toolbar h2{font-size:18px}
+  .ux-calendar-toolbar{padding:20px 18px}
+  .ux-calendar-weekdays>span{font-size:0}
+  .ux-calendar-weekdays>span::first-letter{font-size:12px}
+  .ux-calendar-cell{min-height:52px;padding:8px 4px;border:0;align-items:center;justify-content:center;margin:3px;border-radius:10px}
+  .ux-calendar-cell.friday{background:none}
+  .ux-day-number{font-size:13px;flex-direction:column;gap:2px}
+  .ux-day-number small{font-size:8px;position:absolute;bottom:2px;padding:0 2px}
+  .ux-calendar-cell.selected{background:#4f46e5;box-shadow:none;color:white}
+  .ux-calendar-cell.selected .ux-day-number{color:white}
+  .ux-calendar-cell.today:not(.selected){background:#6366f11a;box-shadow:inset 0 0 0 1px #6366f14d}
+  .ux-calendar-entries{display:none}
+  .ux-calendar-dot{display:block;position:absolute;bottom:4px;width:3px;height:3px;border-radius:50%;background:#818cf8}
+  .ux-calendar-cell.today .ux-calendar-dot{display:none}
+  .ux-calendar-grid{padding:12px 10px 20px}
+  .ux-day-panel{padding:24px 18px}
+  .ux-day-task{border-radius:16px;padding:18px}
+  .ux-day-task .ux-task-title{font-size:13px}
+  .ux-app .modal-overlay{padding:0;align-items:start;background:#020617;backdrop-filter:none}
+  .ux-app .modal-box{width:100%;max-width:none;max-height:100dvh;height:100dvh;border:0;border-radius:0;padding:24px 20px calc(30px + env(safe-area-inset-bottom,0px));overflow:auto}
+  .ux-app .modal-box.ux-task-editor{padding:0;overflow:hidden}
+  .ux-editor-heading{padding:18px 20px;min-height:72px}
+  .ux-editor-fields{padding:24px 20px 32px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px 14px;align-content:start}
+  .ux-editor-fields>*{grid-column:1/-1;order:6}
+  .ux-editor-fields>.ux-field:nth-child(1){order:1}
+  .ux-editor-fields>.ux-field:nth-child(2){order:2}
+  .ux-editor-grid{display:contents}
+  .ux-editor-priority-field{grid-column:1;order:3}
+  .ux-editor-duration-field{grid-column:2;order:3}
+  .ux-editor-tags-field{grid-column:1/-1;order:4}
+  .ux-editor-date-field{grid-column:1/-1;order:5}
+  .ux-editor-fields>.task-calendar{order:5}
+  .ux-editor-fields>.ux-editor-divider{order:8}
+  .ux-editor-tags{min-height:48px}
+  .ux-field>span:first-child{font-size:12px}
+  .ux-app .ux-task-editor .modal-actions{padding:16px 20px calc(16px + env(safe-area-inset-bottom,0px));flex-direction:row;gap:10px}
+  .ux-app .ux-task-editor .modal-actions button{width:auto;min-height:46px;font-size:13px;padding:12px 16px}
+  .ux-app .ux-task-editor .modal-actions .cancel{flex:0 0 auto}
+  .ux-app .ux-editor-subtasks .modal-subtask-row{flex-wrap:wrap;gap:8px}
+  .ux-subtask-title{font-size:13px;flex-basis:65%}
+  .ux-app .ux-priority-picker .priority-chip{font-size:12px;padding:6px 3px}
+  .ux-app .modal-box h3{font-size:18px;margin-bottom:28px;padding-inline-end:40px}
+  .ux-editor-close{left:16px;top:18px}
+  .ux-app .modal-title-input,.ux-app .task-notes-input{font-size:16px;border-radius:14px;padding:13px;line-height:1.8}
+  .ux-app .modal-section{margin-bottom:24px}
+  .ux-app .modal-section-label{font-size:12px;line-height:1.7}
+  .ux-app .modal-actions{bottom:calc(-30px - env(safe-area-inset-bottom,0px));padding:16px 0 calc(16px + env(safe-area-inset-bottom,0px));flex-direction:column-reverse;gap:10px;margin-top:24px}
+  .ux-app .modal-actions button{width:100%;font-size:14px;min-height:48px}
+  .ux-app .quick-group{gap:6px}
+  .ux-app .quick-chip,.ux-app .pick-chip{min-height:38px;font-size:12px;padding:8px 10px}
+  .ux-app .quick-group .num-text{max-width:120px;min-width:60px}
+  .ux-app .modal-box input:not([type=checkbox],[type=color],[type=file]),.ux-app .modal-box textarea,.ux-app .modal-box select{font-size:16px;min-height:44px}
+  .ux-app .recurring-toggle,.ux-app .apply-future-check{font-size:13px;line-height:1.9;gap:10px}
+  .ux-app .modal-subtask-row{font-size:13px;padding:12px;gap:10px}
+  .ux-app .modal-subtask-row .subtask-move-btn{min-height:32px;min-width:30px}
+  .ux-app .reminder-kind-hint{font-size:12px;line-height:1.9}
+  .ux-app .ux-card-grid{grid-template-columns:1fr;gap:18px}
+  .ux-app .ux-card-grid>:is(.idea-card,.prompt-card){border-radius:20px;padding:20px}
+  .ux-app .add-idea-box{padding:18px}
+  .ux-app .add-idea-box textarea{font-size:16px}
+  .ux-app .idea-body,.ux-app .prompt-body{font-size:13px;line-height:2.1}
+  .ux-app .idea-thumb{width:86px;height:86px}
+  .ux-app .idea-actions button{min-height:40px;min-width:36px}
+  .ux-app .sub-row,.ux-app .purchase-row,.ux-app .repair-row,.ux-app .maint-row,.ux-app .mother-item,.ux-app .en-hw,.ux-app .en-chunk{padding:18px;border-radius:18px;flex-wrap:wrap}
+  .ux-app .sub-actions{width:100%;justify-content:end;gap:8px;margin-top:12px}
+  .ux-app .sub-actions button{min-height:40px;min-width:40px}
+  .ux-app .add-purchase-box{padding:18px}
+  .ux-app .add-purchase-box>input{font-size:16px}
+  .ux-app .purchases-total{font-size:13px;padding:18px}
+  .ux-app .wins-hero{padding:24px;gap:20px;flex-wrap:wrap}
+  .ux-app .wins-count{font-size:38px}
+  .ux-app .wins-wall{grid-template-columns:1fr}
+  .ux-app .win-card{padding:22px}
+  .ux-app .win-title{font-size:15px}
+  .ux-app .win-hardship,.ux-app .win-why{font-size:13px}
+  .ux-app .mother-why,.ux-app .mother-remind,.ux-app .en-week,.ux-app .tag-manager,.ux-app .repair-stats,.ux-app .ai-report{padding:20px;border-radius:20px}
+  .ux-app .repair-stats{gap:12px}
+  .ux-app .repair-stat b{font-size:22px}
+  .ux-app .repair-stat span{font-size:11px}
+  .ux-app .ai-report-text{font-size:13px;line-height:2.1}
+  .ux-app .replan-box{padding:18px}
+  .ux-app .archive-tabs{gap:6px}
+  .ux-app .archive-tabs button{min-width:65px;min-height:42px;padding:10px;font-size:12px}
+  .ux-app .new-tag-row{flex-wrap:wrap}
+  .ux-app .new-tag-row input[type=text]{min-width:0;max-width:100%}
+  .ux-app .offline-bar{margin:12px 18px 0}
+  .ux-app .login{padding:28px}
+}
+@media(prefers-reduced-motion:reduce){.ux-app *{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
+@media print{
+  body.ux-app{padding:0!important;background:white;color:black;height:auto;overflow:visible}
+  .ux-sidebar,.ux-header,.ux-mobile-nav,.ux-sections-backdrop,.ux-today-stats,.ux-today-columns,.ux-today>.ai-health-banner{display:none!important}
+  .ux-app .app,.ux-app .ux-content{padding:0!important;margin:0!important;max-width:none;height:auto!important;overflow:visible;display:block}
+}
