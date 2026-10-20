@@ -1,13 +1,18 @@
 /* App-shell cache for مدار.
    Bump CACHE_NAME (e.g. medar-shell-v2) whenever index.html/manifest/icons change,
    so returning visitors pick up the new version instead of a stale cached copy. */
-const CACHE_NAME = 'medar-shell-v56';
+const CACHE_NAME = 'medar-shell-v57';
 const APP_SHELL = [
   './',
   './index.html',
   './task-reminders.js',
-  './uxpilot.js',
-  './uxpilot.css',
+  './ui.css',
+  './tailwind.css',
+  './ui-shell.js',
+  './ui-today.js',
+  './ui-tasks.js',
+  './ui-pages.js',
+  './ui-system.js',
   './manifest.json',
   './icon-192.png',
   './icon-512.png',
@@ -21,7 +26,9 @@ const APP_SHELL = [
    so these are cached too. Fetched with CORS in install (jsDelivr and Google
    send the headers) because Cache.add refuses the opaque no-cors copy. */
 const SUPABASE_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
-const VENDOR_HOSTS = ['cdn.jsdelivr.net', 'fonts.googleapis.com', 'fonts.gstatic.com'];
+// the interface's icons; its webfonts are cached on first use like Google's
+const FONT_AWESOME_CSS = 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css';
+const VENDOR_HOSTS = ['cdn.jsdelivr.net', 'fonts.googleapis.com', 'fonts.gstatic.com', 'cdnjs.cloudflare.com'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -30,9 +37,9 @@ self.addEventListener('install', (event) => {
       // so a new release never installs the copy from ten minutes ago
       cache.addAll(APP_SHELL.map((u) => new Request(u, { cache: 'reload' }))),
       // best effort — a CDN hiccup must not block installing the app shell
-      fetch(SUPABASE_JS, { mode: 'cors' })
-        .then((res) => { if (res.ok) return cache.put(SUPABASE_JS, res); })
-        .catch(() => {}),
+      ...[SUPABASE_JS, FONT_AWESOME_CSS].map((url) => fetch(url, { mode: 'cors' })
+        .then((res) => { if (res.ok) return cache.put(url, res); })
+        .catch(() => {})),
     ]))
   );
   self.skipWaiting();
