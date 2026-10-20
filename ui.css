@@ -1,0 +1,69 @@
+/* Rules the UX Pilot screens define in their own <style> blocks, plus print and
+   touch handling. Everything else comes from tailwind.css (see tailwind-build.html). */
+body { font-family: 'Vazirmatn', sans-serif; background-color: #020617; -webkit-tap-highlight-color: transparent; }
+/* real titles can be one long unbroken word (a URL, an English term); let them wrap instead of widening the page */
+#app :is(h1, h2, h3, h4, p) { overflow-wrap: anywhere; }
+.custom-scrollbar::-webkit-scrollbar { width: 4px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 10px; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { scrollbar-width: none; }
+.bg-dark-surface { background-color: #0f172a; }
+.bg-dark-card { background-color: #1e293b; }
+.border-dark { border-color: #334155; }
+input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+
+/* hover-revealed row actions (each reference page names its own pair) */
+.task-item:hover .task-actions, .repair-item:hover .repair-actions, .purchase-item:hover .purchase-actions,
+.sub-card:hover .sub-actions, .idea-card:hover .idea-actions, .prompt-card:hover .prompt-actions,
+.win-card:hover .win-actions, .care-item:hover .care-actions, .archive-item:hover .archive-actions,
+.task-item:focus-within .task-actions, .repair-item:focus-within .repair-actions, .purchase-item:focus-within .purchase-actions,
+.sub-card:focus-within .sub-actions, .idea-card:focus-within .idea-actions, .prompt-card:focus-within .prompt-actions,
+.win-card:focus-within .win-actions, .care-item:focus-within .care-actions, .archive-item:focus-within .archive-actions { opacity: 1; }
+/* a touch screen has no hover, so those actions are simply always there */
+@media (hover: none) {
+  .task-actions, .repair-actions, .purchase-actions, .sub-actions, .idea-actions, .prompt-actions,
+  .win-actions, .care-actions, .archive-actions, .reveal { opacity: 1 !important; }
+}
+
+/* تسک‌ها (desktop) */
+.task-list-item.active { background-color: rgba(79, 70, 229, 0.05); border-right: 4px solid #4f46e5; }
+/* تقویم (desktop) */
+.calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); }
+.calendar-day { min-height: 120px; border-bottom: 1px solid #1e293b; border-left: 1px solid #1e293b; padding: 12px; transition: all 0.2s; background-color: #020617; position: relative; }
+.calendar-day:hover { background-color: #0f172a; }
+.calendar-day.active { background-color: rgba(79, 70, 229, 0.05); box-shadow: inset 0 0 0 1px #4f46e5; z-index: 10; }
+.task-dot { width: 4px; height: 4px; border-radius: 99px; }
+/* switches (settings, mother) */
+.switch-on { background-color: #4f46e5; }
+.switch-on-rose { background-color: #f43f5e; }
+.switch-off { background-color: #334155; }
+/* phone */
+.active-tab { color: #818cf8; }
+.pill-active { background-color: rgba(79, 70, 229, 0.2); color: #818cf8; border-color: rgba(79, 70, 229, 0.3); }
+.tab-active { color: #818cf8; border-bottom: 2px solid #6366f1; }
+.safe-area-bottom { padding-bottom: calc(env(safe-area-inset-bottom) + 80px); }
+.safe-area-bottom-sm { padding-bottom: calc(env(safe-area-inset-bottom) + 20px); }
+.pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+.prompt-card:active { transform: scale(0.98); }
+.pick-chip.on { color: #a5b4fc; background-color: rgb(99 102 241 / 0.2); border-color: rgb(99 102 241 / 0.1); }
+.dragging { opacity: .4; }
+
+/* the print sheet is invisible on screen; only it is printed */
+.print-sheet { display: none; }
+@media print {
+  body { background: #fff !important; overflow: visible !important; }
+  #app > *:not(.print-sheet) { display: none !important; }
+  .print-sheet { display: block !important; color: #000; background: #fff; font-family: 'Vazirmatn', sans-serif; padding: 0; }
+  .print-sheet h1 { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+  .print-sheet .print-date { font-size: 13px; color: #333; margin-bottom: 20px; }
+  .print-task { display: flex; align-items: flex-start; gap: 10px; padding: 10px 0; border-bottom: 1px solid #ccc; break-inside: avoid; }
+  .print-checkbox { width: 16px; height: 16px; border: 2px solid #000; flex-shrink: 0; margin-top: 3px; }
+  .print-checkbox.small { width: 12px; height: 12px; border-width: 1.5px; }
+  .print-checkbox.checked { background: #000; }
+  .print-task-title { font-size: 15px; font-weight: 700; color: #000; }
+  .print-task-title.done { text-decoration: line-through; color: #666; }
+  .print-task-meta { font-size: 12px; color: #444; margin-top: 4px; }
+  .print-subtasks { margin-top: 6px; }
+  .print-subtask { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: #222; margin-top: 4px; }
+}
