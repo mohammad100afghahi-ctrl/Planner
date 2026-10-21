@@ -2330,7 +2330,7 @@ function toggleTodayExpand(taskId){ state.todayExpanded[taskId] = !state.todayEx
 function openTaskEditorNew(){
   state.taskEditor = {
     mode:'create', taskId:null, draft:{ title:'', notes:'', tagIds:[], priority:null, date:'', durationMin:null, subtasks:[], ...newTaskReminderDraft(), recurring:{ enabled:false, weekdays:[] } },
-    calendarOpen:false, calendarPanel:'grid', calendarViewJY:null, calendarViewJM:null, calendarSelectedDayKey:null,
+    calendarOpen:false, calendarViewJY:null, calendarViewJM:null,
     isRecurringInstance:false, applyToFutureRecurring:false,
   };
   render();
@@ -2338,7 +2338,7 @@ function openTaskEditorNew(){
 function openTaskEditorNewForDate(dateStr){
   state.taskEditor = {
     mode:'create', taskId:null, draft:{ title:'', notes:'', tagIds:[], priority:null, date:dateStr, durationMin:null, subtasks:[], ...newTaskReminderDraft(), recurring:{ enabled:false, weekdays:[] } },
-    calendarOpen:false, calendarPanel:'grid', calendarViewJY:null, calendarViewJM:null, calendarSelectedDayKey:null,
+    calendarOpen:false, calendarViewJY:null, calendarViewJM:null,
     isRecurringInstance:false, applyToFutureRecurring:false,
   };
   render();
@@ -2353,7 +2353,7 @@ function openTaskEditorEdit(taskId){
       subtasks: t.subtasks.map(s => ({ id:s.id, title:s.title, done:s.done })),
       recurring:{ enabled:false, weekdays:[] },
     },
-    calendarOpen:false, calendarPanel:'grid', calendarViewJY:null, calendarViewJM:null, calendarSelectedDayKey:null,
+    calendarOpen:false, calendarViewJY:null, calendarViewJM:null,
     actualMinReadonly: t.actualMin || null,
     isRecurringInstance: !!t.recurringTemplateId, recurringTemplateId: t.recurringTemplateId || null, applyToFutureRecurring:false,
   };
@@ -2369,7 +2369,7 @@ function copyTaskToEditor(taskId){
       subtasks: t.subtasks.map(s => ({ id:uid(), title:s.title, done:false })),
       recurring:{ enabled:false, weekdays:[] },
     },
-    calendarOpen:false, calendarPanel:'grid', calendarViewJY:null, calendarViewJM:null, calendarSelectedDayKey:null,
+    calendarOpen:false, calendarViewJY:null, calendarViewJM:null,
     isRecurringInstance:false, applyToFutureRecurring:false,
   };
   render();
@@ -2423,7 +2423,6 @@ function toggleTaskCalendar(){
   const ed = state.taskEditor;
   ed.calendarOpen = !ed.calendarOpen;
   if(ed.calendarOpen){
-    ed.calendarPanel = 'grid';
     const base = ed.draft.date ? new Date(ed.draft.date) : new Date();
     const j = window.jalaali.toJalaali(base);
     ed.calendarViewJY = j.jy;
@@ -2447,19 +2446,7 @@ function calendarPickDay(jy, jm, jd){
   const g = window.jalaali.toGregorian(jy, jm, jd);
   const picked = new Date(g.gy, g.gm - 1, g.gd);
   state.taskEditor.draft.date = dateKey(picked);
-  state.taskEditor.calendarOpen = false;
-  render();
-}
-function calendarShowDayDetail(key, evt){
-  if(evt) evt.stopPropagation();
-  const ed = state.taskEditor;
-  ed.calendarPanel = 'day';
-  ed.calendarSelectedDayKey = key;
-  render();
-}
-function calendarBackToGrid(){
-  state.taskEditor.calendarPanel = 'grid';
-  render();
+  render(); // the calendar stays open with the day's tasks below it
 }
 
 /* ---------- standalone "تقویم" tab (independent of the task editor) ---------- */
