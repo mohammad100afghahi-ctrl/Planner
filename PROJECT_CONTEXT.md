@@ -74,3 +74,4 @@ Read current files rather than assuming stored notes remain current. Reconcile u
 
 ## 2026-10-21 — Larger text on the phone layout
 - The phone reference's 8–11px labels were too small to read. ui.css now raises every Tailwind text size (text-[8px]…text-xl, icons inherit) inside #app below 1200px; desktop is unchanged. Checked all 14 phone views at 375px: no horizontal overflow. sw.js cache v58.
+- Phone pages could not scroll their last row (e.g. «خروج از حساب کاربری» in settings) out from under the tab bar: tailwind.css loads after ui.css, so a page's p-4 overrode .safe-area-bottom's padding. The rule is now #app-scoped and keeps 104px + safe-area under every page. sw.js cache v59.
