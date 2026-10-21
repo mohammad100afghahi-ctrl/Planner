@@ -1385,7 +1385,6 @@ function renderWinsMobile(){
       <div class="bg-emerald-600/10 border border-emerald-500/20 rounded-3xl p-5 text-center"><p class="text-[9px] font-black text-emerald-400 uppercase tracking-widest mb-1">این ماه</p><span class="text-2xl font-black text-white">${fd(thisMonth)}</span></div>
     </div>
     <div class="px-4 mb-6 space-y-3">
-      <div class="bg-slate-900/50 border border-slate-800 rounded-2xl p-4 flex items-center gap-3">${fa('bolt-lightning', 'text-amber-500')}<p class="text-[10px] text-slate-400 italic">"${esc((state.encouragement && state.encouragement.text) || WINS_LINE)}"</p></div>
       ${all.length ? `<button type="button" onclick="openWinSos()" class="w-full py-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-[10px] font-black text-amber-400">${fa('wand-magic-sparkles', 'ml-1')} مغزم داره شکست‌هامو می‌شمره</button>` : ''}
     </div>
     <main class="safe-area-bottom px-4">
