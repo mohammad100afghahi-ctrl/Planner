@@ -554,6 +554,7 @@ function render(){
     ? `<div class="flex h-screen">${renderSidebar()}${view()}</div>${renderOverlays()}${state.view === 'today' ? renderTodayPrintSheet() : ''}`
     : `${view()}${state.taskEditor ? '' : renderMobileNav()}${renderOverlays()}${state.view === 'today' ? renderTodayPrintSheet() : ''}`;
   restoreScrolls(scrolls);
+  syncBackGuard();
   if(focusId){
     const el = document.getElementById(focusId);
     if(el && el !== document.activeElement){
