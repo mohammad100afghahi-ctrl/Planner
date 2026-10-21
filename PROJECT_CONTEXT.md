@@ -71,3 +71,6 @@ Read current files rather than assuming stored notes remain current. Reconcile u
 - Desktop layout from 1200px, phone layout below (JS media query, two separate templates). Every open editor carries .modal-overlay so SW reload and reminder refresh wait.
 - Small logic additions only: quickAddTodayTask, rejectAllChanges, purchases.createdAt mapped, state.userEmail. No database, auth, backup, push or reminder logic changes. sw.js cache v57.
 - tests/ui-harness: mock Supabase + sample fixture + side-by-side compare page; no backend access.
+
+## 2026-10-21 — Larger text on the phone layout
+- The phone reference's 8–11px labels were too small to read. ui.css now raises every Tailwind text size (text-[8px]…text-xl, icons inherit) inside #app below 1200px; desktop is unchanged. Checked all 14 phone views at 375px: no horizontal overflow. sw.js cache v58.
