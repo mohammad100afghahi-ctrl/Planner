@@ -31,9 +31,10 @@
     task({ title:'خرید قطعات برای تعمیرات', date:day(1), duration_min:40 }),
     task({ id:'task-doc', title:'تکمیل داکیومنت دیزاین سیستم', date:day(2), priority:'high', duration_min:90, task_tags:tt(T.design) }),
     task({ title:'بررسی هزینه‌های جاری و فاکتورها', priority:'medium', duration_min:20 }),
-    task({ title:'نوشتن متن معرفی پروژه', duration_min:30, task_tags:tt(T.madar) }),
-    task({ title:'مرتب کردن فایل‌های طراحی', priority:'low' }),
-    task({ title:'تمدید بیمه ماشین', priority:'high', reminder_kind:'always' }),
+    task({ id:'task-intro', title:'نوشتن متن معرفی پروژه', duration_min:30, task_tags:tt(T.madar) }),
+    task({ id:'task-files', title:'مرتب کردن فایل‌های طراحی', priority:'low' }),
+    task({ id:'task-insurance', title:'تمدید بیمه ماشین', priority:'high', reminder_kind:'always' }),
+    task({ title:'تعویض لامپ راهرو', shelved_at:at(-3, 12) }),
     task({ title:'جلسه با تیم توسعه', date:day(4), duration_min:60, task_tags:tt(T.madar) }),
     task({ title:'آماده کردن ارائه', date:day(6), priority:'high', duration_min:120, task_tags:tt(T.design) }),
     task({ title:'طراحی اولیه آیکون‌های اپلیکیشن', done:true, date:day(-12), completed_at:at(-10, 15), task_tags:tt(T.design), actual_min:50 }),
@@ -45,16 +46,26 @@
   const recurring_templates = [
     { id:'tpl-review', title:'جلسه هفتگی مرور اهداف', notes:null, priority:'medium', duration_min:45, weekdays:[(new Date().getDay() + 2) % 7], active:true, reminder_time:null, reminder_days_before:0, created_at:at(-30, 9), recurring_template_tags:tt(T.personal) },
   ];
+  // an old narrative report (no ritual: hidden now) and this Friday's مرور هفته, halfway through
   const ai_reports = [{
-    id:'rep-1', period_start:day(-7), period_end:day(-1), created_at:at(-1, 17), seen_at:at(-1, 18),
-    report_text:'هفته گذشته با تمرکز بالایی روی پروژه‌های دیزاین همراه بود. ۸۵٪ از کارهای مهم در سه روز اول هفته تمام شد که رکورد خوبی است. در بخش انگلیسی، به‌خاطر شلوغی عصرها، سه تکه تمرین عقب افتاد. این هفته چند تکلیف انگلیسی ناتمام مانده است؛ می‌توانی تاریخ کارهای عقب‌افتاده را در پیشنهادهای زیر بررسی کنی.',
-    replan:{ reason:'بر اساس عملکرد دیروز، انتقال کارهای عقب‌افتاده پیشنهاد می‌شود.', capacity_min:180, changes:[
-      { task_id:'task-contracts', title:'مطالعه قراردادها', status:'pending', why:'برای رسیدگی به کار عقب‌افتاده', before:{ date:day(-2), priority:'medium', duration_min:30 }, after:{ date:day(1), priority:'medium', duration_min:30 } },
-      { task_id:'task-design', title:'پرداخت قبوض', status:'auto', why:'به‌خاطر فوریت', before:{ date:day(-1), priority:'medium', duration_min:45 }, after:{ date:day(0), priority:'high', duration_min:45 } },
-      { task_id:'task-doc', title:'تمرین انگلیسی', status:'rejected', why:'', before:{ date:day(2), priority:'high', duration_min:90 }, after:{ date:day(3), priority:'high', duration_min:90 } },
+    id:'rep-old', period_start:day(-14), period_end:day(-8), created_at:at(-8, 17), seen_at:at(-8, 18), completed_at:null,
+    report_text:'هفته گذشته با تمرکز بالایی روی پروژه‌های دیزاین همراه بود.', replan:null, ritual:null,
+  }, {
+    id:'rep-prev', period_start:day(-14), period_end:day(-7), created_at:at(-7, 17), seen_at:at(-7, 18), completed_at:at(-7, 18),
+    report_text:'', replan:null,
+    ritual:{ step:4, prev_commitment:null, prev_kept:null, blocker:'time', blocker_note:'', stuck:[], commitment:{ task_id:'task-doc', title:'تکمیل داکیومنت دیزاین سیستم' } },
+  }, {
+    id:'rep-1', period_start:day(-6), period_end:day(0), created_at:at(0, 17), seen_at:null, completed_at:null,
+    report_text:'',
+    replan:{ capacity_min:180, changes:[
+      { task_id:'task-contracts', title:'مطالعه قراردادها', status:'pending', why:'دو روزه عقب افتاده؛ فردا سبک‌تره.', before:{ date:day(-2), priority:'medium', duration_min:30 }, after:{ date:day(1), priority:'medium', duration_min:30 } },
+      { task_id:'task-intro', title:'نوشتن متن معرفی پروژه', status:'pending', why:'مهمه و پنجشنبه جا داره.', before:{ date:null, priority:null, duration_min:30 }, after:{ date:day(3), priority:null, duration_min:45 } },
     ]},
-    replan_apply_after:at(0, new Date().getHours() + 1), replan_reverted_at:null,
-    focus:{ suggested:[ { task_id:'task-doc', why:'بیشترین اولویت بر اساس ددلاین پروژه' }, { task_id:'task-contracts', why:'جلوگیری از انباشت کارهای عقب‌افتاده' }, { task_id:'task-design', why:'پیش‌نیاز کارهای هفته آینده' } ], chosen:['task-doc'] },
+    ritual:{ step:0, prev_commitment:{ task_id:'task-doc', title:'تکمیل داکیومنت دیزاین سیستم' }, prev_kept:null, blocker:null, blocker_note:'',
+      stuck:[
+        { task_id:'task-insurance', title:'تمدید بیمه ماشین', moved:4, idle_days:12, decision:null, step_task_id:null },
+        { task_id:'task-files', title:'مرتب کردن فایل‌های طراحی', moved:0, idle_days:41, decision:null, step_task_id:null },
+      ], commitment:null },
   }];
   const purchases = [
     { id:'p1', title:'مانیتور ۲۷ اینچ 4K', priority:'high', price:120000, bought:false, bought_at:null, created_at:at(-1, 10) },

@@ -138,52 +138,21 @@ function todayFilterPanel(){
 /* ---------- top-of-page notices ---------- */
 function todayCallout(mob){
   const health = renderAIHealthBanner();
-  const r = state.aiReports.find(x => reviewPending(x).length);
+  const r = currentRitual();
   let box = '';
+  // مرور هفته is ready and not done yet: one card that opens it
   if(r){
-    const pending = reviewPending(r);
-    const text = `${r.replan && r.replan.reason ? esc(r.replan.reason) + ' ' : ''}${fd(pending.length)} پیشنهاد مرور هفتگی منتظر تصمیم توئه: ${pending.slice(0, 2).map(c => `«${esc(c.title)}»`).join('، ')}${pending.length > 2 ? '…' : ''}`;
-    const auto = r.applyAfter ? `اعمال خودکار ${applyAfterLabel(r.applyAfter)}` : '';
-    box = mob ? `
-      <div class="bg-indigo-600/15 border border-indigo-500/20 rounded-3xl p-5 relative overflow-hidden">
-        <div class="flex items-start gap-3 relative z-10">
-          <div class="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white shrink-0">${fa('wand-magic-sparkles', 'text-lg')}</div>
-          <div class="flex-1 min-w-0">
-            <h3 class="text-xs font-black text-white mb-1">پیشنهاد بازچینی هوشمند</h3>
-            <p class="text-[10px] text-slate-400 leading-relaxed mb-4">${text}</p>
-            <div class="flex gap-2">
-              <button type="button" onclick="acceptAllChanges('${r.id}')" class="flex-1 bg-indigo-600 text-white py-2 rounded-lg text-[9px] font-black">تایید و اعمال</button>
-              <button type="button" onclick="navigateTo('ai-reports')" class="bg-slate-800 text-slate-300 px-3 py-2 rounded-lg text-[9px] font-black">تغییر</button>
-            </div>
-          </div>
-        </div>
-        <div class="mt-3 pt-3 border-t border-indigo-500/10 flex justify-between items-center relative z-10">
-          <span class="text-[8px] font-bold text-slate-500 italic">${auto}</span>
-          <button type="button" onclick="rejectAllChanges('${r.id}')" class="text-[8px] font-black text-rose-500">رد کردن</button>
-        </div>
-      </div>` : `
-      <div class="bg-indigo-600/10 border border-indigo-500/20 rounded-3xl p-6 relative overflow-hidden">
-        <div class="flex items-start gap-4 relative z-10">
-          <div class="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center text-white shrink-0">${fa('wand-magic-sparkles', 'text-xl')}</div>
-          <div class="flex-1">
-            <h3 class="text-sm font-black text-white mb-1">پیشنهاد هوشمند بازچینی برنامه‌ها</h3>
-            <p class="text-xs text-slate-400 leading-relaxed mb-4">${text}</p>
-            <div class="flex items-center gap-2">
-              <button type="button" onclick="acceptAllChanges('${r.id}')" class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl text-[10px] font-black transition-all">تایید و اعمال</button>
-              <button type="button" onclick="navigateTo('ai-reports')" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded-xl text-[10px] font-black transition-all">تغییر تاریخ</button>
-              <button type="button" onclick="rejectAllChanges('${r.id}')" class="text-slate-500 hover:text-rose-500 px-3 py-2 text-[10px] font-bold transition-all">رد کردن</button>
-            </div>
-          </div>
-        </div>
-        ${auto ? `<div class="absolute top-4 left-6 text-[10px] font-bold text-slate-600">${auto}</div>` : ''}
-      </div>`;
-  } else if(state.aiReports.some(x => !x.seenAt)){
-    const n = state.aiReports.filter(x => !x.seenAt).length;
+    const started = r.ritual.step > 0;
+    const text = started ? `از قدم ${fd(r.ritual.step + 1)} ادامه بده؛ چند دقیقه بیشتر نمونده.` : '۵ دقیقه: یه نگاه به هفته‌ی قبل، تکلیف کارهای گیرکرده، چیدن هفته و یه تعهد.';
+    const label = started ? 'ادامه‌ی مرور' : 'شروع مرور';
     box = `
       <div class="bg-indigo-600/10 border border-indigo-500/20 rounded-3xl ${mob ? 'p-5' : 'p-6'} flex items-center gap-4">
-        <div class="${mob ? 'w-10 h-10 rounded-xl' : 'w-12 h-12 rounded-2xl'} bg-indigo-600 flex items-center justify-center text-white shrink-0">${fa('wand-magic-sparkles', mob ? 'text-lg' : 'text-xl')}</div>
-        <p class="flex-1 ${mob ? 'text-xs' : 'text-sm'} font-black text-white">${n > 1 ? `${fd(n)} گزارش هوشمند تازه آماده‌ست` : 'گزارش هوشمند تازه‌ت آماده‌ست'}</p>
-        <button type="button" onclick="navigateTo('ai-reports')" class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl text-[10px] font-black transition-all">دیدن گزارش</button>
+        <div class="${mob ? 'w-10 h-10 rounded-xl' : 'w-12 h-12 rounded-2xl'} bg-indigo-600 flex items-center justify-center text-white shrink-0">${fa('clipboard-check', mob ? 'text-lg' : 'text-xl')}</div>
+        <div class="flex-1 min-w-0">
+          <h3 class="${mob ? 'text-xs' : 'text-sm'} font-black text-white mb-1">مرور هفته آماده‌ست</h3>
+          <p class="${mob ? 'text-[10px]' : 'text-xs'} text-slate-400 leading-relaxed">${text}</p>
+        </div>
+        <button type="button" onclick="navigateTo('ai-reports')" class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl text-[10px] font-black transition-all shrink-0">${label}</button>
       </div>`;
   }
   return health + box;
@@ -197,10 +166,8 @@ function weeklyFocusData(){
     const actual = computeTagWeeklyMinutes(g.tagId);
     return { tag, actual, target:g.weeklyMinutes, pct:Math.min(100, Math.round(actual / g.weeklyMinutes * 100)), reason:g.reason || '' };
   }).filter(Boolean);
-  let focus = [];
-  const r = state.aiReports.find(x => x.focus && (x.focus.chosen || []).length);
-  if(r && r === state.aiReports.find(x => x.focus) && Date.now() - new Date(r.createdAt).getTime() <= 9 * 86400000)
-    focus = r.focus.chosen.map(id => state.tasks.find(t => t.id === id)).filter(Boolean);
+  const c = weeklyCommitment();
+  const focus = c ? [c.task] : [];
   return { goals, focus };
 }
 function focusCard(mob){
@@ -216,7 +183,7 @@ function focusCard(mob){
             <div class="w-full bg-slate-900 h-1.5 rounded-full overflow-hidden"><div class="${g.pct >= 100 ? 'bg-emerald-500' : 'bg-indigo-500'} h-full rounded-full ${mob ? '' : 'shadow-[0_0_8px_rgba(79,70,229,0.4)]'}" style="width:${Math.max(3, g.pct)}%"></div></div>
             ${g.reason && !mob ? `<p class="text-[10px] text-slate-500 mt-2">${esc(g.reason)}</p>` : ''}
           </div>`).join('')}
-        ${focus.length ? `<div class="space-y-2">${focus.map(t => `
+        ${focus.length ? `<div class="space-y-2"><p class="text-[9px] font-black text-indigo-400 px-1">تعهد این هفته</p>${focus.map(t => `
           <button type="button" onclick="toggleTaskDone('${t.id}', event)" class="w-full flex items-center gap-2 px-1 text-right">
             ${t.done ? fa('circle-check', 'text-emerald-500 text-[10px]') : '<div class="w-2.5 h-2.5 border border-slate-700 rounded-sm shrink-0"></div>'}
             <span class="text-[11px] ${t.done ? 'text-slate-500 line-through' : 'text-slate-400'}" dir="auto">${esc(t.title)}</span>
