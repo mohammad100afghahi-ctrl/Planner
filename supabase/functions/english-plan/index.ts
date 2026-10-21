@@ -127,7 +127,7 @@ ${reasonLine ? `دلیل‌هایی که توی ۳۰ روز اخیر برای ا
       headers: { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
       body: JSON.stringify({
         model: "claude-sonnet-5",
-        max_tokens: 2000,
+        max_tokens: 4000, // Persian titles are token-heavy; a cut-off answer has no usable chunks
         // Sonnet 5 thinks by default, which would eat this small token budget
         thinking: { type: "disabled" },
         tools: [{
@@ -164,18 +164,36 @@ ${reasonLine ? `دلیل‌هایی که توی ۳۰ روز اخیر برای ا
     await recordAIHealth(sb, user.id, null);
 
     const aiData = await aiRes.json();
-    const raw = aiData.content?.find((b: any) => b.type === "tool_use")?.input?.chunks;
+    /* Every failure so far (2026-10-13) was a 502 after a healthy AI answer:
+       the chunks were there but in a shape the old check dropped. So the
+       answer is read leniently — the list may come back as a JSON string or
+       under another key, a day with a time or slashes is cut to YYYY-MM-DD,
+       and a day outside the offered ones moves to the nearest offered day
+       instead of throwing the chunk away. */
+    const tool = aiData.content?.find((b: any) => b.type === "tool_use")?.input;
+    let raw: any = tool?.chunks ?? tool;
+    if (typeof raw === "string") { try { raw = JSON.parse(raw); } catch { raw = null; } }
+    if (raw && !Array.isArray(raw) && typeof raw === "object") raw = Object.values(raw).find(Array.isArray);
+    const normDay = (v: unknown) => String(v ?? "").trim().replace(/\//g, "-").slice(0, 10);
+    const nearestDay = (d: string) => {
+      if (days.includes(d)) return d;
+      if (!isDay(d)) return days[0];
+      return d < days[0] ? days[0] : d > days[days.length - 1] ? days[days.length - 1] : days.find((x) => x >= d)!;
+    };
     // never trust the shape: only the days that were offered, sane lengths
     const chunks2 = (Array.isArray(raw) ? raw : [])
       .map((c: any) => ({
         title: String(c?.title || "").replace(/\s+/g, " ").trim().slice(0, 200),
         minutes: Math.min(20, Math.max(5, Math.round(Number(c?.minutes) || 10))),
-        day: days.includes(c?.day) ? c.day : "",
+        day: nearestDay(normDay(c?.day)),
       }))
       .filter((c: any) => c.title && c.day)
       .sort((a: any, b: any) => a.day.localeCompare(b.day))
       .slice(0, MAX_CHUNKS);
-    if (!chunks2.length) return json({ error: AI_ERROR_FA.other }, 502);
+    if (!chunks2.length) {
+      console.error("english-plan: no usable chunks", aiData.stop_reason, JSON.stringify(aiData.content).slice(0, 2000));
+      return json({ error: AI_ERROR_FA.other }, 502);
+    }
     return json({ chunks: chunks2 });
   } catch (e) {
     console.error(e);
