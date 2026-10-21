@@ -161,6 +161,27 @@ function renderSettingsDesktop(){
     </div>`;
   return deskMain({ header, body });
 }
+/* phone: the tag list is long, so it folds into one card — the tags' colours,
+   how many there are and how many carry a weekly goal — and opens on tap */
+function tagManagerSummary(){
+  const open = state.tagManagerOpen;
+  const goals = state.tags.filter(t => state.tagGoals.some(g => g.tagId === t.id)).length;
+  const dots = state.tags.slice(0, 6).map(t => `<span class="w-3 h-3 rounded-full ring-2 ring-slate-900 -ml-1" style="background-color:${ea(t.color)}"></span>`).join('');
+  return `
+    <button type="button" onclick="toggleTagManager()" aria-expanded="${open}" class="w-full bg-slate-900 border ${open ? 'border-indigo-500/20' : 'border-slate-800'} rounded-2xl p-4 flex items-center justify-between gap-3 transition-colors">
+      <div class="flex items-center gap-3 min-w-0">
+        <div class="w-10 h-10 shrink-0 bg-indigo-600/10 text-indigo-400 rounded-xl flex items-center justify-center">${fa('tags', 'text-sm')}</div>
+        <div class="text-right min-w-0">
+          <p class="text-xs font-black text-slate-200">${fd(state.tags.length)} تگ</p>
+          <p class="text-[10px] text-slate-500 mt-0.5">${goals ? `${fd(goals)} تگ با هدف هفتگی` : 'هنوز هدف هفتگی نذاشتی'}</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-3 shrink-0">
+        ${open ? '' : `<div class="flex items-center pl-1" aria-hidden="true">${dots}</div>`}
+        ${fa(open ? 'chevron-up' : 'chevron-down', 'text-[10px] text-slate-500')}
+      </div>
+    </button>`;
+}
 function renderSettingsMobile(){
   const p = pushInfo();
   const busy = state.backupBusy ? 'disabled' : '';
@@ -174,7 +195,8 @@ function renderSettingsMobile(){
         </div>
         <section id="tags-settings">
           <h3 class="text-[10px] font-black text-slate-600 uppercase tracking-widest mb-3 px-1">مدیریت تگ‌ها و اهداف</h3>
-          <div class="space-y-3">
+          ${tagManagerSummary()}
+          ${state.tagManagerOpen ? `<div class="space-y-3 mt-3">
             ${state.tags.map(tag => { const g = state.tagGoals.find(x => x.tagId === tag.id); return `
               <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4">
                 <div class="flex items-center justify-between ${g || state.tagEditOpen === tag.id ? 'mb-4' : ''}">
@@ -193,7 +215,7 @@ function renderSettingsMobile(){
                   </div>` : ''}
               </div>`; }).join('')}
             ${state.newTagOpen ? `<div class="bg-slate-900 border border-slate-800 rounded-2xl p-4">${newTagRow().replace('mt-6 ', '')}</div>` : `<button type="button" onclick="state.newTagOpen=true; render(); focusEl('new-tag-name')" class="w-full py-3 bg-slate-950 border border-slate-800 rounded-xl text-[10px] font-black text-slate-500 border-dashed">+ افزودن تگ جدید</button>`}
-          </div>
+          </div>` : ''}
         </section>
         <section id="notifications-settings">
           <h3 class="text-[10px] font-black text-slate-600 uppercase tracking-widest mb-3 px-1">اطلاع‌رسانی</h3>
