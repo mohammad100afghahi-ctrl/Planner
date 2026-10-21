@@ -22,7 +22,7 @@ function json(body: unknown, status = 200): Response {
 }
 
 /* ---------- هوشواره health ----------
-   Kept identical in generate-ai-report/index.ts and daily-encouragement/index.ts. */
+   Kept identical in generate-ai-report/index.ts. */
 class AIError extends Error {
   constructor(public kind: string, message: string) { super(message); }
 }

@@ -1,5 +1,5 @@
 -- public.ai_health — one row per user: did هوشواره's last Anthropic call work?
--- The edge functions (generate-ai-report, daily-encouragement) write it with the
+-- The edge functions (generate-ai-report, english-plan) write it with the
 -- service role: error_* on a failed call, ok_at on a successful one. The app
 -- shows a banner while error_at is newer than ok_at and the kind needs the
 -- user (credit ran out, key missing/invalid). Transient kinds (rate, overloaded)
