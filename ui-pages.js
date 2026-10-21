@@ -1303,7 +1303,6 @@ function winsData(){
   const ids = state.winsFilterTagIds.filter(id => used.has(id));
   return { all, thisMonth, tags, ids, shown: ids.length ? all.filter(w => w.tagIds.some(id => ids.includes(id))) : all };
 }
-const WINS_LINE = 'کوچیک و بزرگ، همه‌ش کار خودت بود.';
 function winsFilterChips(tags, ids){
   if(!state.winFilterOpen || !tags.length) return '';
   return `<div class="flex items-center gap-2 flex-wrap mb-6">${choiceChip('همه', !ids.length, 'clearWinsFilter()')}${tags.map(t => choiceChip(esc(t.name), ids.includes(t.id), `toggleWinsFilterTag('${t.id}')`)).join('')}</div>`;
@@ -1341,11 +1340,7 @@ function renderWinsDesktop(){
   };
   const body = `
     <div class="max-w-6xl mx-auto">
-      <div class="flex items-center justify-between mb-8 gap-4">
-        <div class="bg-indigo-600/10 border border-indigo-500/20 rounded-2xl px-6 py-4 flex items-center gap-4">
-          ${fa('star', 'text-indigo-400 animate-pulse')}
-          <p class="text-sm font-bold text-slate-200 italic">"${esc((state.encouragement && state.encouragement.text) || WINS_LINE)}"</p>
-        </div>
+      <div class="flex items-center justify-end mb-8 gap-4">
         <div class="flex items-center gap-2 shrink-0">
           ${all.length ? `<button type="button" onclick="openWinSos()" class="h-10 px-4 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-center gap-2 text-amber-400 text-[11px] font-black hover:bg-amber-500/20 transition-all">${fa('wand-magic-sparkles', 'text-xs')} مغزم داره شکست‌هامو می‌شمره</button>` : ''}
           ${tags.length ? `<button type="button" onclick="state.winFilterOpen=!state.winFilterOpen; render()" aria-label="فیلتر حوزه" class="w-10 h-10 bg-slate-900 border border-slate-800 rounded-xl flex items-center justify-center ${ids.length ? 'text-indigo-400' : 'text-slate-400'} hover:text-white transition-all">${fa('filter', 'text-xs')}</button>` : ''}
