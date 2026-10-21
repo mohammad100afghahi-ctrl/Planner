@@ -522,16 +522,35 @@ function renderOverlays(){
     state.infoToast && !state.saveError && !state.undoToast ? renderInfoToast() : '',
   ].join('');
 }
-/* Desktop pages scroll inside their own panes, which a repaint would reset to
-   the top; their positions are carried across (and dropped when the page changes). */
+/* A repaint replaces every element, so anything that was scrolled — desktop
+   panes, the phone's full-screen editors and sheets (they scroll inside their
+   own overlay), horizontal chip rows, the page itself — would jump back to the
+   top on each tap (picking a day in the editor's calendar, ticking a task…).
+   Every scrolled element is remembered by its data-scroll name, or else by its
+   class list and position among elements with the same classes, and put back
+   after the repaint; a page change (resetScrollOnRender) starts at the top. */
+function scrollKeys(){
+  const seen = {};
+  return [...document.querySelectorAll('#app *')].map(el => {
+    if(el.dataset.scroll) return ['d:' + el.dataset.scroll, el];
+    const cls = 'c:' + el.className;
+    seen[cls] = (seen[cls] || 0) + 1;
+    return [cls + '#' + seen[cls], el];
+  });
+}
 function saveScrolls(){
-  const out = {};
-  document.querySelectorAll('[data-scroll]').forEach(el => { out[el.dataset.scroll] = el.scrollTop; });
+  const out = { els:{}, win: window.scrollY };
+  scrollKeys().forEach(([key, el]) => { if(el.scrollTop || el.scrollLeft) out.els[key] = [el.scrollTop, el.scrollLeft]; });
   return out;
 }
 function restoreScrolls(saved){
   if(resetScrollOnRender){ resetScrollOnRender = false; return; }
-  document.querySelectorAll('[data-scroll]').forEach(el => { if(saved[el.dataset.scroll]) el.scrollTop = saved[el.dataset.scroll]; });
+  const keys = Object.keys(saved.els);
+  if(keys.length) scrollKeys().forEach(([key, el]) => {
+    const pos = saved.els[key];
+    if(pos){ el.scrollTop = pos[0]; el.scrollLeft = pos[1]; }
+  });
+  if(window.scrollY !== saved.win) window.scrollTo(0, saved.win);
 }
 function render(){
   const ev = window.event;
