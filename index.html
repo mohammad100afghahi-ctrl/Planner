@@ -4948,10 +4948,54 @@ function resetArchiveFilters(){ state.archiveFilters = { search:'', tagIds:[], d
 function setView(v){
   if(v === 'reminders') v = 'tasks';
   if(v === 'settings' && state.view !== 'settings') state.tagManagerOpen = true;
+  if(v !== state.view && !viewGoingBack){
+    viewHistory.push(state.view);
+    if(viewHistory.length > 30) viewHistory.shift();
+  }
   state.view = v;
   if(v === 'ai-reports') markAIReportsSeen();
   render();
 }
+
+/* The phone's back button. Without this, «back» in any tab left the app,
+   because switching tabs never touched the browser history. One extra history
+   entry (the guard) sits on top of the page: «back» pops it, popstate undoes
+   the topmost thing on screen — an open sheet/editor first, then the previous
+   tab — and puts the guard back. With nothing left to undo the guard stays
+   gone, so the next «back» leaves the app as before. Layers are found in the
+   DOM (each one is a .modal-overlay with a close button or a closing
+   backdrop) rather than tracked one by one, so every dialog closed some other
+   way can't leave the history out of step. */
+const viewHistory = [];
+let viewGoingBack = false;
+// called after every render: a guard exists exactly while «back» has something to undo
+function syncBackGuard(){
+  const undoable = viewHistory.length || state.moreMenuOpen || state.taskEditor || document.querySelector('#app .modal-overlay');
+  if(undoable && !(history.state && history.state.medarGuard)) history.pushState({ medarGuard:true }, '');
+}
+function closeTopLayer(){
+  const layers = [...document.querySelectorAll('#app .modal-overlay')];
+  const top = layers[layers.length - 1];
+  if(!top) return false;
+  const btn = top.querySelector('[aria-label="بازگشت"], [aria-label="بستن"]');
+  if(btn) btn.click();
+  else top.click(); // backdrop closers check event.target === this
+  return true;
+}
+window.addEventListener('popstate', () => {
+  if(!appStarted) return;
+  if(state.moreMenuOpen) return toggleMoreMenu();
+  if(state.taskEditor && !document.querySelector('#app .modal-overlay')) return closeTaskEditor();
+  if(closeTopLayer()) return syncBackGuard();
+  const prev = viewHistory.pop();
+  if(prev){
+    viewGoingBack = true;
+    try{ navigateTo(prev); }finally{ viewGoingBack = false; }
+    return;
+  }
+  // nothing left to undo: step past the page's own entry so «back» leaves
+  history.back();
+});
 
 /* Every render() replaces the whole #app, which destroys a focused textarea —
    on a phone that closes the keyboard mid-sentence. Background renders (realtime
