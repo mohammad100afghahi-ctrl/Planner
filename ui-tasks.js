@@ -189,27 +189,27 @@ function renderDurationSuggestionChip(){
   return `<button type="button" onclick="editorQuickDuration(${sug.minutes})" title="${labels[sug.tier]}" class="w-full text-right text-[9px] font-black text-indigo-400 bg-indigo-500/10 border border-indigo-500/10 px-2 py-1.5 rounded-lg leading-relaxed">${fa('bullseye', 'ml-1')}${labels[sug.tier]}: ${formatDuration(sug.minutes)}</button>`;
 }
 function editorToggleTagPicker(){ state.taskEditor.tagPickerOpen = !state.taskEditor.tagPickerOpen; render(); }
+/* Picking a day keeps the calendar open and lists that day's tasks right under
+   it, so you can look through days before settling; «تأیید تاریخ» closes it. */
 function renderTaskCalendarPicker(){
   const ed = state.taskEditor;
-  if(ed.calendarPanel === 'day'){
-    const key = ed.calendarSelectedDayKey;
-    const dayTasks = state.tasks.filter(t => t.date === key);
-    return `
-      <div class="bg-slate-900/50 border border-slate-800 rounded-3xl p-4 space-y-3">
-        <div class="flex items-center justify-between">
-          <button type="button" onclick="calendarBackToGrid()" class="text-[10px] font-black text-indigo-400">${fa('arrow-right', 'ml-1')} بازگشت به تقویم</button>
-          <span class="text-xs font-black text-white">${jDate(key, true)}</span>
-        </div>
-        ${dayTasks.length ? dayTasks.map(t => `
-          <div class="p-3 bg-slate-950 rounded-xl border border-slate-800">
-            <p class="text-xs font-bold ${t.done ? 'text-slate-500 line-through' : 'text-slate-200'}" dir="auto">${esc(t.title)}</p>
-            ${taskMetaSpans(t) ? `<div class="flex items-center gap-3 mt-1.5 flex-wrap">${taskMetaSpans(t)}</div>` : ''}
-          </div>`).join('') : `<p class="text-[11px] text-slate-500 text-center py-3">کاری برای این روز ثبت نشده</p>`}
-      </div>`;
-  }
+  const key = ed.draft.date || dateKey(new Date());
   const busy = new Set(state.tasks.filter(t => t.date).map(t => t.date));
-  return renderPickCalendar({ jy:ed.calendarViewJY, jm:ed.calendarViewJM, date:ed.draft.date, prev:'calendarPrevMonth', next:'calendarNextMonth', pick:'calendarPickDay', dots:k => busy.has(k) })
-    + `<p class="text-[10px] text-slate-600 px-1">روزهای نقطه‌دار کار دارن — <button type="button" class="text-indigo-400 font-black" onclick="calendarShowDayDetail('${ed.draft.date || dateKey(new Date())}', event)">کارهای روز انتخاب‌شده</button></p>`;
+  // the task being edited isn't one of «that day's other tasks»
+  const dayTasks = state.tasks.filter(t => t.date === key && t.id !== ed.taskId);
+  return renderPickCalendar({ jy:ed.calendarViewJY, jm:ed.calendarViewJM, date:ed.draft.date, prev:'calendarPrevMonth', next:'calendarNextMonth', pick:'calendarPickDay', dots:k => busy.has(k) }) + `
+    <div class="bg-slate-900/50 border border-slate-800 rounded-3xl p-4 space-y-3">
+      <div class="flex items-center justify-between px-1">
+        <span class="text-xs font-black text-white">کارهای ${jDate(key)}</span>
+        <span class="text-[9px] font-black text-slate-500 bg-slate-950 border border-slate-800 px-2 py-0.5 rounded-lg">${dayTasks.length ? `${fd(dayTasks.length)} کار` : 'آزاد'}</span>
+      </div>
+      ${dayTasks.length ? `<div class="space-y-2 max-h-56 overflow-y-auto no-scrollbar">${dayTasks.map(t => `
+        <div class="p-3 bg-slate-950 rounded-xl border border-slate-800">
+          <p class="text-xs font-bold ${t.done ? 'text-slate-500 line-through' : 'text-slate-200'}" dir="auto">${esc(t.title)}</p>
+          ${taskMetaSpans(t) ? `<div class="flex items-center gap-3 mt-1.5 flex-wrap">${taskMetaSpans(t)}</div>` : ''}
+        </div>`).join('')}</div>` : `<p class="text-[11px] text-slate-500 text-center py-2">کاری برای این روز ثبت نشده</p>`}
+      <button type="button" onclick="toggleTaskCalendar()" class="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl text-xs font-black shadow-lg shadow-indigo-900/40 transition-all">${fa('check', 'ml-1')}تأیید تاریخ</button>
+    </div>`;
 }
 function taskEditorBody(){
   const ed = state.taskEditor, d = ed.draft, desk = isDesk();
