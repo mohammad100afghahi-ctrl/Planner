@@ -734,7 +734,6 @@ let state = {
   subscriptions: [], // [{ id, name, cycle, nextRenewal, active, notifyDaysBefore, note }]
   subscriptionEditor: null, // { subId, name, cycle, nextRenewal, notifyDaysBefore, note }
   subscriptionShowInactive: false,
-  encouragement: null, // { date, text } — one AI text per day (a quote one day, its own line the next), cached locally
   reminders: [], // [{ id, title, kind:'once'|'yearly'|'deadline'|'always', date, leadDays, note, done, createdAt }]
   reminderEditor: null, // { reminderId, title, kind, date, leadDays, note, calendarOpen, calJY, calJM }
   reminderShowDone: false,
@@ -3836,29 +3835,6 @@ function rolloverYearlyReminders(){
   });
 }
 
-/* ---------- rendering: daily encouragement ---------- */
-// One text per day. The function stores it server-side and returns the same
-// one all day; the localStorage copy just saves the round trip on reopen.
-async function loadEncouragement(){
-  const todayStr = dateKey(new Date());
-  try{
-    const cached = JSON.parse(localStorage.getItem('medar-encouragement-v5') || 'null');
-    if(cached && cached.date === todayStr && cached.text){
-      state.encouragement = cached;
-      render();
-      return;
-    }
-  }catch(_e){ /* corrupt cache — just refetch */ }
-  try{
-    const { data, error } = await sb.functions.invoke('daily-encouragement');
-    if(error || !data || !data.text) return;
-    const fresh = { date: todayStr, text: data.text };
-    state.encouragement = fresh;
-    try{ localStorage.setItem('medar-encouragement-v5', JSON.stringify(fresh)); }catch(_e){}
-    render();
-  }catch(_e){ /* offline or function down — the line is optional, skip silently */ }
-}
-
 /* ---------- rendering: progress ---------- */
 
 /* ---------- rendering: time-spent-today ---------- */
@@ -5336,7 +5312,6 @@ function bootApp(){
   appBooted = true;
   startApp();
   loadAll();
-  loadEncouragement();
   refreshPushStatus();
   loadBackups();
 }
@@ -5386,7 +5361,6 @@ async function signOut(){
     ? `\n\n${toFaDigits(outbox.length)} تغییر هنوز روی سرور ذخیره نشده و با خروج از بین می‌ره.`
     : '';
   if(!confirm('از حسابت خارج بشی؟' + unsynced)) return;
-  try{ localStorage.removeItem('medar-encouragement-v5'); }catch(_e){}
   // the outbox and the snapshot belong to this account — don't leave them for the next one
   dataLoaded = false;
   clearTimeout(snapshotTimer); snapshotTimer = null;

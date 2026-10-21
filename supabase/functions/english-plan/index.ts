@@ -191,7 +191,9 @@ ${reasonLine ? `دلیل‌هایی که توی ۳۰ روز اخیر برای ا
       .sort((a: any, b: any) => a.day.localeCompare(b.day))
       .slice(0, MAX_CHUNKS);
     if (!chunks2.length) {
-      console.error("english-plan: no usable chunks", aiData.stop_reason, JSON.stringify(aiData.content).slice(0, 2000));
+      // the shape only, never the homework text
+      const shape = Array.isArray(raw) ? `array(${raw.length}) keys=${Object.keys(raw[0] || {}).join("|")}` : typeof raw;
+      console.error("english-plan: no usable chunks", aiData.stop_reason, (aiData.content || []).map((b: any) => b.type).join(","), Object.keys(tool || {}).join("|"), shape);
       return json({ error: AI_ERROR_FA.other }, 502);
     }
     return json({ chunks: chunks2 });
