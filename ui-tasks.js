@@ -191,6 +191,16 @@ function renderDurationSuggestionChip(){
 function editorToggleTagPicker(){ state.taskEditor.tagPickerOpen = !state.taskEditor.tagPickerOpen; render(); }
 /* Picking a day keeps the calendar open and lists that day's tasks right under
    it, so you can look through days before settling; «تأیید تاریخ» closes it. */
+/* «هشدار شلوغی»: what the picked day already holds plus this task, against
+   the user's daily capacity (dailyCapacity — the same number مرور هفته uses). */
+function editorDayLoadLine(){
+  const ed = state.taskEditor, d = ed.draft;
+  if(!d.date || ed.mode === 'edit' && state.tasks.some(t => t.id === ed.taskId && t.done)) return '';
+  const cap = dailyCapacity();
+  const load = dayLoad(d.date, { skipId:ed.taskId }) + (d.durationMin || DEFAULT_TASK_MIN);
+  const over = load > cap;
+  return `<p class="text-[10px] font-bold ${over ? 'text-rose-400' : 'text-slate-500'} px-1">${fa(over ? 'triangle-exclamation' : 'gauge', 'ml-1')}${jDate(d.date)}: ${formatDuration(load)} از ظرفیت معمولت (${formatDuration(cap)})${over ? ' — این روز زیادی پره' : ''}</p>`;
+}
 function renderTaskCalendarPicker(){
   const ed = state.taskEditor;
   const key = ed.draft.date || dateKey(new Date());
@@ -231,8 +241,8 @@ function taskEditorBody(){
   const dateBtn = `<button type="button" onclick="toggleTaskCalendar()" class="${desk ? 'flex-1 bg-slate-900 border border-slate-800 p-3 rounded-2xl text-xs font-bold text-slate-300 flex items-center justify-between hover:border-indigo-500/50 transition-colors' : 'w-full bg-slate-900 border border-slate-800 p-4 rounded-2xl text-xs font-bold text-white flex items-center justify-between'}"><span>${d.date ? jDate(d.date, true) : 'بدون تاریخ — انتخاب از تقویم'}</span>${fa('calendar-day', 'text-indigo-500')}</button>`;
   const quickDates = [quick(d.date === todayStr, 'امروز', "editorQuickDate('today')"), quick(d.date === tomorrowStr, 'فردا', "editorQuickDate('tomorrow')"), quick(!d.date, 'بدون تاریخ', 'editorClearDate()')].join('');
   const date = recurringCreate ? '' : field('تاریخ (جلالی)', desk
-    ? `<div class="flex items-center gap-2">${dateBtn}</div><div class="flex gap-1">${quickDates}</div>`
-    : `<div class="space-y-2">${dateBtn}<div class="grid grid-cols-3 gap-2">${quickDates}</div></div>`, desk ? 'space-y-2' : 'space-y-1.5');
+    ? `<div class="flex items-center gap-2">${dateBtn}</div><div class="flex gap-1">${quickDates}</div>${editorDayLoadLine()}`
+    : `<div class="space-y-2">${dateBtn}<div class="grid grid-cols-3 gap-2">${quickDates}</div>${editorDayLoadLine()}</div>`, desk ? 'space-y-2' : 'space-y-1.5');
   const duration = field('مدت زمان (دقیقه)', `
     <div class="relative">
       <input type="text" inputmode="numeric" value="${d.durationMin || ''}" oninput="normalizeNumericInput(this)" onchange="editorSetDurationCustom(this.value)" aria-label="مدت به دقیقه"

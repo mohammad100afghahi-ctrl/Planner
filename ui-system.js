@@ -1,4 +1,4 @@
-/* ---------- مدار UI: تنظیمات، آرشیو، گزارش هوشمند ----------
+/* ---------- مدار UI: تنظیمات، آرشیو، مرور هفته ----------
    Settings qQaJvC8qAHaJaUT1wDhi / tAb0AcSzpRoSgSmpXE2t · Archive 4oNCwQG3fB2JffmSVxKJ / LlieWErsa2N3Y2Paci3M
    Reports JpgtE3aP90xJm2VQf5sv / v5rdZPNIGB44EChbuFsS.
    The old header menus (اعلان‌ها، پشتیبان، خروج) live on the settings page, where the reference puts them. */
@@ -312,6 +312,17 @@ function archiveTaskItem(t){
       </div>
     </div>`;
 }
+/* «کنار گذاشته‌ها»: tasks shelved from مرور هفته, back to the lists with one tap */
+function shelvedItem(t, mob){
+  return `
+    <div class="${mob ? 'bg-slate-900 rounded-2xl p-4' : 'bg-slate-950 rounded-2xl p-5'} border border-slate-800 flex items-center justify-between gap-4">
+      <div class="min-w-0">
+        <h4 class="text-xs font-bold text-slate-300 mb-1" dir="auto">${esc(t.title)}</h4>
+        <span class="text-[9px] font-bold text-slate-600">کنار گذاشته: ${jDate(dateKey(new Date(t.shelvedAt)))}</span>
+      </div>
+      <button type="button" onclick="unshelveTask('${t.id}')" class="flex items-center gap-1.5 px-3 py-2 text-[9px] font-black text-indigo-400 bg-indigo-500/5 rounded-lg border border-indigo-500/10 shrink-0">${fa('rotate-left', 'text-[10px]')}بازگشت</button>
+    </div>`;
+}
 function renderArchiveDesktop(){
   const sec = state.archiveSection;
   const tasks = archiveTasksList();
@@ -334,17 +345,18 @@ function renderArchiveDesktop(){
   const body = `
     <div class="max-w-4xl mx-auto space-y-8">
       <div class="flex items-center justify-between gap-4">
-        <div class="flex bg-slate-900/50 p-1 rounded-2xl border border-slate-800 w-fit">${tabBtn('tasks', 'تسک‌های تکمیل شده')}${tabBtn('purchases', 'خریدهای انجام شده')}</div>
+        <div class="flex bg-slate-900/50 p-1 rounded-2xl border border-slate-800 w-fit">${tabBtn('tasks', 'تسک‌های تکمیل شده')}${tabBtn('purchases', 'خریدهای انجام شده')}${tabBtn('shelved', 'کنار گذاشته‌ها')}</div>
         ${sec === 'purchases' ? `<div class="flex bg-slate-900 p-1 rounded-xl border border-slate-800">${sortBtn('default', 'جدیدترین')}${sortBtn('cheapest', 'ارزان‌ترین')}${sortBtn('priciest', 'گران‌ترین')}</div>` : ''}
       </div>
       ${sec === 'tasks' ? archiveFilterPanel() : ''}
       <div class="space-y-4">
-        ${sec === 'tasks'
+        ${sec === 'shelved' ? (state.shelvedTasks.length ? state.shelvedTasks.map(t => shelvedItem(t, false)).join('') : emptyNote('کاری کنار گذاشته نشده', 'box-archive'))
+          : sec === 'tasks'
           ? (tasks.length ? groupsHtml(byJalaliMonth(tasks, t => t.completedAt), archiveTaskItem) : emptyNote('چیزی توی آرشیو با این فیلترها پیدا نشد', 'box-archive'))
           : (bought.length ? (state.purchaseSort === 'default' ? groupsHtml(byJalaliMonth([...bought].sort((a, b) => (b.boughtAt || '').localeCompare(a.boughtAt || '')), p => p.boughtAt), boughtItemDesk) : bought.map(boughtItemDesk).join('')) : emptyNote('هنوز خریدی انجام نشده', 'bag-shopping'))}
       </div>
       <div class="p-6 bg-slate-900/20 border border-dashed border-slate-800 rounded-3xl text-center">
-        <p class="text-[10px] text-slate-600 font-bold leading-relaxed">${sec === 'tasks' ? `تسک‌های تکمیل‌شده‌ای که بیش از ${fd(ARCHIVE_THRESHOLD_DAYS)} روز از تکمیلشون گذشته، این‌جا نگه‌داری می‌شن تا لیست‌های فعلی خلوت بمونن. موارد آرشیو شده همچنان در گزارش‌های هوشمند تاثیرگذار هستند.` : 'خریدهایی که تیک خورده‌اند این‌جا می‌مانند؛ با «بازگشت» دوباره به لیست انتظار برمی‌گردند.'}</p>
+        <p class="text-[10px] text-slate-600 font-bold leading-relaxed">${sec === 'shelved' ? 'کارهایی که توی مرور هفته کنار گذاشتی این‌جا می‌مونن؛ نه یادآور دارن نه توی لیست‌ها میان. با «بازگشت» سر جاشون برمی‌گردن.' : sec === 'tasks' ? `تسک‌های تکمیل‌شده‌ای که بیش از ${fd(ARCHIVE_THRESHOLD_DAYS)} روز از تکمیلشون گذشته، این‌جا نگه‌داری می‌شن تا لیست‌های فعلی خلوت بمونن. موارد آرشیو شده همچنان در گزارش‌های هوشمند تاثیرگذار هستند.` : 'خریدهایی که تیک خورده‌اند این‌جا می‌مانند؛ با «بازگشت» دوباره به لیست انتظار برمی‌گردند.'}</p>
       </div>
     </div>`;
   return deskMain({ header, body, fab: deskFab('openTaskEditorNew()', 'indigo', 'تسک جدید') });
@@ -371,6 +383,7 @@ function renderArchiveMobile(){
       <div class="flex items-center gap-6">
         <button type="button" onclick="setArchiveSection('tasks')" class="${sec === 'tasks' ? 'tab-active pb-2 text-xs font-black' : 'text-slate-500 pb-2 text-xs font-bold'}">تسک‌ها</button>
         <button type="button" onclick="setArchiveSection('purchases')" class="${sec === 'purchases' ? 'tab-active pb-2 text-xs font-black' : 'text-slate-500 pb-2 text-xs font-bold'}">خریدها</button>
+        <button type="button" onclick="setArchiveSection('shelved')" class="${sec === 'shelved' ? 'tab-active pb-2 text-xs font-black' : 'text-slate-500 pb-2 text-xs font-bold'}">کنار گذاشته‌ها</button>
       </div>
     </header>
     ${sec === 'tasks' ? `
@@ -388,7 +401,7 @@ function renderArchiveMobile(){
         </div>` : ''}
       ${sec === 'tasks' && state.archiveFilterOpen ? `<div class="mb-4">${archiveFilterPanel()}</div>` : ''}
       <div class="space-y-3">
-        ${sec === 'tasks'
+        ${sec === 'shelved' ? (state.shelvedTasks.length ? state.shelvedTasks.map(t => shelvedItem(t, true)).join('') : emptyNote('کاری کنار گذاشته نشده', 'box-archive')) : sec === 'tasks'
           ? (tasks.length ? tasks.map(t => item(esc(t.title), `تکمیل: ${t.completedAt ? jDate(dateKey(new Date(t.completedAt))) : '—'}`,
               t.tagIds.map(tagById).filter(Boolean).map(g => `<span class="text-[8px] font-black uppercase" style="color:${ea(g.color)}99">${esc(g.name)}</span>`).join(''),
               `<button type="button" onclick="toggleTaskDone('${t.id}', event)" title="بازیابی" aria-label="بازیابی" class="w-8 h-8 flex items-center justify-center text-indigo-400 bg-indigo-500/5 rounded-lg border border-indigo-500/10">${fa('rotate-left', 'text-[10px]')}</button>
@@ -396,7 +409,7 @@ function renderArchiveMobile(){
           : bought.map(p => item(esc(p.title), `${p.boughtAt ? `خرید: ${jDate(dateKey(new Date(p.boughtAt)))}` : 'خریداری شده'}${p.price != null ? ` · ${fmtPrice(p.price)}` : ''}`, '',
               `<button type="button" onclick="togglePurchaseBought('${p.id}')" title="برگرداندن به لیست" aria-label="برگرداندن به لیست" class="w-8 h-8 flex items-center justify-center text-indigo-400 bg-indigo-500/5 rounded-lg border border-indigo-500/10">${fa('rotate-left', 'text-[10px]')}</button>
                <button type="button" onclick="deletePurchase('${p.id}')" aria-label="حذف" class="w-8 h-8 flex items-center justify-center text-slate-600">${fa('trash-can', 'text-[10px]')}</button>`)).join('')}
-        ${(sec === 'tasks' ? tasks : bought).length < 3 ? `
+        ${sec !== 'shelved' && (sec === 'tasks' ? tasks : bought).length < 3 ? `
           <div class="py-10 flex flex-col items-center justify-center opacity-10">
             ${fa('box-archive', 'text-6xl mb-4')}
             <p class="text-[10px] font-black uppercase tracking-widest italic text-center">تسک‌های تکمیل‌شده و خریدهای انجام‌شده</p>
@@ -405,231 +418,173 @@ function renderArchiveMobile(){
     </main>`;
 }
 
-/* ================= گزارش هوشمند ================= */
-function selectedReport(){
-  const list = state.aiReports;
-  return list.find(r => r.id === state.aiReportSelectedId) || list[0] || null;
-}
-function reportPeriodLabel(r){ return `${formatDateShort(r.periodStart)} تا ${formatDateShort(r.periodEnd)}`; }
-function selectReport(id){ state.aiReportSelectedId = id; state.aiReportPickerOpen = false; render(); }
-function reportPicker(mob){
-  if(!state.aiReportPickerOpen || !state.aiReports.length) return '';
-  const sel = selectedReport();
-  return `
-    <div class="${mob ? 'mx-4 mt-4' : 'absolute top-full left-0 mt-2 w-72 z-30'} bg-slate-950 border border-slate-800 rounded-2xl p-2 shadow-2xl max-h-80 overflow-y-auto custom-scrollbar">
-      ${state.aiReports.map((r, i) => `
-        <button type="button" onclick="selectReport('${r.id}')" class="w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl text-right ${sel && sel.id === r.id ? 'bg-indigo-500/10 text-indigo-400' : 'text-slate-400 hover:bg-slate-900'}">
-          <span class="text-[11px] font-bold">${i === 0 ? 'آخرین مرور · ' : ''}${reportPeriodLabel(r)}</span>
-          ${state.aiReportFreshIds.includes(r.id) ? `<span class="text-[8px] font-black bg-indigo-600 text-white px-1.5 rounded">تازه</span>` : reviewPending(r).length ? `<span class="text-[8px] font-black text-amber-400">${fd(reviewPending(r).length)} منتظر</span>` : ''}
-        </button>`).join('')}
-    </div>`;
-}
-function changeText(c){
-  const day = d => d ? formatDateShort(d) : 'بعداً';
-  const out = [];
-  if(c.before.date !== c.after.date) out.push(`از ${day(c.before.date)} به ${day(c.after.date)}`);
-  if(c.before.priority !== c.after.priority) out.push(`اولویت ${PRIORITY_LABEL[c.before.priority] || '—'} ← ${PRIORITY_LABEL[c.after.priority] || '—'}`);
-  if(c.before.duration_min !== c.after.duration_min) out.push(`${c.before.duration_min ? fd(c.before.duration_min) : '—'} ← ${fd(c.after.duration_min)} دقیقه`);
-  return out.join('، ');
-}
-function reviewCounts(r){
-  const ch = (r && r.replan && r.replan.changes) || [];
-  const legacy = ch.length && ch.every(c => !c.status);
-  return {
-    pending: reviewPending(r).length,
-    applied: ch.filter(c => ['accepted', 'edited', 'auto'].includes(changeStatus(c))).length,
-    rejected: ch.filter(c => ['rejected', 'skipped', 'expired'].includes(changeStatus(c))).length, legacy,
-  };
-}
-function proposalCard(r, c, mob){
-  const task = state.tasks.find(t => t.id === c.task_id);
-  const st = changeStatus(c);
-  const isPending = st === 'pending' && task && !task.done;
-  const todayStr = dateKey(state.today);
-  const line = `انتقال تسک «${esc(c.title)}» ${changeText(c)}${c.why ? ` (${esc(c.why)})` : ''}.`;
-  if(isPending) return mob ? `
-    <div class="p-5 border-b border-slate-800/50 last:border-0">
-      <div class="flex items-start justify-between mb-4 gap-3">
-        <div class="space-y-1 min-w-0">
-          <h4 class="text-xs font-bold text-slate-200" dir="auto">${esc(c.title)}</h4>
-          <div class="flex items-center gap-2 flex-wrap">
-            ${c.before.date !== c.after.date ? `<span class="text-[8px] font-bold text-slate-600 line-through">${c.before.date ? formatDateShort(c.before.date) : 'بعداً'}</span>${fa('arrow-left', 'text-[8px] text-indigo-500')}<span class="text-[8px] font-black text-indigo-400">${c.after.date ? formatDateShort(c.after.date) : 'بعداً'}</span>` : `<span class="text-[8px] font-black text-indigo-400">${changeText(c)}</span>`}
-          </div>
-          ${c.why ? `<p class="text-[9px] text-slate-500 leading-relaxed" dir="auto">${esc(c.why)}</p>` : ''}
-        </div>
-        <span class="text-[8px] font-black text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/10 uppercase shrink-0">در انتظار</span>
-      </div>
-      <div class="flex gap-2">
-        <button type="button" onclick="decideChange('${r.id}','${c.task_id}','accept')" class="flex-1 bg-indigo-600 text-white py-2 rounded-lg text-[9px] font-black shadow-lg shadow-indigo-900/20">تایید</button>
-        <label class="flex-1 bg-slate-800 text-slate-400 py-2 rounded-lg text-[9px] font-black border border-slate-700 text-center relative overflow-hidden">تغییر تاریخ<input type="date" min="${todayStr}" onchange="decideChange('${r.id}','${c.task_id}','date', this.value)" class="absolute inset-0 opacity-0"></label>
-        <button type="button" onclick="decideChange('${r.id}','${c.task_id}','reject')" class="px-3 bg-slate-800 text-rose-300 py-2 rounded-lg text-[9px] font-black border border-slate-700">رد کردن</button>
-        <button type="button" onclick="deleteTask('${c.task_id}')" aria-label="حذف این کار" class="px-3 bg-slate-800 text-rose-500 py-2 rounded-lg text-[9px] font-black border border-slate-700">${fa('xmark')}</button>
-      </div>
-    </div>` : `
-    <div class="proposal-card p-4 bg-indigo-500/5 border border-indigo-500/20 rounded-2xl relative">
-      <div class="flex justify-between items-start mb-3">
-        <span class="text-[9px] font-black text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded-lg border border-indigo-500/10 uppercase">در انتظار تایید</span>
-        ${r.applyAfter ? `<span class="text-[9px] text-slate-600">اعمال خودکار ${applyAfterLabel(r.applyAfter)}</span>` : ''}
-      </div>
-      <p class="text-[11px] text-slate-300 mb-4 leading-relaxed font-bold" dir="auto">${line}</p>
-      <div class="proposal-actions flex items-center gap-2">
-        <button type="button" onclick="decideChange('${r.id}','${c.task_id}','accept')" class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-1.5 rounded-lg text-[9px] font-black transition-all">تایید</button>
-        <label class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-1.5 rounded-lg text-[9px] font-black transition-all relative overflow-hidden cursor-pointer">تغییر تاریخ<input type="date" min="${todayStr}" onchange="decideChange('${r.id}','${c.task_id}','date', this.value)" class="absolute inset-0 opacity-0 cursor-pointer"></label>
-        <button type="button" onclick="decideChange('${r.id}','${c.task_id}','reject')" class="text-slate-600 hover:text-rose-500 px-2 py-1.5 text-[9px] font-black">رد کردن</button>
-        <button type="button" onclick="deleteTask('${c.task_id}')" title="حذف این کار" aria-label="حذف این کار" class="mr-auto text-slate-700 hover:text-rose-500 px-2 py-1.5 text-[9px]">${fa('trash')}</button>
-      </div>
-    </div>`;
-  const applied = ['accepted', 'edited', 'auto'].includes(st);
-  const note = st === 'pending' && !task ? 'این کار حذف شد' : st === 'pending' && task && task.done ? 'انجامش دادی' : REVIEW_STATUS_LABEL[st] || '';
-  if(mob) return `
-    <div class="p-5 border-b border-slate-800/50 last:border-0 opacity-60">
-      <div class="flex items-start justify-between mb-2 gap-3">
-        <div class="min-w-0"><h4 class="text-xs font-bold text-slate-400" dir="auto">${esc(c.title)}</h4><p class="text-[8px] text-slate-600">${changeText(c)}</p></div>
-        <span class="text-[8px] font-black ${applied ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/10' : 'text-slate-500 bg-slate-800 border-slate-700'} px-2 py-0.5 rounded border uppercase shrink-0">${note}</span>
-      </div>
-    </div>`;
-  return applied ? `
-    <div class="p-4 bg-emerald-500/5 border border-emerald-500/10 rounded-2xl opacity-60">
-      <div class="flex justify-between items-start mb-2"><span class="text-[9px] font-black text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-lg border border-emerald-500/10 uppercase">${st === 'auto' ? 'اعمال شده' : note}</span></div>
-      <p class="text-[11px] text-slate-500 leading-relaxed" dir="auto">${line}</p>
-    </div>` : `
-    <div class="p-4 bg-slate-900/30 border border-slate-800 rounded-2xl opacity-40">
-      <div class="flex justify-between items-start mb-2"><span class="text-[9px] font-black text-slate-600 uppercase">${note || 'رد شده'}</span></div>
-      <p class="text-[11px] text-slate-600 leading-relaxed italic" dir="auto">${line}</p>
-    </div>`;
-}
-function reportFocusBlock(r, mob){
-  const suggested = (r.focus && r.focus.suggested) || [];
-  if(!suggested.length) return '';
-  const chosen = r.focus.chosen || [];
-  const tones = ['bg-indigo-500/10 text-indigo-400', 'bg-amber-500/10 text-amber-500', 'bg-rose-500/10 text-rose-500'];
-  const arrow = ['group-hover:text-indigo-400', 'group-hover:text-amber-500', 'group-hover:text-rose-500'];
-  const items = suggested.map((f, i) => ({ f, i, task: state.tasks.find(t => t.id === f.task_id) })).filter(x => x.task);
-  return `
-    <div>
-      <h3 class="${mob ? 'text-[10px] text-slate-600 mb-1 px-1' : 'text-sm text-white mb-1'} font-black uppercase tracking-widest">${fd(REVIEW_MAX_FOCUS)} تسک تمرکزی پیشنهادی برای هفته بعد</h3>
-      <p class="text-[10px] text-slate-500 mb-4 ${mob ? 'px-1' : ''}">تا ${fd(REVIEW_MAX_FOCUS)} تا انتخاب کن؛ تا مرور بعدی بالای صفحه‌ی امروز می‌مونن.</p>
-      <div class="space-y-3">
-        ${items.map(({ f, i, task }) => { const on = chosen.includes(f.task_id); return mob ? `
-          <button type="button" onclick="toggleFocus('${r.id}','${f.task_id}')" role="checkbox" aria-checked="${on}" class="w-full bg-slate-900 border ${on ? 'border-indigo-500/40' : 'border-slate-800'} rounded-2xl p-4 flex items-center gap-4 text-right">
-            <div class="w-10 h-10 ${on ? 'bg-indigo-600 text-white' : 'bg-slate-950 text-indigo-400'} rounded-xl flex items-center justify-center border border-slate-800 shrink-0">${on ? fa('check', 'text-xs') : `<span class="text-xs font-black">${fd(i + 1)}</span>`}</div>
-            <div class="min-w-0"><h4 class="text-xs font-bold ${task.done ? 'text-slate-500 line-through' : 'text-slate-200'}" dir="auto">${esc(task.title)}</h4>${f.why ? `<p class="text-[9px] text-slate-500" dir="auto">دلیل: ${esc(f.why)}</p>` : ''}</div>
-          </button>` : `
-          <button type="button" onclick="toggleFocus('${r.id}','${f.task_id}')" role="checkbox" aria-checked="${on}" class="w-full bg-slate-900/40 p-5 rounded-3xl border ${on ? 'border-indigo-500/40' : 'border-slate-800'} flex items-center justify-between group text-right">
-            <div class="flex items-center gap-4 min-w-0">
-              <div class="w-10 h-10 ${on ? 'bg-indigo-600 text-white' : tones[i % 3]} rounded-xl flex items-center justify-center font-black shrink-0">${on ? fa('check') : fd(i + 1)}</div>
-              <div class="min-w-0"><h4 class="text-sm font-bold ${task.done ? 'text-slate-500 line-through' : 'text-slate-200'}" dir="auto">${esc(task.title)}</h4>${f.why ? `<p class="text-[10px] text-slate-600" dir="auto">${esc(f.why)}</p>` : ''}</div>
-            </div>
-            ${fa(on ? 'star' : 'arrow-left', `${on ? 'text-indigo-400' : 'text-slate-700'} ${arrow[i % 3]} transition-colors shrink-0`)}
-          </button>`; }).join('')}
-      </div>
-    </div>`;
-}
+/* ================= مرور هفته ================= */
+const RITUAL_STEP_LABELS = ['هفته‌ی قبل', 'گیرکرده‌ها', 'چیدن هفته', 'تعهد'];
+const RITUAL_DAY_LETTER = ['ی', 'د', 'س', 'چ', 'پ', 'ج', 'ش']; // by getDay(), for the narrow capacity bars
 function reportErrorBox(){
   return state.aiReportError && state.aiReportError !== (aiHealthProblem() || {}).errorMessage
     ? `<div class="bg-rose-500/10 border border-rose-500/20 rounded-2xl px-4 py-3 text-[11px] font-bold text-rose-400" role="alert">${esc(state.aiReportError)}</div>` : '';
 }
-function renderAIReportsDesktop(){
-  const r = selectedReport();
-  const idx = r ? state.aiReports.indexOf(r) : -1;
-  const header = deskHeader({ icon:'wand-magic-sparkles', iconBox:'bg-indigo-600 text-white shadow-lg shadow-indigo-900/20', title:'گزارش هوشمند و تحلیل عملکرد', sub:'تحلیل هفتگی و پیشنهادات بازچینی برنامه',
-    profile: r ? `تحلیل شماره ${fd(state.aiReports.length - idx)}` : 'هنوز گزارشی نیست',
-    right: `
-      <button type="button" onclick="generateAIReportNow()" ${state.aiReportGenerating ? 'disabled' : ''} class="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl text-[10px] font-black transition-all disabled:opacity-60">${fa('wand-magic-sparkles', 'text-[10px]')}${state.aiReportGenerating ? 'در حال تولید…' : 'تولید گزارش الان'}</button>
-      ${r ? `<div class="relative">
-        <button type="button" onclick="state.aiReportPickerOpen=!state.aiReportPickerOpen; render()" aria-expanded="${!!state.aiReportPickerOpen}" class="flex items-center gap-2 bg-slate-900 border border-slate-800 px-4 py-2 rounded-xl">
-          <span class="text-[10px] font-black text-indigo-400 uppercase tracking-widest">${idx === 0 ? 'هفته جاری' : reportPeriodLabel(r)}</span>${fa('chevron-down', 'text-[8px] text-slate-600')}
-        </button>
-        ${reportPicker(false)}
-      </div>` : ''}` });
-  if(!r) return deskMain({ header, body:`
-    <div class="max-w-3xl mx-auto space-y-6">${renderAIHealthBanner({ dismissible:false })}${reportErrorBox()}
-      <div class="bg-slate-950 border border-slate-800 rounded-3xl p-8 text-center">${fa('wand-magic-sparkles', 'text-5xl text-white/5 mb-4')}<p class="text-sm text-slate-400 leading-loose">هنوز گزارشی ساخته نشده. مرور هفتگی هر جمعه عصر خودکار ساخته می‌شه، یا همین الان با دکمه‌ی «تولید گزارش الان» بساز.</p></div>
-    </div>` });
-  const rp = r.replan;
-  const changes = (rp && rp.changes) || [];
-  const counts = reviewCounts(r);
-  const pending = reviewPending(r);
-  const canRevert = changes.length && !r.replanRevertedAt && changes.some(c => changeStatus(c) === 'auto');
-  const body = `
-    <div class="max-w-6xl mx-auto grid grid-cols-12 gap-8">
-      <div class="col-span-7 space-y-8">
-        ${renderAIHealthBanner({ dismissible:false })}${reportErrorBox()}
-        <div class="bg-slate-950 border border-slate-800 rounded-3xl p-8 relative overflow-hidden">
-          <div class="relative z-10">
-            <h3 class="text-sm font-black text-white mb-6 uppercase tracking-widest flex items-center gap-2">${fa('comment-dots', 'text-indigo-500')} روایت هوشمند هفته
-              <span class="text-[10px] font-bold text-slate-500 normal-case tracking-normal mr-2">${reportPeriodLabel(r)}</span>
-              ${state.aiReportFreshIds.includes(r.id) ? `<span class="text-[9px] font-black bg-indigo-600 text-white px-1.5 py-0.5 rounded">تازه</span>` : ''}</h3>
-            <p class="text-base text-slate-300 leading-loose text-justify font-medium whitespace-pre-line" dir="auto">${esc(r.text)}</p>
-          </div>
-          <div class="absolute -bottom-10 -left-10 w-40 h-40 bg-indigo-600/5 blur-[80px] rounded-full"></div>
-        </div>
-        ${reportFocusBlock(r, false)}
+const ritualCard = (inner, mob) => `<div class="${mob ? 'bg-slate-900 border border-slate-800 rounded-3xl p-5' : 'bg-slate-950 border border-slate-800 rounded-3xl p-8'} space-y-5">${inner}</div>`;
+const ritualTitle = (text, sub, mob) => `<div><h3 class="${mob ? 'text-xs' : 'text-sm'} font-black text-white mb-1">${text}</h3>${sub ? `<p class="text-[10px] text-slate-500 leading-relaxed">${sub}</p>` : ''}</div>`;
+function ritualStepper(step, mob){
+  return `
+    <div class="grid grid-cols-4 gap-2">
+      ${RITUAL_STEP_LABELS.map((l, i) => `
+        <button type="button" onclick="ritualGo(${i})" class="text-right space-y-2">
+          <div class="h-1.5 rounded-full ${i < step ? 'bg-indigo-500' : i === step ? 'bg-indigo-400' : 'bg-slate-800'}"></div>
+          <span class="${mob ? 'text-[9px]' : 'text-[10px]'} font-black ${i === step ? 'text-indigo-400' : 'text-slate-600'}">${fd(i + 1)}. ${l}</span>
+        </button>`).join('')}
+    </div>`;
+}
+function ritualNav(step, mob){
+  const last = step === RITUAL_STEPS - 1;
+  return `
+    <div class="flex items-center gap-2">
+      ${step > 0 ? `<button type="button" onclick="ritualGo(${step - 1})" class="px-4 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-[10px] font-black border border-slate-700 transition-all">${fa('arrow-right', 'ml-1')}قبلی</button>` : ''}
+      ${last
+        ? `<button type="button" onclick="finishRitual()" ${state.ritualSaving ? 'disabled' : ''} class="flex-1 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-[10px] font-black shadow-lg shadow-indigo-900/20 transition-all disabled:opacity-60">${fa('check', 'ml-1')}${state.ritualSaving ? 'در حال ثبت…' : 'ثبت هفته'}</button>`
+        : `<button type="button" onclick="ritualGo(${step + 1})" class="flex-1 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-[10px] font-black shadow-lg shadow-indigo-900/20 transition-all">بعدی${fa('arrow-left', 'mr-1')}</button>`}
+    </div>`;
+}
+
+/* step 0: last week's commitment + what got in the way */
+function ritualStepLastWeek(r, mob){
+  const rt = r.ritual, pc = rt.prev_commitment;
+  const pcTask = pc && (state.tasks.find(t => t.id === pc.task_id) || state.shelvedTasks.find(t => t.id === pc.task_id));
+  const yesNo = (val, label) => `<button type="button" onclick="ritualPrevKept(${val})" class="flex-1 py-2.5 rounded-xl text-[10px] font-black border transition-all ${rt.prev_kept === val ? (val ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/20' : 'bg-rose-500/20 text-rose-400 border-rose-500/20') : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-white'}">${label}</button>`;
+  return ritualCard(`
+    ${pc ? `
+      <div class="p-4 bg-indigo-500/5 border border-indigo-500/10 rounded-2xl space-y-3">
+        <p class="text-[10px] font-black text-indigo-400">تعهد هفته‌ی قبل</p>
+        <p class="${mob ? 'text-xs' : 'text-sm'} font-bold text-slate-200" dir="auto">${esc(pc.title)}</p>
+        ${pcTask && pcTask.done ? `<p class="text-[10px] text-emerald-400 font-bold">${fa('circle-check', 'ml-1')}توی اپ تیکش زدی.</p>` : ''}
+        <div class="flex gap-2">${yesNo(true, 'انجامش دادم')}${yesNo(false, 'نشد')}</div>
+      </div>` : `<p class="text-[11px] text-slate-500 leading-relaxed">این اولین مروره؛ آخرش یه کار رو به‌عنوان تعهد هفته انتخاب می‌کنی و جمعه‌ی بعد همین‌جا ازش می‌پرسم.</p>`}
+    ${ritualTitle('این هفته چی بیشتر از همه جلوت رو گرفت؟', 'یکی رو بزن؛ لازم نیست دقیق باشه.', mob)}
+    <div class="flex flex-wrap gap-1.5">${RITUAL_BLOCKERS.map(([k, l]) => choiceChip(l, rt.blocker === k, `ritualBlocker('${k}')`)).join('')}</div>
+    ${rt.blocker === 'other' ? `<textarea data-preserve placeholder="چی شد؟" onchange="ritualBlockerNote(this.value)" class="${textareaCls()}">${esc(rt.blocker_note || '')}</textarea>` : ''}`, mob);
+}
+
+/* step 1: stuck tasks */
+function ritualStepStuck(r, mob){
+  const items = (r.ritual.stuck || []).filter(s => s.decision === 'shelve' || state.tasks.some(t => t.id === s.task_id && !t.done));
+  const why = s => [s.moved >= 3 ? `${fd(s.moved)} بار عقب افتاده` : '', s.idle_days >= 28 ? `${fd(s.idle_days)} روزه دست نخورده` : ''].filter(Boolean).join(' · ');
+  const btn = (s, decision, label, icon) => {
+    const on = s.decision === decision, busy = state.ritualBreaking === s.task_id && decision === 'break';
+    return `<button type="button" onclick="stuckDecide('${s.task_id}','${decision}')" ${state.ritualBreaking ? 'disabled' : ''} class="flex-1 py-2 rounded-lg text-[9px] font-black border transition-all disabled:opacity-60 ${on ? 'bg-indigo-600 text-white border-indigo-500' : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-white'}">${fa(busy ? 'spinner fa-spin' : icon, 'ml-1')}${busy ? 'در حال شکستن…' : label}</button>`;
+  };
+  const row = s => s.decision === 'shelve' ? `
+    <div class="p-4 bg-slate-900/30 border border-slate-800 rounded-2xl opacity-60 flex items-center justify-between gap-3">
+      <span class="text-[11px] text-slate-500 line-through" dir="auto">${esc(s.title)}</span>
+      <span class="text-[9px] font-black text-slate-500 shrink-0">کنار گذاشته شد</span>
+    </div>` : `
+    <div class="p-4 ${mob ? 'bg-slate-950' : 'bg-slate-900/50'} border border-slate-800 rounded-2xl space-y-3">
+      <div>
+        <h4 class="text-xs font-bold text-slate-200" dir="auto">${esc(s.title)}</h4>
+        <p class="text-[9px] font-bold text-amber-500/80 mt-1">${why(s)}</p>
       </div>
-      <div class="col-span-5 space-y-8">
-        ${changes.length ? `
-          <div class="bg-slate-950 border border-slate-800 rounded-3xl p-6 relative overflow-hidden">
-            <h3 class="text-xs font-black text-white mb-6 uppercase tracking-widest flex items-center gap-2">${fa('shuffle', 'text-indigo-400')} بازچینی پیشنهادی برنامه</h3>
-            <div class="space-y-4">${[...changes].sort((a, b) => (changeStatus(b) === 'pending') - (changeStatus(a) === 'pending')).map(c => proposalCard(r, c, false)).join('')}</div>
-            ${pending.length > 1 ? `<button type="button" onclick="acceptAllChanges('${r.id}')" class="w-full mt-4 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-[10px] font-black transition-all">تایید همه (${fd(pending.length)})</button>` : ''}
-            <div class="mt-8 p-4 bg-slate-900/80 rounded-2xl border border-slate-800 space-y-2">
-              <div class="flex items-center gap-3"><div class="w-2 h-2 bg-indigo-500 rounded-full ${pending.length ? 'animate-ping' : ''} shrink-0"></div><p class="text-[10px] text-slate-400 font-bold">${pending.length && r.applyAfter ? `اگه تا ${applyAfterLabel(r.applyAfter)} تصمیم نگیری، باقی‌مونده‌ها رو خودم اعمال می‌کنم.` : 'برنامه روزانه بر اساس الگوی جدید بازچینی شد.'}</p></div>
-              ${rp.reason ? `<p class="text-[10px] text-slate-500 leading-relaxed pr-5" dir="auto">${esc(rp.reason)}</p>` : ''}
-              ${rp.capacity_min ? `<p class="text-[10px] text-slate-500 pr-5">ظرفیت روزانه‌ای که در نظر گرفتم: ${formatDuration(rp.capacity_min)}</p>` : ''}
-              ${canRevert ? `<button type="button" onclick="revertReplan('${r.id}')" class="text-[9px] font-black text-slate-500 hover:text-indigo-400 flex items-center gap-1 pr-5">${fa('rotate-left')} برگردون همه‌ی تغییرات خودکار</button>` : r.replanRevertedAt ? `<p class="text-[10px] text-emerald-400 pr-5">برنامه‌ی قبلی برگردونده شد.</p>` : ''}
-            </div>
-          </div>
-          <div class="bg-slate-950 border border-slate-800 rounded-3xl p-6">
-            <h4 class="text-xs font-black text-white uppercase tracking-widest mb-4">خلاصه پیشنهادات</h4>
-            <div class="space-y-4">
-              <div class="flex justify-between items-center text-[10px]"><span class="text-slate-500">پیشنهادات در انتظار:</span><span class="text-indigo-400 font-black">${fd(counts.pending)} مورد</span></div>
-              <div class="flex justify-between items-center text-[10px]"><span class="text-slate-500">اعمال شده:</span><span class="text-emerald-400 font-black">${fd(counts.applied)} مورد</span></div>
-              <div class="flex justify-between items-center text-[10px]"><span class="text-slate-500">رد شده یا دست‌نخورده:</span><span class="text-slate-600 font-black">${fd(counts.rejected)} مورد</span></div>
-            </div>
-          </div>` : `<div class="bg-slate-950 border border-slate-800 rounded-3xl p-6">${emptyNote('این مرور پیشنهاد بازچینی نداشت.', 'shuffle')}</div>`}
+      ${s.decision === 'break' && s.step_title ? `<p class="text-[10px] text-indigo-300 bg-indigo-500/5 border border-indigo-500/10 rounded-xl px-3 py-2 leading-relaxed" dir="auto">${fa('shoe-prints', 'ml-1')}قدم اول اضافه شد: ${esc(s.step_title)}</p>` : ''}
+      <div class="flex gap-2">
+        ${s.decision === 'break' ? '' : btn(s, 'break', 'بشکنش', 'scissors')}
+        ${btn(s, 'shelve', 'کنار بذار', 'box-archive')}
+        ${btn(s, 'keep', 'نگهش دار', 'thumbtack')}
       </div>
     </div>`;
-  return deskMain({ header, body });
+  return ritualCard(`
+    ${ritualTitle('کارهای گیرکرده', 'بارها عقب افتادن یا مدت‌هاست دست نخوردن. «بشکنش» یه قدم ده‌دقیقه‌ای ازش می‌سازه، «کنار بذار» از لیست‌ها برش می‌داره (از آرشیو برمی‌گرده).', mob)}
+    ${items.length ? `<div class="space-y-3">${items.map(row).join('')}</div>` : emptyNote('کار گیرکرده‌ای نداری.', 'circle-check')}`, mob);
+}
+
+/* step 2: the week on days */
+function ritualStepWeek(r, mob){
+  const days = ritualDays(), cap = dailyCapacity();
+  const dateOf = t => ritualPlanDate(r, t);
+  const changes = (r.replan && r.replan.changes) || [];
+  const dayName = k => WEEKDAYS_FA[new Date(k + 'T00:00:00').getDay()];
+  const bars = days.map(k => {
+    const load = dayLoad(k, { dateOf }), over = load > cap;
+    return `
+      <div class="text-center space-y-1.5">
+        <p class="text-[9px] font-black ${over ? 'text-rose-400' : 'text-slate-500'}">${RITUAL_DAY_LETTER[new Date(k + 'T00:00:00').getDay()]}</p>
+        <div class="h-16 bg-slate-900 border border-slate-800 rounded-lg overflow-hidden flex flex-col justify-end"><div class="${over ? 'bg-rose-500' : 'bg-indigo-500'} w-full" style="height:${Math.min(100, Math.round(load / cap * 100))}%"></div></div>
+        <p class="text-[8px] font-bold ${over ? 'text-rose-400' : 'text-slate-600'}">${fd(Math.round(load / 6) / 10)} س</p>
+      </div>`;
+  }).join('');
+  const tasks = ritualPlanTasks(r);
+  const chip = (t, k, label) => `<button type="button" onclick="ritualPlace('${t.id}','${k}')" class="px-2 py-1 rounded-lg text-[10px] font-bold border transition-colors ${dateOf(t) === k ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/10' : 'bg-slate-800 text-slate-500 border-slate-700 hover:text-white'}">${label}</button>`;
+  const row = t => {
+    const k = dateOf(t), open = state.ritualOpenTask === t.id;
+    const c = changes.find(c => c.task_id === t.id && changeStatus(c) === 'pending');
+    const fromAI = c && (c.after.date || '') === k;
+    return `
+      <div class="${mob ? 'bg-slate-950' : 'bg-slate-900/50'} border ${open ? 'border-indigo-500/40' : 'border-slate-800'} rounded-2xl">
+        <button type="button" onclick="ritualToggleTask('${t.id}')" class="w-full p-3 flex items-center gap-3 text-right">
+          <div class="min-w-0 flex-1">
+            <p class="text-xs font-bold text-slate-200" dir="auto">${esc(t.title)}</p>
+            <p class="text-[9px] text-slate-500 mt-0.5">${formatDuration(t.durationMin || DEFAULT_TASK_MIN)}${t.date && t.date < days[0] ? ` · <span class="text-rose-400">عقب‌افتاده از ${jDate(t.date)}</span>` : ''}${fromAI ? ` · <span class="text-indigo-400">${fa('wand-magic-sparkles', 'text-[8px]')} پیشنهاد هوشواره</span>` : ''}</p>
+          </div>
+          <span class="text-[10px] font-black px-2 py-1 rounded-lg shrink-0 ${!k ? 'bg-slate-800 text-slate-500' : k < days[0] ? 'bg-rose-500/10 text-rose-400' : 'bg-indigo-500/10 text-indigo-400'}">${!k ? 'بعداً' : k < days[0] ? 'روز بده' : `${dayName(k)} ${jDate(k)}`}</span>
+        </button>
+        ${open ? `
+          <div class="px-3 pb-3 space-y-2">
+            ${fromAI && c.why ? `<p class="text-[10px] text-slate-500 leading-relaxed" dir="auto">${esc(c.why)}</p>` : ''}
+            <div class="flex flex-wrap gap-1.5">${days.map(d => chip(t, d, `${dayName(d)} ${jDate(d)}`)).join('')}${chip(t, '', 'بعداً')}</div>
+          </div>` : ''}
+      </div>`;
+  };
+  const late = tasks.filter(t => dateOf(t) && dateOf(t) < days[0]).sort((a, b) => dateOf(a).localeCompare(dateOf(b)));
+  const onDays = tasks.filter(t => dateOf(t) >= days[0]).sort((a, b) => dateOf(a).localeCompare(dateOf(b)));
+  const later = tasks.filter(t => !dateOf(t)).sort((a, b) => (PRIORITY_RANK[a.priority] ?? 3) - (PRIORITY_RANK[b.priority] ?? 3));
+  return ritualCard(`
+    ${ritualTitle('هفته رو بچین', `روی هر کار بزن و روزش رو انتخاب کن. ظرفیت معمولت حدود ${formatDuration(cap)} در روزه؛ ستون قرمز یعنی اون روز زیادی پره.`, mob)}
+    <div class="grid grid-cols-7 gap-1.5">${bars}</div>
+    ${late.length ? `<div class="space-y-2"><p class="text-[10px] font-black text-rose-400 px-1">عقب‌افتاده؛ یه روز تازه بهشون بده (${fd(late.length)})</p>${late.map(row).join('')}</div>` : ''}
+    ${onDays.length ? `<div class="space-y-2"><p class="text-[10px] font-black text-slate-600 px-1">روی روزها (${fd(onDays.length)})</p>${onDays.map(row).join('')}</div>` : ''}
+    ${later.length ? `<div class="space-y-2"><p class="text-[10px] font-black text-slate-600 px-1">بعداً (${fd(later.length)})</p>${later.map(row).join('')}</div>` : ''}
+    ${!tasks.length ? emptyNote('کار بازی برای چیدن نیست.', 'calendar-check') : ''}`, mob);
+}
+
+/* step 3: one commitment */
+function ritualStepCommit(r, mob){
+  const days = ritualDays();
+  const picks = ritualPlanTasks(r).filter(t => days.includes(ritualPlanDate(r, t)));
+  const chosen = r.ritual.commitment && r.ritual.commitment.task_id;
+  return ritualCard(`
+    ${ritualTitle('یه تعهد برای این هفته', 'فقط یکی. کل هفته بالای «امروز» می‌مونه و جمعه‌ی بعد ازش می‌پرسم.', mob)}
+    ${picks.length ? `<div class="space-y-2">${picks.map(t => { const on = chosen === t.id; return `
+      <button type="button" onclick="ritualCommit('${t.id}')" role="radio" aria-checked="${on}" class="w-full ${mob ? 'bg-slate-950' : 'bg-slate-900/50'} border ${on ? 'border-indigo-500/40' : 'border-slate-800'} rounded-2xl p-3 flex items-center gap-3 text-right">
+        <div class="w-8 h-8 ${on ? 'bg-indigo-600 text-white' : 'bg-slate-900 text-slate-600'} rounded-xl flex items-center justify-center border border-slate-800 shrink-0">${fa(on ? 'star' : 'bullseye', 'text-xs')}</div>
+        <span class="flex-1 text-xs font-bold text-slate-200" dir="auto">${esc(t.title)}</span>
+        <span class="text-[9px] text-slate-500 shrink-0">${jDate(ritualPlanDate(r, t))}</span>
+      </button>`; }).join('')}</div>`
+      : emptyNote('هنوز کاری روی روزهای این هفته نذاشتی؛ از قدم قبل یکی رو روی یه روز بذار.', 'bullseye')}`, mob);
+}
+const RITUAL_STEP_RENDER = [ritualStepLastWeek, ritualStepStuck, ritualStepWeek, ritualStepCommit];
+
+/* nothing to do: the last finished ritual, and a way to start one now */
+function ritualIdle(mob){
+  const last = lastDoneRitual(), c = weeklyCommitment();
+  const start = `<button type="button" onclick="startReviewNow()" ${state.aiReportGenerating ? 'disabled' : ''} class="w-full py-3 bg-slate-900 border border-slate-800 rounded-xl text-[10px] font-black text-indigo-400 disabled:opacity-60">${fa(state.aiReportGenerating ? 'spinner fa-spin' : 'clipboard-check', 'ml-1')}${state.aiReportGenerating ? 'در حال آماده کردن…' : 'شروع مرور الان'}</button>`;
+  return `
+    ${ritualCard(last ? `
+      ${ritualTitle('مرور این هفته انجام شد', `${jDate(dateKey(new Date(last.completedAt)))}؛ مرور بعدی جمعه عصر آماده می‌شه.`, mob)}
+      ${c ? `<div class="p-4 bg-indigo-500/5 border border-indigo-500/10 rounded-2xl space-y-1"><p class="text-[10px] font-black text-indigo-400">تعهد این هفته</p><p class="text-xs font-bold ${c.task.done ? 'text-slate-500 line-through' : 'text-slate-200'}" dir="auto">${esc(c.task.title)}</p></div>` : ''}`
+      : ritualTitle('مرور هفته', 'هر جمعه عصر یه مرور پنج‌دقیقه‌ای آماده می‌شه: تعهد هفته‌ی قبل، تکلیف کارهای گیرکرده، چیدن هفته‌ی بعد و یه تعهد تازه.', mob), mob)}
+    ${start}`;
+}
+function ritualBody(mob){
+  const r = currentRitual();
+  const top = `${renderAIHealthBanner({ dismissible:false })}${reportErrorBox()}`;
+  if(!r) return `${top}${ritualIdle(mob)}`;
+  const step = Math.min(r.ritual.step || 0, RITUAL_STEPS - 1);
+  return `${top}${ritualStepper(step, mob)}${RITUAL_STEP_RENDER[step](r, mob)}${ritualNav(step, mob)}`;
+}
+function renderAIReportsDesktop(){
+  const header = deskHeader({ icon:'clipboard-check', iconBox:'bg-indigo-600 text-white shadow-lg shadow-indigo-900/20', title:'مرور هفته', sub:'پنج دقیقه برای چیدن هفته‌ی بعد' });
+  return deskMain({ header, body:`<div class="max-w-3xl mx-auto space-y-6">${ritualBody(false)}</div>` });
 }
 function renderAIReportsMobile(){
-  const r = selectedReport();
-  const header = mobHeader(`<div class="flex items-center gap-3"><div class="w-9 h-9 bg-indigo-600 rounded-xl flex items-center justify-center text-white">${fa('wand-magic-sparkles', 'text-sm')}</div><h1 class="text-lg font-black text-white">گزارش هوشمند</h1></div>`,
-    state.aiReports.length ? mobIconBtn('clock-rotate-left', 'state.aiReportPickerOpen=!state.aiReportPickerOpen; render()', 'گزارش‌های قبلی') : '');
-  const generate = `<button type="button" onclick="generateAIReportNow()" ${state.aiReportGenerating ? 'disabled' : ''} class="w-full py-3 bg-slate-900 border border-slate-800 rounded-xl text-[10px] font-black text-indigo-400 disabled:opacity-60">${fa('wand-magic-sparkles', 'ml-1')}${state.aiReportGenerating ? 'در حال تولید…' : 'تولید گزارش الان'}</button>`;
-  if(!r) return `${header}<main class="safe-area-bottom p-4"><div class="space-y-6">${renderStatusBars()}${renderAIHealthBanner({ dismissible:false })}${reportErrorBox()}<div class="bg-indigo-600/10 border border-indigo-500/20 rounded-3xl p-6 text-[11px] text-slate-300 leading-relaxed">هنوز گزارشی ساخته نشده. مرور هفتگی هر جمعه عصر خودکار ساخته می‌شه.</div>${generate}</div></main>`;
-  const inPeriod = d => d && d >= r.periodStart && d <= r.periodEnd;
-  const doneN = state.tasks.filter(t => t.done && t.completedAt && inPeriod(dateKey(new Date(t.completedAt)))).length;
-  const leftN = state.tasks.filter(t => !t.done && inPeriod(t.date)).length;
-  const changes = (r.replan && r.replan.changes) || [];
-  const canRevert = changes.length && !r.replanRevertedAt && changes.some(c => changeStatus(c) === 'auto');
-  return `
-    ${header}
-    ${reportPicker(true)}
-    <main class="safe-area-bottom p-4">
-      <div class="space-y-6">
-        ${renderStatusBars()}${renderAIHealthBanner({ dismissible:false })}${reportErrorBox()}
-        <div class="bg-indigo-600/10 border border-indigo-500/20 rounded-3xl p-6 relative overflow-hidden">
-          <h3 class="text-xs font-black text-white uppercase tracking-widest mb-1 flex items-center gap-2">${fa('comment-dots', 'text-indigo-400')} تحلیل عملکرد هفته ${state.aiReportFreshIds.includes(r.id) ? `<span class="text-[8px] font-black bg-indigo-600 text-white px-1.5 rounded normal-case">تازه</span>` : ''}</h3>
-          <p class="text-[9px] text-slate-500 mb-4">${reportPeriodLabel(r)}</p>
-          <p class="text-[11px] text-slate-300 leading-relaxed mb-6 whitespace-pre-line" dir="auto">"${esc(r.text)}"</p>
-          <div class="grid grid-cols-2 gap-3">
-            <div class="bg-slate-950/50 p-3 rounded-2xl border border-indigo-500/10"><p class="text-[9px] font-black text-slate-500 uppercase mb-1">تسک‌های انجام شده</p><span class="text-lg font-black text-white">${fd(doneN)} مورد</span></div>
-            <div class="bg-slate-950/50 p-3 rounded-2xl border border-indigo-500/10"><p class="text-[9px] font-black text-slate-500 uppercase mb-1">تسک‌های باقیمانده</p><span class="text-lg font-black text-white">${fd(leftN)} مورد</span></div>
-          </div>
-          ${fa('quote-left', 'absolute top-4 left-4 text-4xl text-white/5')}
-        </div>
-        ${reportFocusBlock(r, true)}
-        ${changes.length ? `
-          <section id="replan-proposals">
-            <div class="flex items-center justify-between mb-4 px-1">
-              <h3 class="text-[10px] font-black text-indigo-400 uppercase tracking-widest">پیشنهاد بازچینی (بازچینی برنامه)</h3>
-              ${r.applyAfter && reviewPending(r).length ? `<span class="text-[9px] font-bold text-slate-500 italic">اعمال خودکار ${applyAfterLabel(r.applyAfter)}</span>` : ''}
-            </div>
-            <div class="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden">${[...changes].sort((a, b) => (changeStatus(b) === 'pending') - (changeStatus(a) === 'pending')).map(c => proposalCard(r, c, true)).join('')}</div>
-            ${reviewPending(r).length > 1 ? `<button type="button" onclick="acceptAllChanges('${r.id}')" class="w-full mt-3 py-3 bg-indigo-600 text-white rounded-xl text-[10px] font-black shadow-lg shadow-indigo-900/20">تایید همه (${fd(reviewPending(r).length)})</button>` : ''}
-            ${canRevert ? `<button type="button" onclick="revertReplan('${r.id}')" class="mt-3 text-[9px] font-black text-slate-500 hover:text-indigo-400 transition-colors px-1">واگرد تغییرات خودکار ${fa('rotate-left', 'text-[8px] mr-1')}</button>` : ''}
-          </section>` : ''}
-        ${generate}
-      </div>
-    </main>`;
+  const header = mobHeader(`<div class="flex items-center gap-3"><div class="w-9 h-9 bg-indigo-600 rounded-xl flex items-center justify-center text-white">${fa('clipboard-check', 'text-sm')}</div><h1 class="text-lg font-black text-white">مرور هفته</h1></div>`);
+  return `${header}<main class="safe-area-bottom p-4"><div class="space-y-6">${renderStatusBars()}${ritualBody(true)}</div></main>`;
 }

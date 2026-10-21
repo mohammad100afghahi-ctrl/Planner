@@ -715,13 +715,13 @@ let state = {
   backupBusy: false,
   restorePreview: null, // { payload, backupId, label, counts, mode:'merge'|'replace' } while confirming a restore
   taskCompletionModal: null, // { taskId | chunkId, minutes, difficulty } shown right after checking a task (or an English chunk) done
-  aiReports: [], // [{ id, periodStart, periodEnd, text, createdAt, seenAt }]
+  aiReports: [], // [{ id, periodStart, periodEnd, createdAt, seenAt, replan, ritual, completedAt }] — مرور هفته
   aiReportGenerating: false,
   aiReportError: null,
-  aiReportRange: 'all', // 'all' | '30' | '90' | 'custom' — date filter on the reports page
-  aiReportFrom: '', aiReportTo: '', // custom range, dateKey strings
-  aiReportOpen: {}, // { [reportId]: true } — reports expanded past their preview
-  aiReportFreshIds: [], // reports that were unread when this visit to the page began
+  ritualOpenTask: null, // step 2: the task whose day chips are open
+  ritualBreaking: null, // step 1: the task هوشواره is breaking down right now
+  ritualSaving: false,
+  shelvedTasks: [], // «کنار گذاشته‌ها»: tasks with shelved_at, kept out of state.tasks
   purchases: [], // [{ id, title, priority, price, bought, boughtAt }]
   purchaseSort: 'priority', // 'default' | 'priority' | 'cheapest' | 'priciest'
   purchaseEditor: null, // { id, title, price, priority } while editing a purchase
@@ -878,8 +878,8 @@ async function loadAll(attempt){
     for(const r of core) if(r.error) throw r.error;
     const [tags, tasks, recurring, goals, aiReports, purchases, ideas, subs] = core.map(r => r.data);
     state.tags = tags.map(t => ({ id:t.id, name:t.name, color:t.color }));
-    state.tasks = tasks.map(t => ({
-      id: t.id, title: t.title, notes: t.notes || '', done: !!t.done, completedAt: t.completed_at,
+    const allTasks = tasks.map(t => ({
+      id: t.id, title: t.title, notes: t.notes || '', done: !!t.done, completedAt: t.completed_at, shelvedAt: t.shelved_at || null,
       tagIds: (t.task_tags||[]).map(tt => tt.tag_id),
       priority: t.priority,
       subtasks: (t.subtasks||[]).map(s => ({ id:s.id, title:s.title, done:!!s.done })),
@@ -890,6 +890,8 @@ async function loadAll(attempt){
       difficulty: t.difficulty,
       recurringTemplateId: t.recurring_template_id,
     }));
+    state.tasks = allTasks.filter(t => !t.shelvedAt);
+    state.shelvedTasks = allTasks.filter(t => t.shelvedAt).sort((a, b) => b.shelvedAt.localeCompare(a.shelvedAt));
 
     state.recurringTemplates = recurring.map(r => ({
       id: r.id, title: r.title, notes: r.notes || '', priority: r.priority, durationMin: r.duration_min,
@@ -1093,17 +1095,23 @@ function startRealtimeSync(){
 
   registerRealtimeSync(channel, 'tasks', {
     onInsert(row){
-      if(state.tasks.some(t => t.id === row.id)) return;
-      state.tasks.unshift({
-        id:row.id, title:row.title, notes:row.notes || '', done:!!row.done, completedAt:row.completed_at,
+      if(state.tasks.some(t => t.id === row.id) || state.shelvedTasks.some(t => t.id === row.id)) return;
+      (row.shelved_at ? state.shelvedTasks : state.tasks).unshift({
+        id:row.id, title:row.title, notes:row.notes || '', done:!!row.done, completedAt:row.completed_at, shelvedAt:row.shelved_at || null,
         tagIds:[], priority:row.priority, subtasks:[], date:row.date || '', durationMin:row.duration_min, actualMin:row.actual_min, difficulty:row.difficulty,
         recurringTemplateId:row.recurring_template_id, ...taskReminderFromRow(row),
       });
       render();
     },
     onUpdate(row){
-      const t = state.tasks.find(t => t.id === row.id);
+      // shelving on another device moves the task between the two lists
+      const shelved = state.shelvedTasks.find(t => t.id === row.id);
+      if(shelved && !row.shelved_at){ state.shelvedTasks = state.shelvedTasks.filter(t => t !== shelved); state.tasks.unshift(shelved); }
+      const live = state.tasks.find(t => t.id === row.id);
+      if(live && row.shelved_at){ state.tasks = state.tasks.filter(t => t !== live); state.shelvedTasks.unshift(live); }
+      const t = live || shelved;
       if(!t) return;
+      t.shelvedAt = row.shelved_at || null;
       const doneChanged = t.done !== !!row.done;
       t.title = row.title; t.notes = row.notes || ''; t.done = !!row.done; t.completedAt = row.completed_at;
       Object.assign(t, taskReminderFromRow(row));
@@ -1115,6 +1123,7 @@ function startRealtimeSync(){
     },
     onDelete(old){
       state.tasks = state.tasks.filter(t => t.id !== old.id);
+      state.shelvedTasks = state.shelvedTasks.filter(t => t.id !== old.id);
       render();
     },
   });
@@ -1223,10 +1232,9 @@ function startRealtimeSync(){
       const r = state.aiReports.find(r => r.id === row.id);
       if(!r) return;
       r.seenAt = row.seen_at;
-      r.replanRevertedAt = row.replan_reverted_at || null;
       r.replan = row.replan || null;
-      r.focus = row.focus || null;
-      r.applyAfter = row.replan_apply_after || null;
+      r.ritual = row.ritual || null;
+      r.completedAt = row.completed_at || null;
       render();
     },
     onDelete(old){
@@ -3005,7 +3013,28 @@ function recurringEditorSetDuration(min){
 /* ---------- rendering: task card (Tasks page) ---------- */
 
 
-async function generateAIReportNow(){
+/* ---------- مرور هفته ----------
+   Each Friday generate-ai-report prepares one ai_reports row with a `ritual`
+   (see weekly_ritual.sql); this page walks it in four steps and nothing about
+   the user's tasks changes until they act:
+     0 last week's commitment + «چی جلوت رو گرفت؟»
+     1 stuck tasks: بشکنش (a ten-minute first step as a new task) / کنار بذار / نگهش دار
+     2 place the week on days, against the daily capacity
+     3 one commitment, pinned on امروز until the next ritual
+   Progress is saved on every tap, so the ritual resumes on another device.
+   Step 2's choices live in ritual.plan { task_id: date | '' } and are written
+   to the tasks only on «ثبت هفته»; هوشواره's day proposals (replan.changes)
+   are the starting point and get their status from what the user kept. */
+const RITUAL_STEPS = 4;
+const RITUAL_BLOCKERS = [
+  ['time','وقت نداشتم'], ['energy','انرژی نداشتم'], ['too_big','کار زیادی بزرگ بود'],
+  ['urgent','کار فوری پیش اومد'], ['forgot','یادم رفت'], ['other','چیز دیگه'],
+];
+const DEFAULT_TASK_MIN = 30;
+const DEFAULT_CAPACITY_MIN = 180;
+const changeStatus = c => c.status || 'auto';
+
+async function startReviewNow(){
   state.aiReportGenerating = true;
   state.aiReportError = null;
   render();
@@ -3019,180 +3048,274 @@ async function generateAIReportNow(){
     });
     const data = await res.json();
     if(!res.ok) throw new Error(data.error || 'خطای ناشناخته');
-    if(data.skipped){
-      state.aiReportError = 'هنوز وقتش نشده — مرور هفتگی هر جمعه عصر ساخته می‌شه.';
-    } else {
-      const { data: rows, error } = await sb.from('ai_reports').select('*').order('period_end', { ascending:false });
-      if(error) throw error;
-      state.aiReports = rows.map(mapAIReport);
-      markAIReportsSeen();
-    }
+    const { data: rows, error } = await sb.from('ai_reports').select('*').order('period_end', { ascending:false });
+    if(error) throw error;
+    state.aiReports = rows.map(mapAIReport);
+    state.ritualOpenTask = null;
+    markAIReportsSeen();
   } catch(e){
-    console.error('generateAIReportNow failed', e);
-    state.aiReportError = e.message || 'خطا در تولید گزارش. اگه تازه کلید API رو اضافه کردی، چک کن درست ذخیره شده باشه.';
+    console.error('startReviewNow failed', e);
+    state.aiReportError = e.message || 'مرور هفته ساخته نشد؛ کمی بعد دوباره امتحان کن.';
   }
   state.aiReportGenerating = false;
   render();
 }
 function mapAIReport(r){
   return {
-    id:r.id, periodStart:r.period_start, periodEnd:r.period_end, text:r.report_text, createdAt:r.created_at, seenAt:r.seen_at,
-    replan:r.replan || null, replanRevertedAt:r.replan_reverted_at || null,
-    applyAfter:r.replan_apply_after || null, focus:r.focus || null,
+    id:r.id, periodStart:r.period_start, periodEnd:r.period_end, createdAt:r.created_at, seenAt:r.seen_at,
+    replan:r.replan || null, ritual:r.ritual || null, completedAt:r.completed_at || null,
   };
 }
-/* ---------- مرور هفتگی ----------
-   The weekly report (generate-ai-report → proposeWeek) no longer reshuffles
-   anything by itself. Each change it proposes waits here as 'pending' until the
-   user accepts it, picks another date, or rejects it; whatever is still pending
-   at replan_apply_after the cron applies on its own ('auto'). Reports from
-   before this have no status — they were applied at once, so they count as
-   'auto' and keep «برگردون همه‌چی». Deleting the task from a card needs no
-   status: a task that's gone simply counts as decided. */
-const REVIEW_MAX_FOCUS = 3;
-const changeStatus = c => c.status || 'auto';
-function reviewPending(r){
-  if(!r || !r.replan || !r.replan.changes) return [];
-  return r.replan.changes.filter(c => changeStatus(c) === 'pending' && state.tasks.some(t => t.id === c.task_id && !t.done));
+// newest first; old narrative reports (no ritual) aren't shown any more
+const rituals = () => state.aiReports.filter(r => r.ritual).sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+function currentRitual(){
+  const r = rituals()[0];
+  return r && !r.completedAt ? r : null;
 }
-async function saveReview(r, label){
-  const { error } = await sb.from('ai_reports').update({ replan:r.replan, focus:r.focus }).eq('id', r.id);
-  if(error) writeFailed(label, error);
+function lastDoneRitual(){ return rituals().find(r => r.completedAt) || null; }
+/* The commitment from the latest finished ritual, pinned on امروز until the
+   next one is done (or a week and a bit has passed). */
+function weeklyCommitment(){
+  const r = lastDoneRitual();
+  if(!r || !r.ritual.commitment || Date.now() - new Date(r.completedAt).getTime() > 9 * 86400000) return null;
+  const task = state.tasks.find(t => t.id === r.ritual.commitment.task_id);
+  return task ? { task, report:r } : null;
 }
-function applyChangeToTask(c, after){
-  const t = state.tasks.find(t => t.id === c.task_id);
-  if(!t || t.done) return null;
-  t.date = after.date || '';
-  t.priority = after.priority;
-  t.durationMin = after.duration_min;
-  return sb.from('tasks').update({ date:after.date, priority:after.priority, duration_min:after.duration_min }).eq('id', t.id);
+async function saveRitual(r, label){
+  const { error } = await sb.from('ai_reports').update({ ritual:r.ritual }).eq('id', r.id);
+  if(error) writeFailed(label || 'saveRitual', error);
 }
-async function decideChange(reportId, taskId, decision, customDate){
-  const r = state.aiReports.find(r => r.id === reportId);
-  const c = r && r.replan && r.replan.changes.find(c => c.task_id === taskId);
-  if(!c || changeStatus(c) !== 'pending') return;
-  let write = null;
-  if(decision === 'accept'){
-    c.status = 'accepted';
-    write = applyChangeToTask(c, c.after);
-  } else if(decision === 'date'){
-    if(!customDate) return;
-    c.status = 'edited';
-    c.after = { ...c.after, date:customDate };
-    write = applyChangeToTask(c, c.after);
-  } else {
-    c.status = 'rejected';
-  }
-  render();
-  if(write){
-    const { error } = await write;
-    if(error) return writeFailed('decideChange', error);
-  }
-  await saveReview(r, 'decideChange save');
-}
-async function acceptAllChanges(reportId){
-  const r = state.aiReports.find(r => r.id === reportId);
+function ritualGo(step){
+  const r = currentRitual();
   if(!r) return;
-  const writes = reviewPending(r).map(c => { c.status = 'accepted'; return applyChangeToTask(c, c.after); }).filter(Boolean);
+  r.ritual.step = Math.max(0, Math.min(RITUAL_STEPS - 1, step));
+  if(r.ritual.step === 2) ensureRitualPlan(r);
+  state.ritualOpenTask = null;
   render();
-  const failed = (await Promise.all(writes)).find(res => res.error);
-  if(failed) return writeFailed('acceptAllChanges', failed.error);
-  await saveReview(r, 'acceptAllChanges save');
+  window.scrollTo(0, 0);
+  saveRitual(r, 'ritual step');
 }
-/* «رد کردن» on امروز: every proposal still waiting stays as it is, the same as
-   rejecting them one by one on the reports page. */
-async function rejectAllChanges(reportId){
-  const r = state.aiReports.find(r => r.id === reportId);
+function ritualPrevKept(kept){
+  const r = currentRitual();
   if(!r) return;
-  const pending = reviewPending(r);
-  if(!pending.length) return;
-  pending.forEach(c => { c.status = 'rejected'; });
+  r.ritual.prev_kept = r.ritual.prev_kept === kept ? null : kept;
   render();
-  await saveReview(r, 'rejectAllChanges save');
+  saveRitual(r, 'ritual prev kept');
 }
-async function toggleFocus(reportId, taskId){
-  const r = state.aiReports.find(r => r.id === reportId);
-  if(!r || !r.focus) return;
-  const chosen = r.focus.chosen || [];
-  if(chosen.includes(taskId)) r.focus.chosen = chosen.filter(id => id !== taskId);
-  else if(chosen.length < REVIEW_MAX_FOCUS) r.focus.chosen = [...chosen, taskId];
-  else return showSaveError(`حداکثر ${toFaDigits(REVIEW_MAX_FOCUS)} اولویت — اول یکی رو بردار.`);
+function ritualBlocker(key){
+  const r = currentRitual();
+  if(!r) return;
+  r.ritual.blocker = r.ritual.blocker === key ? null : key;
   render();
-  await saveReview(r, 'toggleFocus');
+  saveRitual(r, 'ritual blocker');
 }
-/* «برگردون همه‌چی» — only for changes هوشواره applied by itself ('auto'). It
-   puts each task's date/priority/duration back, but only fields still holding
-   the AI's value, so anything the user has changed by hand since is left alone. */
-async function revertReplan(reportId){
-  const r = state.aiReports.find(r => r.id === reportId);
-  if(!r || !r.replan || r.replanRevertedAt) return;
-  const keys = { date:'date', priority:'priority', duration_min:'durationMin' };
-  const writes = [];
-  r.replan.changes.filter(c => changeStatus(c) === 'auto').forEach(c => {
-    const t = state.tasks.find(t => t.id === c.task_id);
-    if(!t || t.done) return;
-    const patch = {};
-    Object.entries(keys).forEach(([col, prop]) => {
-      const now = col === 'date' ? (t.date || null) : (t[prop] ?? null);
-      if(c.after[col] !== c.before[col] && now === c.after[col]) patch[col] = c.before[col];
+function ritualBlockerNote(value){
+  const r = currentRitual();
+  if(!r) return;
+  r.ritual.blocker_note = String(value || '').slice(0, 300);
+  saveRitual(r, 'ritual blocker note');
+}
+
+/* ---------- step 1: stuck tasks ---------- */
+function stuckEntry(r, taskId){ return (r.ritual.stuck || []).find(s => s.task_id === taskId); }
+async function stuckDecide(taskId, decision){
+  const r = currentRitual();
+  const s = r && stuckEntry(r, taskId);
+  if(!s || state.ritualBreaking) return;
+  if(decision === 'shelve') return shelveTask(taskId, () => { s.decision = 'shelve'; saveRitual(r, 'stuck shelve'); }, () => { s.decision = null; saveRitual(r, 'stuck shelve undo'); });
+  if(decision === 'keep'){
+    s.decision = s.decision === 'keep' ? null : 'keep';
+    render();
+    return saveRitual(r, 'stuck keep');
+  }
+  // بشکنش: هوشواره writes the first ten-minute step, added as a task of its own
+  state.ritualBreaking = taskId;
+  state.aiReportError = null;
+  render();
+  try{
+    const { data:{ session } } = await sb.auth.getSession();
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/generate-ai-report`, {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'Authorization':`Bearer ${session?.access_token}` },
+      body: JSON.stringify({ action:'break', task_id:taskId }),
     });
-    if(!Object.keys(patch).length) return;
-    Object.entries(patch).forEach(([col, v]) => { t[keys[col]] = col === 'date' ? (v || '') : v; });
-    writes.push(sb.from('tasks').update(patch).eq('id', t.id));
-  });
-  r.replanRevertedAt = new Date().toISOString();
+    const data = await res.json();
+    if(!res.ok || data.error) throw new Error(data.error || 'خطای ناشناخته');
+    const parent = state.tasks.find(t => t.id === taskId);
+    const t = {
+      id: uid(), title:data.step, notes:parent ? `قدم اول «${parent.title}»` : '', done:false, completedAt:null,
+      tagIds:parent ? [...parent.tagIds] : [], priority:parent ? parent.priority : null, subtasks:[],
+      date:'', durationMin:10, actualMin:null, recurringTemplateId:null, ...taskReminderFromRow({}),
+    };
+    state.tasks.unshift(t);
+    s.decision = 'break';
+    s.step_task_id = t.id;
+    s.step_title = t.title;
+    state.ritualBreaking = null;
+    render();
+    const { error } = await sb.from('tasks').insert({ id:t.id, title:t.title, notes:t.notes || null, priority:t.priority, duration_min:10, done:false });
+    if(error) return writeFailed('break task insert', error);
+    if(t.tagIds.length){
+      const { error: tagErr } = await sb.from('task_tags').insert(t.tagIds.map(tag_id => ({ task_id:t.id, tag_id })));
+      if(tagErr) writeFailed('break task tags', tagErr);
+    }
+    saveRitual(r, 'stuck break');
+  } catch(e){
+    console.error('break task failed', e);
+    state.ritualBreaking = null;
+    state.aiReportError = e.message;
+    render();
+  }
+}
+
+/* ---------- کنار گذاشته‌ها ----------
+   A shelved task leaves every list (and gets no reminders) without being
+   deleted; the archive page's «کنار گذاشته‌ها» brings it back. */
+async function shelveTask(taskId, after, onUndo){
+  const t = state.tasks.find(t => t.id === taskId);
+  if(!t) return;
+  t.shelvedAt = new Date().toISOString();
+  state.tasks = state.tasks.filter(x => x.id !== taskId);
+  state.shelvedTasks.unshift(t);
+  if(after) after();
+  showUndoToast(`«${t.title}» کنار گذاشته شد`, () => { unshelveTask(taskId); if(onUndo) onUndo(); });
+  const { error } = await sb.from('tasks').update({ shelved_at:t.shelvedAt }).eq('id', taskId);
+  if(error) writeFailed('shelveTask', error);
+}
+async function unshelveTask(taskId){
+  const t = state.shelvedTasks.find(t => t.id === taskId);
+  if(!t) return;
+  t.shelvedAt = null;
+  state.shelvedTasks = state.shelvedTasks.filter(x => x.id !== taskId);
+  state.tasks.unshift(t);
   render();
-  const results = await Promise.all(writes);
-  const failed = results.find(res => res.error);
-  if(failed) return writeFailed('revertReplan', failed.error);
-  const { error } = await sb.from('ai_reports').update({ replan_reverted_at: r.replanRevertedAt }).eq('id', r.id);
-  if(error) writeFailed('revertReplan mark', error);
+  const { error } = await sb.from('tasks').update({ shelved_at:null }).eq('id', taskId);
+  if(error) writeFailed('unshelveTask', error);
 }
-function applyAfterLabel(iso){
-  const hours = (new Date(iso).getTime() - Date.now()) / 3600000;
-  if(hours <= 0) return 'به‌زودی';
-  if(hours < 24) return `${toFaDigits(Math.ceil(hours))} ساعت دیگه`;
-  return `${toFaDigits(Math.ceil(hours / 24))} روز دیگه`;
+
+/* ---------- step 2: the week on days ---------- */
+const ritualDays = () => Array.from({ length:7 }, (_, i) => { const d = new Date(); d.setDate(d.getDate() + i); return dateKey(d); });
+/* What step 2 lists: overdue, this week's, and «بعداً» tasks (not recurring
+   instances, which roll on their own), plus whatever هوشواره proposed. Stuck
+   tasks the user just shelved are gone from state.tasks already. */
+function ritualPlanTasks(r){
+  const days = ritualDays(), last = days[days.length - 1];
+  const proposed = new Set(((r.replan && r.replan.changes) || []).map(c => c.task_id));
+  return state.tasks.filter(t => !t.done && !t.recurringTemplateId && (proposed.has(t.id) || !t.date || t.date <= last));
 }
-const REVIEW_STATUS_LABEL = {
-  accepted:'قبول کردی', edited:'با تاریخ خودت', rejected:'دست نخورد', auto:'خودکار اعمال شد',
-  skipped:'چون خودت تغییرش داده بودی، دست نخورد', expired:'مرور بعدی جاشو گرفت',
-};
-/* The priorities picked in the latest review, pinned on امروز until the next
-   review replaces them (or a week and a bit has passed). */
-/* Opening the reports page reads everything on it. The ids are remembered for
-   this visit so the cards can still say "تازه" after seen_at is written. */
+function ensureRitualPlan(r){
+  if(r.ritual.plan) return;
+  const plan = {};
+  const changes = (r.replan && r.replan.changes) || [];
+  ritualPlanTasks(r).forEach(t => {
+    const c = changes.find(c => c.task_id === t.id && changeStatus(c) === 'pending');
+    plan[t.id] = c ? (c.after.date || '') : (t.date || '');
+  });
+  r.ritual.plan = plan;
+}
+function ritualPlanDate(r, t){
+  const plan = r.ritual.plan || {};
+  return t.id in plan ? plan[t.id] : (t.date || '');
+}
+function ritualPlace(taskId, date){
+  const r = currentRitual();
+  if(!r) return;
+  ensureRitualPlan(r);
+  r.ritual.plan[taskId] = date;
+  state.ritualOpenTask = null;
+  render();
+  saveRitual(r, 'ritual place');
+}
+function ritualToggleTask(taskId){ state.ritualOpenTask = state.ritualOpenTask === taskId ? null : taskId; render(); }
+
+/* Daily capacity from the user's own good days — the same formula as
+   generate-ai-report's proposeWeek: 75th percentile of the minutes finished on
+   active days over the last four weeks, at 80%, between 1 and 8 hours. */
+function dailyCapacity(){
+  const since = Date.now() - 28 * 86400000;
+  const perDay = {};
+  state.tasks.forEach(t => {
+    if(!t.done || !t.completedAt || new Date(t.completedAt).getTime() < since) return;
+    const k = dateKey(new Date(t.completedAt));
+    perDay[k] = (perDay[k] || 0) + (t.actualMin > 0 ? t.actualMin : t.durationMin || DEFAULT_TASK_MIN);
+  });
+  const mins = Object.values(perDay).sort((a, b) => a - b);
+  if(mins.length < 3) return DEFAULT_CAPACITY_MIN;
+  return Math.min(480, Math.max(60, Math.round(mins[Math.floor((mins.length - 1) * 0.75)] * 0.8)));
+}
+/* Minutes already on a day: its tasks plus the habits that will be generated
+   on that weekday. `dateOf` lets step 2 count its draft instead of saved dates;
+   `skipId` leaves out the task being edited. */
+function dayLoad(key, { dateOf, skipId } = {}){
+  const when = dateOf || (t => t.date);
+  let mins = 0;
+  state.tasks.forEach(t => { if(t.id !== skipId && !t.done && when(t) === key) mins += t.durationMin || DEFAULT_TASK_MIN; });
+  const weekday = new Date(key + 'T00:00:00').getDay();
+  state.recurringTemplates.forEach(tpl => {
+    if(!tpl.active || !tpl.weekdays.includes(weekday)) return;
+    if(state.tasks.some(t => t.recurringTemplateId === tpl.id && t.date === key)) return;
+    mins += tpl.durationMin || DEFAULT_TASK_MIN;
+  });
+  return mins;
+}
+
+/* ---------- step 3 + finish ---------- */
+function ritualCommit(taskId){
+  const r = currentRitual();
+  if(!r) return;
+  const t = state.tasks.find(t => t.id === taskId);
+  r.ritual.commitment = r.ritual.commitment && r.ritual.commitment.task_id === taskId ? null : t ? { task_id:t.id, title:t.title } : null;
+  render();
+  saveRitual(r, 'ritual commit');
+}
+/* «ثبت هفته»: write step 2's days to the tasks, mark هوشواره's proposals by
+   what the user kept, and close the ritual. */
+async function finishRitual(){
+  const r = currentRitual();
+  if(!r || state.ritualSaving) return;
+  ensureRitualPlan(r);
+  state.ritualSaving = true;
+  render();
+  const changes = (r.replan && r.replan.changes) || [];
+  const writes = [];
+  Object.entries(r.ritual.plan).forEach(([id, date]) => {
+    const t = state.tasks.find(t => t.id === id);
+    if(!t || t.done) return;
+    const c = changes.find(c => c.task_id === id && changeStatus(c) === 'pending');
+    const patch = {};
+    if((t.date || '') !== date) patch.date = date || null;
+    // هوشواره's realistic duration comes along when its day was kept
+    if(c && (c.after.date || '') === date && c.after.duration_min !== c.before.duration_min && t.durationMin === c.before.duration_min) patch.duration_min = c.after.duration_min;
+    if(c) c.status = (c.after.date || '') === date ? 'accepted' : (c.before.date || '') === date ? 'rejected' : 'edited';
+    if(!Object.keys(patch).length) return;
+    const oldDate = t.date;
+    if('date' in patch) t.date = date;
+    if('duration_min' in patch) t.durationMin = patch.duration_min;
+    writes.push(sb.from('tasks').update(patch).eq('id', id).then(res => {
+      if(!res.error && 'date' in patch) logTaskDateChange(id, oldDate, date);
+      return res;
+    }));
+  });
+  // proposals for tasks that left the list (done, shelved, deleted) are simply decided
+  changes.forEach(c => { if(changeStatus(c) === 'pending') c.status = 'skipped'; });
+  r.ritual.step = RITUAL_STEPS;
+  r.completedAt = new Date().toISOString();
+  const failed = (await Promise.all(writes)).find(res => res.error);
+  state.ritualSaving = false;
+  render();
+  if(failed) writeFailed('finishRitual', failed.error);
+  const { error } = await sb.from('ai_reports').update({ ritual:r.ritual, replan:r.replan, completed_at:r.completedAt }).eq('id', r.id);
+  if(error) return writeFailed('finishRitual save', error);
+  showInfoToast('هفته چیده شد');
+}
+/* Opening the review page reads it: the nav dot and the «تازه» notice go. */
 function markAIReportsSeen(){
   const unseen = state.aiReports.filter(r => !r.seenAt);
   if(!unseen.length) return;
   const now = new Date().toISOString();
   unseen.forEach(r => { r.seenAt = now; });
-  state.aiReportFreshIds = [...new Set([...state.aiReportFreshIds, ...unseen.map(r => r.id)])];
   sb.from('ai_reports').update({ seen_at: now }).in('id', unseen.map(r => r.id))
     .then(({ error }) => { if(error) writeFailed('mark ai reports seen', error); });
-}
-function setAIReportRange(range){ state.aiReportRange = range; render(); }
-function setAIReportCustom(which, value){
-  state.aiReportRange = 'custom';
-  if(which === 'from') state.aiReportFrom = value; else state.aiReportTo = value;
-  render();
-}
-function toggleAIReport(id){ state.aiReportOpen[id] = !state.aiReportOpen[id]; render(); }
-function filteredAIReports(){
-  const range = state.aiReportRange;
-  if(range === '30' || range === '90'){
-    const from = new Date();
-    from.setDate(from.getDate() - Number(range));
-    const fromKey = dateKey(from);
-    return state.aiReports.filter(r => r.periodEnd >= fromKey);
-  }
-  if(range === 'custom'){
-    // a report counts if its period overlaps the chosen range
-    return state.aiReports.filter(r =>
-      (!state.aiReportFrom || r.periodEnd >= state.aiReportFrom) &&
-      (!state.aiReportTo || r.periodStart <= state.aiReportTo));
-  }
-  return state.aiReports;
 }
 /* ---------- هوشواره health ----------
    The edge functions record every AI call in ai_health. When the last one
@@ -5127,7 +5250,7 @@ async function sendTestPush(){
 const BACKUP_TABLE_LABELS = {
   tasks:'کارها', subtasks:'زیرکارها', tags:'تگ‌ها', recurring_templates:'کارهای تکراری',
   ideas:'ایده‌ها', idea_images:'عکس‌های ایده', wins:'دستاوردها', prompts:'پرامپت‌ها',
-  reminders:'یادآورها', subscriptions:'اشتراک‌ها', purchases:'خریدها', ai_reports:'گزارش‌های هوش مصنوعی',
+  reminders:'یادآورها', subscriptions:'اشتراک‌ها', purchases:'خریدها', ai_reports:'مرورهای هفته',
   tag_goals:'اهداف هفتگی', mother_care:'تنظیمات مادر', mother_care_items:'ملاحظه‌های مادر',
   home_repairs:'تعمیرات خونه', home_repair_parts:'قطعه‌های تعمیر', home_maintenance:'نگهداری دوره‌ای خونه',
   english_settings:'تنظیمات انگلیسی', english_homework:'تکلیف‌های انگلیسی', english_chunks:'تکه‌های تکلیف انگلیسی', english_practice:'روزهای تمرین انگلیسی',

@@ -14,7 +14,7 @@ import jalaali from "npm:jalaali-js@1.2.8";
      user JWT + {action:"publicKey"}     — the app asks for the VAPID public key before subscribing
      user JWT + {action:"test"}          — «ارسال اعلان آزمایشی»: the caller's digest right now
    The morning digest is up to four notifications, each with its own tag so one
-   doesn't bury another: dated items + today's tasks, «مادر», مرور هفتگی, پشتیبان.
+   doesn't bury another: dated items + today's tasks, «مادر», مرور هفته, پشتیبان.
    Only the first one makes a sound.
    The VAPID pair is generated here on first use and kept in private.cron_secrets
    (via init_vapid_keys), so the private key never exists anywhere else. */
@@ -111,6 +111,8 @@ function motherNote(care: any, items: any[], today: string): Payload | null {
 /* «تعمیرات خونه»: urgent repairs nag every morning until they're fixed; upkeep
    shows up from MAINT_LEAD_DAYS before it's due, alongside the reminders. */
 const MAINT_LEAD_DAYS = 7;
+// an unfinished مرور هفته is mentioned in the morning digest for this many days
+const REVIEW_NUDGE_DAYS = 3;
 function maintLabel(n: number): string {
   if (n < 0) return `${fa(-n)} روز از موعدش گذشته`;
   if (n === 0) return "موعدش امروزه";
@@ -325,9 +327,10 @@ async function digestFor(sb: SupabaseClient, uid: string): Promise<Payload[]> {
   const [rem, subs, tasks, backups, review, care, careItems, repairs, maint] = await Promise.all([
     sb.from("reminders").select("title, kind, date, lead_days").eq("user_id", uid).eq("done", false).is("migrated_task_id", null).neq("kind", "always").not("date", "is", null),
     sb.from("subscriptions").select("name, next_renewal, notify_days_before").eq("user_id", uid).eq("active", true).not("next_renewal", "is", null),
-    sb.from("tasks").select("id", { count: "exact", head: true }).eq("user_id", uid).eq("date", today).eq("done", false),
+    sb.from("tasks").select("id", { count: "exact", head: true }).eq("user_id", uid).eq("date", today).eq("done", false).is("shelved_at", null),
     sb.from("backups").select("kind, created_at").eq("user_id", uid).order("created_at", { ascending: true }),
-    sb.from("ai_reports").select("replan, replan_apply_after").eq("user_id", uid).gt("replan_apply_after", new Date().toISOString()),
+    sb.from("ai_reports").select("id").eq("user_id", uid).not("ritual", "is", null).is("completed_at", null)
+      .gt("created_at", new Date(Date.now() - REVIEW_NUDGE_DAYS * 86400_000).toISOString()).limit(1),
     sb.from("mother_care").select("remind_days, push").eq("user_id", uid).maybeSingle(),
     sb.from("mother_care_items").select("kind, body").eq("user_id", uid).order("created_at", { ascending: true }).order("id", { ascending: true }),
     sb.from("home_repairs").select("title").eq("user_id", uid).eq("urgency", "urgent").neq("status", "done").order("created_at", { ascending: true }),
@@ -363,16 +366,13 @@ async function digestFor(sb: SupabaseClient, uid: string): Promise<Payload[]> {
     }
   }
 
-  // مرور هفتگی still has undecided proposals — they auto-apply at replan_apply_after
+  // مرور هفته was prepared but not done yet — one quiet line the next mornings
   let reviewNote: Payload | null = null;
-  for (const r of review.data || []) {
-    const pending = (r.replan?.changes || []).filter((c: any) => c.status === "pending").length;
-    if (!pending) continue;
-    const hoursLeft = (Date.parse(r.replan_apply_after) - Date.now()) / 3600_000;
-    // same tag as generate-ai-report's «مرور هفتگی آماده‌ست», so this takes its place
+  if (!review.error && review.data?.length) {
+    // same tag as generate-ai-report's «مرور هفته آماده‌ست», so this takes its place
     reviewNote = {
-      title: `مرور هفتگی — ${fa(pending)} پیشنهاد منتظر تصمیمته`,
-      body: `${hoursLeft <= 24 ? "تا فردا" : "تا دو روز دیگه"} خودکار اعمال می‌شن.`,
+      title: "مدار — مرور هفته‌ت مونده",
+      body: "۵ دقیقه: هفته رو بچین و یه تعهد انتخاب کن.",
       tag: "medar-review",
       silent: true,
     };
@@ -527,7 +527,7 @@ Deno.serve(async (req: Request) => {
     if (cronSecret) {
       const { data: ok } = await sb.rpc("check_cron_secret", { s: cronSecret });
       if (!ok) return json({ error: "unauthorized" }, 401);
-      // generate-ai-report: «مرور هفتگی آماده‌ست» for one account
+      // generate-ai-report: «مرور هفته آماده‌ست» for one account
       if (action === "notify") {
         if (!body?.user_id || !body?.title) return json({ error: "user_id and title required" }, 400);
         return json(await sendTo(sb, body.user_id, { title: body.title, body: body.body || "", tag: body.tag || "medar-notify" }));

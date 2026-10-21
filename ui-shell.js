@@ -34,7 +34,7 @@ const NAV_GROUPS = [
   { label:'محتوا', items:[['ideas','ایده‌ها','lightbulb'], ['prompts','پرامپت‌ها','terminal']] },
   { label:'مالی', items:[['purchases','خریدها','cart-shopping'], ['subscriptions','اشتراک‌ها','credit-card']] },
   { label:'شخصی', items:[['wins','تونستم','trophy'], ['mother','مادر','heart'], ['repairs','تعمیرات','hammer']] },
-  { label:'سیستم', items:[['settings','تنظیمات','gear'], ['archive','آرشیو','box-archive'], ['ai-reports','گزارش هوشمند','wand-magic-sparkles']] },
+  { label:'سیستم', items:[['settings','تنظیمات','gear'], ['archive','آرشیو','box-archive'], ['ai-reports','مرور هفته','clipboard-check']] },
 ];
 // the active item's colours and icon tint, exactly as each reference page draws its own entry
 const NAV_ACTIVE = {
@@ -53,8 +53,7 @@ function navigateTo(view){
 }
 function navBadge(id){
   if(id === 'ai-reports'){
-    const waiting = state.aiReports.reduce((n, r) => n + reviewPending(r).length, 0);
-    if(waiting || state.aiReports.some(r => !r.seenAt)) return `<span class="mr-auto w-2 h-2 bg-indigo-500 rounded-full" title="گزارش یا پیشنهاد تازه"></span>`;
+    if(currentRitual()) return `<span class="mr-auto w-2 h-2 bg-indigo-500 rounded-full" title="مرور هفته منتظرته"></span>`;
   }
   if(id === 'settings' && backupOverdue()) return `<span class="mr-auto w-2 h-2 bg-rose-500 rounded-full" title="مدتیه پشتیبان دانلود نکردی"></span>`;
   return '';
@@ -95,7 +94,7 @@ function renderSidebar(){
    fill the sheet; «ویرایش» swaps any two by tapping one then the other. It is a
    per-phone layout preference, so it lives in localStorage like the today folds. */
 const ALL_TABS = NAV_GROUPS.flatMap(g => g.items);
-const TAB_SHORT = { calendar:'تقویم', 'ai-reports':'گزارش' }; // the bar is narrower than the sidebar
+const TAB_SHORT = { calendar:'تقویم', 'ai-reports':'مرور' }; // the bar is narrower than the sidebar
 const tabLabel = (id, label) => TAB_SHORT[id] || label;
 const BAR_SIZE = 4;
 const DEFAULT_TAB_ORDER = ['today','tasks','calendar','ai-reports', ...ALL_TABS.map(t => t[0]).filter(id => !['today','tasks','calendar','ai-reports'].includes(id))];
@@ -304,7 +303,7 @@ function renderAIHealthBanner({ dismissible = true } = {}){
         <div class="flex-1 min-w-0">
           <h3 class="text-sm font-black text-white mb-1">هوشواره متوقف شده</h3>
           <p class="text-xs text-slate-400 leading-relaxed">${esc(h.errorMessage || '')}</p>
-          <p class="text-[10px] text-slate-500 mt-2">مرور هفتگی و جمله‌ی روزانه تا اون موقع متوقفن.</p>
+          <p class="text-[10px] text-slate-500 mt-2">پیش‌نویس مرور هفته و برنامه‌ی انگلیسی تا اون موقع متوقفن.</p>
         </div>
         ${dismissible ? `<button type="button" onclick="dismissAIHealth()" aria-label="بستن" class="text-slate-500 hover:text-white transition-colors">${fa('xmark')}</button>` : ''}
       </div>
