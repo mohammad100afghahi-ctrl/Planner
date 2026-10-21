@@ -50,6 +50,14 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
 .prompt-card:active { transform: scale(0.98); }
 .pick-chip.on { color: #a5b4fc; background-color: rgb(99 102 241 / 0.2); border-color: rgb(99 102 241 / 0.1); }
 .dragging { opacity: .4; }
+/* «بخش‌ها» sheet: sits just above the tab bar; the list shows two rows (six
+   tabs) and scrolls for the rest — taller while rearranging */
+.tab-sheet { bottom: calc(env(safe-area-inset-bottom) + 100px); }
+.tab-sheet-enter { animation: tab-sheet-in .18s ease-out; }
+.tab-tile { height: 76px; }
+.tab-sheet-list { max-height: calc(76px * 2 + 8px); }
+.tab-sheet-list--edit { max-height: calc(76px * 3 + 16px); }
+@keyframes tab-sheet-in { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
 /* The phone reference is drawn with 8–11px labels, which are too small to read
    on a real phone; below the desktop breakpoint every text size (and the icons
    that inherit it) goes up a step. #app outranks tailwind.css, loaded after this. */

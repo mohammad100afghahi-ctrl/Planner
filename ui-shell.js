@@ -46,6 +46,8 @@ let resetScrollOnRender = false;
 function navigateTo(view){
   if(state.view !== view) resetScrollOnRender = true;
   state.moreMenuOpen = false;
+  state.tabEdit = false;
+  state.tabPick = null;
   if(!isDesk() && state.view !== view) window.scrollTo(0, 0);
   setView(view);
 }
@@ -86,38 +88,132 @@ function renderSidebar(){
       ${state.view === 'calendar' ? renderCalendarSidebarFooter() : ''}
     </aside>`;
 }
-const MOBILE_TABS = [['today','امروز','calendar-day'], ['tasks','تسک‌ها','list-check'], ['calendar','تقویم','calendar-days'], ['ai-reports','گزارش','wand-magic-sparkles']];
+/* ---------- phone tab bar ----------
+   Four tabs plus «بخش‌ها» in the middle, which opens a sheet with every other
+   section (no groups — the user asked for a flat list). The order is the
+   user's: one list of every view, the first four sit on the bar and the rest
+   fill the sheet; «ویرایش» swaps any two by tapping one then the other. It is a
+   per-phone layout preference, so it lives in localStorage like the today folds. */
+const ALL_TABS = NAV_GROUPS.flatMap(g => g.items);
+const TAB_SHORT = { calendar:'تقویم', 'ai-reports':'گزارش' }; // the bar is narrower than the sidebar
+const tabLabel = (id, label) => TAB_SHORT[id] || label;
+const BAR_SIZE = 4;
+const DEFAULT_TAB_ORDER = ['today','tasks','calendar','ai-reports', ...ALL_TABS.map(t => t[0]).filter(id => !['today','tasks','calendar','ai-reports'].includes(id))];
+const TAB_ORDER_KEY = 'medar-tab-order-v1';
+function tabOrder(){
+  let saved = [];
+  try{ saved = JSON.parse(localStorage.getItem(TAB_ORDER_KEY) || '[]') || []; }catch(_e){}
+  const known = new Set(ALL_TABS.map(t => t[0]));
+  const order = saved.filter((id, i) => known.has(id) && saved.indexOf(id) === i);
+  // views added after the order was saved go at the end of the sheet
+  DEFAULT_TAB_ORDER.forEach(id => { if(!order.includes(id)) order.push(id); });
+  return order;
+}
+const tabById = id => ALL_TABS.find(t => t[0] === id);
 function renderMobileNav(){
-  const inTabs = MOBILE_TABS.some(([id]) => id === state.view);
-  const tab = (id, label, ic, on, click) => `
-    <button type="button" onclick="${click}" class="flex flex-col items-center gap-1 ${on ? 'active-tab' : 'text-slate-500'}" ${on ? 'aria-current="page"' : ''}>
+  const order = tabOrder();
+  const bar = order.slice(0, BAR_SIZE).map(tabById);
+  const open = state.moreMenuOpen;
+  const inBar = bar.some(([id]) => id === state.view);
+  const hiddenBadge = order.slice(BAR_SIZE).some(id => navBadge(id));
+  const tab = ([id, label, ic]) => {
+    const on = state.view === id && !open;
+    return `
+    <button type="button" onclick="navigateTo('${id}')" class="flex-1 flex flex-col items-center gap-1 ${on ? 'active-tab' : 'text-slate-500'}" ${on ? 'aria-current="page"' : ''}>
       ${fa(ic, 'text-lg')}
-      <span class="text-[9px] ${on ? 'font-black' : 'font-bold'}">${label}</span>
+      <span class="text-[9px] ${on ? 'font-black' : 'font-bold'}">${tabLabel(id, label)}</span>
+    </button>`;
+  };
+  const hub = `
+    <button type="button" onclick="toggleMoreMenu()" aria-expanded="${open}" aria-label="بخش‌ها" class="flex-1 flex flex-col items-center gap-1 ${open || !inBar ? 'active-tab' : 'text-slate-500'}">
+      <span class="relative -mt-7 w-12 h-12 rounded-2xl flex items-center justify-center border transition-all ${open ? 'bg-slate-900 text-indigo-300 border-indigo-500/40' : 'bg-indigo-600 text-white border-indigo-400/30 shadow-lg shadow-indigo-950/80'}">
+        ${fa(open ? 'xmark' : 'grip', 'text-lg')}
+        ${hiddenBadge && !open ? '<span class="absolute -top-1 -left-1 w-2.5 h-2.5 rounded-full bg-rose-500 ring-2 ring-slate-950"></span>' : ''}
+      </span>
+      <span class="text-[9px] ${open || !inBar ? 'font-black' : 'font-bold'}">بخش‌ها</span>
     </button>`;
   return `
     <nav class="fixed bottom-0 left-0 right-0 bg-slate-950/90 backdrop-blur-xl border-t border-slate-800/50 pb-safe z-50">
       <div class="flex items-center justify-around h-20 px-2">
-        ${MOBILE_TABS.map(([id, label, ic]) => tab(id, label, ic, state.view === id && !state.moreMenuOpen, `navigateTo('${id}')`)).join('')}
-        ${tab('more', 'بیشتر', 'ellipsis', !inTabs || state.moreMenuOpen, 'toggleMoreMenu()')}
+        ${tab(bar[0])}${tab(bar[1])}${hub}${tab(bar[2])}${tab(bar[3])}
       </div>
     </nav>`;
 }
-function toggleMoreMenu(){ state.moreMenuOpen = !state.moreMenuOpen; render(); }
-/* «بیشتر» has no screen of its own in the reference; it opens the same groups
-   as the desktop sidebar, as a sheet above the bar. */
+function toggleMoreMenu(){
+  state.moreMenuOpen = !state.moreMenuOpen;
+  tabSheetEnter = state.moreMenuOpen;
+  state.tabEdit = false;
+  state.tabPick = null;
+  render();
+}
+// the slide-in plays when the sheet opens, not on every repaint while editing
+let tabSheetEnter = false;
+function toggleTabEdit(){ state.tabEdit = !state.tabEdit; state.tabPick = null; render(); }
+// edit mode: the first tap picks a tab, the second swaps the two places
+function pickTab(id){
+  if(!state.tabPick){ state.tabPick = id; render(); return; }
+  if(state.tabPick !== id){
+    const order = tabOrder();
+    const a = order.indexOf(state.tabPick), b = order.indexOf(id);
+    [order[a], order[b]] = [order[b], order[a]];
+    try{ localStorage.setItem(TAB_ORDER_KEY, JSON.stringify(order)); }catch(_e){}
+  }
+  state.tabPick = null;
+  render();
+}
+function resetTabOrder(){
+  try{ localStorage.removeItem(TAB_ORDER_KEY); }catch(_e){}
+  state.tabPick = null;
+  render();
+}
+// the little «more below» arrow goes once the list is scrolled to its end
+function tabSheetScrolled(el){
+  const hint = document.getElementById('tabSheetHint');
+  if(hint) hint.style.opacity = el.scrollTop + el.clientHeight >= el.scrollHeight - 4 ? '0' : '1';
+}
 function renderMoreMenu(){
+  const order = tabOrder();
+  const edit = state.tabEdit;
+  const enter = tabSheetEnter;
+  tabSheetEnter = false;
+  const tile = id => {
+    const [, label, ic] = tabById(id);
+    const picked = state.tabPick === id;
+    const cur = state.view === id;
+    const tone = picked ? 'bg-indigo-500/15 text-indigo-300 border-indigo-400 ring-2 ring-indigo-500/40'
+      : edit ? 'bg-slate-900 text-slate-300 border-dashed border-slate-700'
+      : cur ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20'
+      : 'bg-slate-900 text-slate-400 border-slate-800';
+    const dot = !edit && navBadge(id) ? `<span class="absolute top-2 left-2 w-2 h-2 rounded-full ${id === 'settings' ? 'bg-rose-500' : 'bg-indigo-500'}"></span>` : '';
+    return `
+      <button type="button" onclick="${edit ? `pickTab('${id}')` : `navigateTo('${id}')`}" ${picked ? 'aria-pressed="true"' : ''}
+        class="tab-tile relative flex flex-col items-center justify-center gap-1.5 rounded-2xl border transition-all active:scale-95 ${tone}">
+        ${fa(ic, 'text-base')}<span class="text-[10px] font-black leading-tight text-center px-1">${tabLabel(id, label)}</span>${dot}
+      </button>`;
+  };
+  const rest = order.slice(BAR_SIZE);
+  const body = edit ? `
+      <p class="text-[10px] font-bold text-slate-500 leading-relaxed mb-3">${state.tabPick ? 'حالا جایی که می‌خوای ببریش رو بزن — جای این دو تا عوض می‌شه.' : 'یه تب رو بزن، بعد جای مقصدش رو. این‌جوری می‌تونی تب‌های نوار پایین رو هم با بقیه عوض کنی.'}</p>
+      <p class="text-[10px] font-black text-slate-600 mb-2 px-1">نوار پایین</p>
+      <div class="grid grid-cols-4 gap-2 mb-4">${order.slice(0, BAR_SIZE).map(tile).join('')}</div>
+      <p class="text-[10px] font-black text-slate-600 mb-2 px-1">داخل بخش‌ها</p>
+      <div class="tab-sheet-list tab-sheet-list--edit overflow-y-auto no-scrollbar"><div class="grid grid-cols-3 gap-2">${rest.map(tile).join('')}</div></div>
+      <div class="flex gap-2 mt-4">
+        <button type="button" onclick="resetTabOrder()" class="flex-1 py-3 bg-slate-900 border border-slate-800 rounded-2xl text-xs font-black text-slate-400">${fa('rotate-left', 'ml-1')} چیدمان پیش‌فرض</button>
+        <button type="button" onclick="toggleTabEdit()" class="flex-1 py-3 bg-indigo-600 rounded-2xl text-xs font-black text-white shadow-lg shadow-indigo-950/60">تمام</button>
+      </div>` : `
+      <div class="relative">
+        <div class="tab-sheet-list overflow-y-auto no-scrollbar" onscroll="tabSheetScrolled(this)"><div class="grid grid-cols-3 gap-2">${rest.map(tile).join('')}</div></div>
+        ${rest.length > 6 ? `<div id="tabSheetHint" class="pointer-events-none absolute -bottom-3 inset-x-0 flex justify-center text-slate-600 transition-opacity">${fa('chevron-down', 'text-[10px]')}</div>` : ''}
+      </div>`;
   return `
     <div class="modal-overlay fixed inset-0 z-40 bg-slate-950/70 backdrop-blur-sm" onclick="if(event.target===this) toggleMoreMenu()">
-      <div class="absolute inset-x-0 bottom-20 bg-slate-950 border-t border-slate-800 rounded-t-3xl p-5 max-h-[75vh] overflow-y-auto no-scrollbar">
-        ${NAV_GROUPS.map(g => `
-          <p class="text-[10px] font-black text-slate-600 mb-3 mt-1 px-1 uppercase tracking-widest">${g.label}</p>
-          <div class="grid grid-cols-3 gap-2 mb-5">
-            ${g.items.map(([id, label, ic]) => `
-              <button type="button" onclick="navigateTo('${id}')" class="relative flex flex-col items-center gap-2 p-3 rounded-2xl border ${state.view === id ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' : 'bg-slate-900 text-slate-400 border-slate-800'}">
-                ${fa(ic, 'text-lg')}<span class="text-[10px] font-black">${label}</span>
-                ${navBadge(id) ? `<span class="absolute top-2 left-2 w-2 h-2 rounded-full ${id === 'settings' ? 'bg-rose-500' : 'bg-indigo-500'}"></span>` : ''}
-              </button>`).join('')}
-          </div>`).join('')}
+      <div role="dialog" aria-label="بخش‌ها" class="tab-sheet ${enter ? 'tab-sheet-enter' : ''} absolute inset-x-3 bg-slate-950 border border-slate-800 rounded-3xl p-4 shadow-2xl shadow-black/60">
+        <div class="flex items-center justify-between mb-3 px-1">
+          <h2 class="text-sm font-black text-white">${edit ? 'چیدمان تب‌ها' : 'بخش‌ها'}</h2>
+          ${edit ? '' : `<button type="button" onclick="toggleTabEdit()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-[10px] font-black text-slate-400 active:scale-95">${fa('pen', 'text-[9px]')} ویرایش</button>`}
+        </div>
+        ${body}
       </div>
     </div>`;
 }
@@ -169,6 +265,7 @@ function deskFab(onclick, tone = 'indigo', label = 'افزودن'){
   return `<button type="button" onclick="${onclick}" aria-label="${label}" class="fixed bottom-10 left-10 w-14 h-14 ${FAB_TONES[tone]} rounded-2xl shadow-2xl flex items-center justify-center transition-all transform hover:-translate-y-1 active:scale-95 group z-50">${fa('plus', 'text-xl transition-transform group-hover:rotate-90')}</button>`;
 }
 function mobFab(onclick, label = 'افزودن'){
+  if(state.moreMenuOpen) return ''; // it would float over the «بخش‌ها» sheet
   return `<button type="button" onclick="${onclick}" aria-label="${label}" class="fixed bottom-24 left-6 w-14 h-14 bg-indigo-600 text-white rounded-2xl shadow-2xl shadow-indigo-950/80 flex items-center justify-center z-50 active:scale-90 transition-transform">${fa('plus', 'text-xl')}</button>`;
 }
 function mobHeader(left, right = '', cls = 'px-4 py-4 flex items-center justify-between'){

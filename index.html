@@ -770,7 +770,8 @@ let state = {
   englishPlanning: null, // the homework id هوشواره is cutting into chunks right now
   aiHealth: null, // { errorKind, errorMessage, errorAt, okAt } — did هوشواره's last AI call work?
   userEmail: '', // the signed-in account, shown in the header
-  moreMenuOpen: false, // phone: the «بیشتر» sheet with every section
+  moreMenuOpen: false, // phone: the «بخش‌ها» sheet with every tab not on the bar
+  tabEdit: false, tabPick: null, // rearranging the bar/sheet tabs: edit mode, and the tab tapped first
   quickAddTitle: '', // امروز: the one-line «افزودن تسک سریع» field
   tasksTab: 'all', // 'all' | 'normal' | 'important' | 'recurring' | 'undated'
   tasksSearch: '', tasksSearchOpen: false,
