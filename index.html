@@ -4947,7 +4947,7 @@ function resetArchiveFilters(){ state.archiveFilters = { search:'', tagIds:[], d
 /* ---------- nav / render ---------- */
 function setView(v){
   if(v === 'reminders') v = 'tasks';
-  if(v === 'settings' && state.view !== 'settings') state.tagManagerOpen = true;
+  if(v === 'settings' && state.view !== 'settings') state.tagManagerOpen = false; // the phone's tag list starts folded
   if(v !== state.view && !viewGoingBack){
     viewHistory.push(state.view);
     if(viewHistory.length > 30) viewHistory.shift();
