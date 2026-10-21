@@ -1,5 +1,11 @@
 /* ---------- مدار UI: امروز ----------
    Desktop: reference Q7pbgNwfW4q7j5PTzn9i. Phone: reference s02MoXt3u4YjAnSUS5zz. */
+/* filters and sort live in one panel, so they get one button; it lights up
+   with the count of active choices (filterActiveCount includes a non-default sort) */
+function todayFilterButton(d, iconSize){
+  const on = d.filterCount || state.filterPanelOpen.todayFilters;
+  return `<button type="button" onclick="toggleFilterPanel('todayFilters')" title="فیلتر و ترتیب" aria-label="فیلتر و ترتیب" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[10px] font-black transition-colors ${on ? 'bg-indigo-500/10 border-indigo-500/20 text-indigo-400' : 'bg-slate-900 border-slate-800 text-slate-500 hover:text-white'}">${fa('sliders', iconSize)}<span>فیلتر و ترتیب</span>${d.filterCount ? `<span>${fd(d.filterCount)}</span>` : ''}</button>`;
+}
 function todayData(){
   const todayStr = dateKey(state.today);
   /* Today's own tasks, plus any overdue task from a past day — an overdue task
@@ -388,8 +394,7 @@ function renderTodayDesktop(){
             <div class="flex items-center justify-between mb-4">
               <h3 class="text-sm font-black text-white uppercase tracking-widest">برنامه امروز</h3>
               <div class="flex items-center gap-2">
-                <button type="button" onclick="toggleFilterPanel('todayFilters')" title="فیلتر" aria-label="فیلتر" class="p-2 ${d.filterCount || state.filterPanelOpen.todayFilters ? 'text-indigo-400' : 'text-slate-600'} hover:text-white transition-colors">${fa('filter', 'text-xs')}${d.filterCount ? `<span class="text-[9px] font-black mr-1">${fd(d.filterCount)}</span>` : ''}</button>
-                <button type="button" onclick="toggleFilterPanel('todayFilters')" title="مرتب‌سازی" aria-label="مرتب‌سازی" class="p-2 ${state.todayFilters.sortBy !== 'default' ? 'text-indigo-400' : 'text-slate-600'} hover:text-white transition-colors">${fa('arrow-down-wide-short', 'text-xs')}</button>
+                ${todayFilterButton(d, 'text-xs')}
                 <button type="button" onclick="window.print()" title="چاپ کارهای امروز" aria-label="چاپ" class="p-2 text-slate-600 hover:text-white transition-colors">${fa('print', 'text-xs')}</button>
               </div>
             </div>
@@ -503,8 +508,7 @@ function renderTodayMobile(){
           <div class="flex items-center justify-between mb-3 px-1">
             <h3 class="text-xs font-black text-white uppercase tracking-widest">برنامه امروز</h3>
             <div class="flex items-center gap-1">
-              <button type="button" onclick="toggleFilterPanel('todayFilters')" aria-label="فیلتر" class="p-2 ${d.filterCount ? 'text-indigo-400' : 'text-slate-500'}">${fa('filter', 'text-[10px]')}</button>
-              <button type="button" onclick="toggleFilterPanel('todayFilters')" aria-label="مرتب‌سازی" class="p-2 ${state.todayFilters.sortBy !== 'default' ? 'text-indigo-400' : 'text-slate-500'}">${fa('arrow-down-wide-short', 'text-[10px]')}</button>
+              ${todayFilterButton(d, 'text-[10px]')}
             </div>
           </div>
           ${todayFilterPanel()}
