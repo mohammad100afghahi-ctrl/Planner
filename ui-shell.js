@@ -126,8 +126,8 @@ function renderMobileNav(){
   };
   const hub = `
     <button type="button" onclick="toggleMoreMenu()" aria-expanded="${open}" aria-label="بخش‌ها" class="flex-1 flex flex-col items-center gap-1 ${open || !inBar ? 'active-tab' : 'text-slate-500'}">
-      <span class="relative -mt-7 w-12 h-12 rounded-2xl flex items-center justify-center border transition-all ${open ? 'bg-slate-900 text-indigo-300 border-indigo-500/40' : 'bg-indigo-600 text-white border-indigo-400/30 shadow-lg shadow-indigo-950/80'}">
-        ${fa(open ? 'xmark' : 'grip', 'text-lg')}
+      <span class="relative w-10 h-10 rounded-xl flex items-center justify-center border transition-all ${open ? 'bg-slate-900 text-indigo-300 border-indigo-500/40' : 'bg-indigo-600 text-white border-indigo-400/30 shadow-lg shadow-indigo-950/80'}">
+        ${fa(open ? 'xmark' : 'grip', 'text-base')}
         ${hiddenBadge && !open ? '<span class="absolute -top-1 -left-1 w-2.5 h-2.5 rounded-full bg-rose-500 ring-2 ring-slate-950"></span>' : ''}
       </span>
       <span class="text-[9px] ${open || !inBar ? 'font-black' : 'font-bold'}">بخش‌ها</span>
