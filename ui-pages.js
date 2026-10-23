@@ -71,6 +71,22 @@ function englishHwForm(mob){
       ${!s.classDays.length ? `<p class="text-[10px] text-slate-500">روزهای کلاست رو انتخاب کن تا مهلت هر تکلیف خودکار «جلسه‌ی بعد» بشه و بعد از کلاس یادت بندازم.</p>` : ''}
     </div>`;
 }
+function renderEnglishHwEditorModal(){
+  const ed = state.enHwEditor;
+  const due = enDueChoices();
+  if(!due.some(([k]) => k === ed.dueOn)) due.unshift([ed.dueOn, enDayLabel(ed.dueOn)]);
+  return renderEditorFrame({ title:'ویرایش تکلیف', onClose:'closeEnglishHwEditor()', onSave:'confirmEnglishHwEditor()', onDelete:`const id=state.enHwEditor.hwId; closeEnglishHwEditor(); deleteEnglishHomework(id)`,
+    body:`
+      ${field('متن تکلیف', `<textarea dir="auto" placeholder="متن تکلیف…" oninput="state.enHwEditor.title=this.value" class="${textareaCls()}">${esc(ed.title)}</textarea>`)}
+      ${field('یونیت / درس', `<input type="text" dir="auto" value="${ea(ed.unit)}" oninput="state.enHwEditor.unit=this.value" class="${inputCls}">`)}
+      ${field('مهلت', chipBox(due.map(([k, label]) => choiceChip(label, ed.dueOn === k, `state.enHwEditor.dueOn='${k}'; render()`)).join('')) + `<p class="text-[10px] text-slate-500 leading-relaxed px-1">روز تکه‌ها با عوض کردن مهلت جابه‌جا نمی‌شه.</p>`)}
+      ${ed.chunks.length ? field('تکه‌ها', `<div class="space-y-2">${ed.chunks.map((c, i) => `
+        <div class="flex items-center gap-3 bg-slate-900/50 border border-slate-800 p-3 rounded-xl ${c.done ? 'opacity-60' : ''}">
+          <input type="text" dir="auto" value="${ea(c.title)}" oninput="state.enHwEditor.chunks[${i}].title=this.value" aria-label="عنوان تکه" class="flex-1 min-w-0 bg-transparent text-xs text-slate-300 focus:outline-none">
+          <span class="flex items-center gap-1 text-[10px] font-bold text-slate-500 shrink-0"><input type="text" inputmode="numeric" value="${ea(c.minutes)}" oninput="state.enHwEditor.chunks[${i}].minutes=normalizeNumericInput(this)" aria-label="دقیقه" class="w-10 bg-slate-950 border border-slate-800 rounded-lg px-1 py-0.5 text-center text-slate-200"> دقیقه</span>
+        </div>`).join('')}</div>`) : ''}`,
+  });
+}
 const enSkipChips = c => `<div class="flex items-center gap-1.5 flex-wrap mt-3"><span class="text-[9px] font-bold text-rose-400">چرا نشد؟</span>${Object.keys(EN_SKIP_REASONS).map(k => `<button type="button" onclick="skipEnglishChunk('${c.id}','${k}')" class="px-2 py-0.5 bg-slate-800 text-slate-400 rounded-md text-[9px] font-bold border border-slate-700 hover:text-white">${EN_SKIP_REASONS[k]}</button>`).join('')}</div>`;
 function enChunkCard(c, i, n){
   const today = dateKey(new Date());
@@ -217,6 +233,7 @@ function renderEnglishDesktop(){
             <h3 class="text-sm font-black text-white uppercase tracking-widest">تکه تمرین‌های پیشنهادی (Chunks)</h3>
             <div class="flex items-center gap-3">
               <span class="text-[10px] font-bold text-slate-500" dir="auto">بر اساس تکلیف: "${esc(h.title)}"${h.unit ? ` · ${esc(h.unit)}` : ''} · <span class="${daysUntil(h.dueOn) < 0 ? 'text-rose-400' : ''}">${enDueLabel(h)}</span></span>
+              ${planning ? '' : `<button type="button" onclick="openEnglishHwEditor('${h.id}')" title="ویرایش" aria-label="ویرایش تکلیف" class="text-slate-600 hover:text-white transition-colors">${fa('pen', 'text-[10px]')}</button>`}
               ${planning ? '' : `<button type="button" onclick="deleteEnglishHomework('${h.id}')" title="حذف تکلیف" aria-label="حذف تکلیف" class="text-slate-600 hover:text-rose-500 transition-colors">${fa('trash', 'text-[10px]')}</button>`}
             </div>
           </div>
@@ -242,6 +259,7 @@ function renderEnglishDesktop(){
                   </div>
                   <div class="flex items-center gap-1">
                     <button type="button" onclick="enToggleDone('${h.id}')" aria-label="جزئیات" class="reveal opacity-0 group-hover:opacity-100 p-2 text-slate-600 hover:text-white transition-all">${fa(open ? 'eye-slash' : 'eye', 'text-xs')}</button>
+                    <button type="button" onclick="openEnglishHwEditor('${h.id}')" title="ویرایش" aria-label="ویرایش" class="reveal opacity-0 group-hover:opacity-100 p-2 text-slate-600 hover:text-white transition-all">${fa('pen', 'text-xs')}</button>
                     <button type="button" onclick="deleteEnglishHomework('${h.id}')" aria-label="حذف" class="reveal opacity-0 group-hover:opacity-100 p-2 text-slate-600 hover:text-rose-500 transition-all">${fa('trash', 'text-xs')}</button>
                   </div>
                 </div>
@@ -315,7 +333,7 @@ function renderEnglishMobile(){
                 <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
                   <div class="mb-4 flex items-start justify-between gap-3">
                     <div><h4 class="text-xs font-bold text-slate-200 mb-1" dir="auto">${esc(h.title)}</h4><p class="text-[10px] text-slate-500 leading-relaxed">${h.unit ? `${esc(h.unit)} · ` : ''}${enDueLabel(h)}</p></div>
-                    ${state.englishPlanning === h.id ? '' : `<button type="button" onclick="deleteEnglishHomework('${h.id}')" aria-label="حذف تکلیف" class="text-slate-600 p-1">${fa('trash-can', 'text-[10px]')}</button>`}
+                    ${state.englishPlanning === h.id ? '' : `<div class="flex items-center gap-1 shrink-0"><button type="button" onclick="openEnglishHwEditor('${h.id}')" aria-label="ویرایش تکلیف" class="text-slate-600 p-1">${fa('pen', 'text-[10px]')}</button><button type="button" onclick="deleteEnglishHomework('${h.id}')" aria-label="حذف تکلیف" class="text-slate-600 p-1">${fa('trash-can', 'text-[10px]')}</button></div>`}
                   </div>
                   ${state.englishPlanning === h.id ? `<p class="text-[11px] font-bold text-amber-400">${fa('wand-magic-sparkles', 'ml-1')} هوشواره داره خردش می‌کنه…</p>` : `<div class="space-y-3">${ch.map(chunkRow).join('')}</div>`}
                 </div>`;
@@ -352,7 +370,7 @@ function renderEnglishMobile(){
         ${doneHw.length ? `
           <section>
             <button type="button" onclick="state.enDoneListOpen=!state.enDoneListOpen; render()" class="flex items-center gap-2 text-slate-600 mb-4">${fa(state.enDoneListOpen ? 'chevron-down' : 'chevron-left', 'text-[10px]')}<span class="text-[10px] font-black uppercase tracking-widest">تکالیف انجام شده (${fd(doneHw.length)})</span></button>
-            ${state.enDoneListOpen ? `<div class="space-y-2">${doneHw.map(h => `<div class="bg-slate-950 p-4 rounded-2xl border border-slate-800 flex items-center justify-between gap-3"><div class="flex items-center gap-3">${fa('circle-check', 'text-emerald-500 text-xs')}<span class="text-xs font-bold text-slate-400" dir="auto">${esc(h.title)}</span></div><button type="button" onclick="deleteEnglishHomework('${h.id}')" aria-label="حذف" class="text-slate-600">${fa('trash-can', 'text-[10px]')}</button></div>`).join('')}</div>` : ''}
+            ${state.enDoneListOpen ? `<div class="space-y-2">${doneHw.map(h => `<div class="bg-slate-950 p-4 rounded-2xl border border-slate-800 flex items-center justify-between gap-3"><div class="flex items-center gap-3">${fa('circle-check', 'text-emerald-500 text-xs')}<span class="text-xs font-bold text-slate-400" dir="auto">${esc(h.title)}</span></div><div class="flex items-center gap-3 shrink-0"><button type="button" onclick="openEnglishHwEditor('${h.id}')" aria-label="ویرایش" class="text-slate-600">${fa('pen', 'text-[10px]')}</button><button type="button" onclick="deleteEnglishHomework('${h.id}')" aria-label="حذف" class="text-slate-600">${fa('trash-can', 'text-[10px]')}</button></div></div>`).join('')}</div>` : ''}
           </section>` : ''}`}
       </div>
     </main>`;

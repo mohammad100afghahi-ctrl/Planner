@@ -767,6 +767,7 @@ let state = {
   englishTab: 'hw', // 'hw' | 'done' | 'stats' | 'settings'
   newHomework: { title:'', unit:'', dueOn:'' },
   englishPlanning: null, // the homework id هوشواره is cutting into chunks right now
+  enHwEditor: null, // { hwId, title, unit, dueOn, chunks:[{ id, title, minutes, done }] } while editing a homework
   aiHealth: null, // { errorKind, errorMessage, errorAt, okAt } — did هوشواره's last AI call work?
   userEmail: '', // the signed-in account, shown in the header
   moreMenuOpen: false, // phone: the «بخش‌ها» sheet with every tab not on the bar
@@ -4917,6 +4918,48 @@ async function toggleEnglishMin(){
       rollback: () => { state.englishPractice = state.englishPractice.filter(p => p !== row); },
     });
   }
+}
+/* «ویرایش تکلیف»: the homework's own line, unit and deadline, plus the title
+   and minutes of each of its chunks. The chunks keep their days — moving the
+   deadline doesn't re-plan them. */
+function openEnglishHwEditor(id){
+  const h = state.englishHomework.find(x => x.id === id);
+  if(!h || state.englishPlanning === id) return;
+  state.enHwEditor = {
+    hwId:h.id, title:h.title, unit:h.unit, dueOn:h.dueOn,
+    chunks: enChunksOf(id).map(c => ({ id:c.id, title:c.title, minutes:String(c.minutes), done:c.done })),
+  };
+  render();
+}
+function closeEnglishHwEditor(){ state.enHwEditor = null; render(); }
+async function confirmEnglishHwEditor(){
+  const ed = state.enHwEditor;
+  if(!ed || !ed.title.trim()) return;
+  state.enHwEditor = null;
+  const h = state.englishHomework.find(x => x.id === ed.hwId);
+  if(!h){ render(); return; }
+  const before = { title:h.title, unit:h.unit, dueOn:h.dueOn };
+  Object.assign(h, { title:ed.title.trim(), unit:ed.unit.trim(), dueOn:ed.dueOn });
+  const edits = ed.chunks.map(e => {
+    const c = state.englishChunks.find(x => x.id === e.id);
+    if(!c) return null;
+    const title = e.title.trim() || c.title;
+    const minutes = Math.min(120, Math.max(1, parseInt(e.minutes, 10) || c.minutes));
+    return title === c.title && minutes === c.minutes ? null : { c, title, minutes, before:{ title:c.title, minutes:c.minutes } };
+  }).filter(Boolean);
+  edits.forEach(x => Object.assign(x.c, { title:x.title, minutes:x.minutes }));
+  render();
+  const hwChanged = before.title !== h.title || before.unit !== h.unit || before.dueOn !== h.dueOn;
+  await Promise.all([
+    hwChanged && persist(sb.from('english_homework').update({ title:h.title, unit:h.unit, due_on:h.dueOn }).eq('id', h.id), {
+      message: 'تغییرات تکلیف ذخیره نشد — اینترنتت رو چک کن و دوباره امتحان کن.',
+      rollback: () => { Object.assign(h, before); },
+    }),
+    ...edits.map(x => persist(sb.from('english_chunks').update({ title:x.title, minutes:x.minutes }).eq('id', x.c.id), {
+      message: 'تغییرات تکه‌ها ذخیره نشد — اینترنتت رو چک کن و دوباره امتحان کن.',
+      rollback: () => { Object.assign(x.c, x.before); },
+    })),
+  ]);
 }
 const pendingEnglishDeleteTimers = {}; // homework / chunk id -> timeoutId, while the undo window is open
 function deleteEnglishHomework(id){
