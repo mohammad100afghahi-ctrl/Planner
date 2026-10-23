@@ -3073,6 +3073,28 @@ function currentRitual(){
   return r && !r.completedAt ? r : null;
 }
 function lastDoneRitual(){ return rituals().find(r => r.completedAt) || null; }
+/* «انصراف» on step 0: backs out of a ritual started by mistake, so the last
+   finished one shows again. Deferred like every other delete, for واگرد. */
+const pendingRitualDeleteTimers = {};
+function cancelRitual(){
+  const r = currentRitual();
+  if(!r) return;
+  const idx = state.aiReports.indexOf(r);
+  state.aiReports.splice(idx, 1);
+  state.ritualOpenTask = null;
+  showUndoToast('مرور کنار گذاشته شد', () => {
+    clearTimeout(pendingRitualDeleteTimers[r.id]);
+    delete pendingRitualDeleteTimers[r.id];
+    state.aiReports.splice(idx, 0, r);
+    render();
+  });
+  render();
+  pendingRitualDeleteTimers[r.id] = setTimeout(async () => {
+    delete pendingRitualDeleteTimers[r.id];
+    const { error } = await sb.from('ai_reports').delete().eq('id', r.id);
+    if(error) writeFailed('cancelRitual', error);
+  }, 5000);
+}
 /* The commitment from the latest finished ritual, pinned on امروز until the
    next one is done (or a week and a bit has passed). */
 function weeklyCommitment(){

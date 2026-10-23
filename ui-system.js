@@ -441,7 +441,8 @@ function ritualNav(step, mob){
   const last = step === RITUAL_STEPS - 1;
   return `
     <div class="flex items-center gap-2">
-      ${step > 0 ? `<button type="button" onclick="ritualGo(${step - 1})" class="px-4 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-[10px] font-black border border-slate-700 transition-all">${fa('arrow-right', 'ml-1')}قبلی</button>` : ''}
+      ${step > 0 ? `<button type="button" onclick="ritualGo(${step - 1})" class="px-4 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-[10px] font-black border border-slate-700 transition-all">${fa('arrow-right', 'ml-1')}قبلی</button>`
+        : `<button type="button" onclick="cancelRitual()" class="px-4 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-[10px] font-black border border-slate-700 transition-all">${fa('xmark', 'ml-1')}انصراف</button>`}
       ${last
         ? `<button type="button" onclick="finishRitual()" ${state.ritualSaving ? 'disabled' : ''} class="flex-1 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-[10px] font-black shadow-lg shadow-indigo-900/20 transition-all disabled:opacity-60">${fa('check', 'ml-1')}${state.ritualSaving ? 'در حال ثبت…' : 'ثبت هفته'}</button>`
         : `<button type="button" onclick="ritualGo(${step + 1})" class="flex-1 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-[10px] font-black shadow-lg shadow-indigo-900/20 transition-all">بعدی${fa('arrow-left', 'mr-1')}</button>`}
