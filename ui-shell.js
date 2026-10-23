@@ -509,6 +509,7 @@ function renderOverlays(){
     state.repairEditor ? renderRepairEditorModal() : '',
     state.newRepairOpen ? renderNewRepairModal() : '',
     state.maintEditor ? renderMaintEditorModal() : '',
+    state.enHwEditor ? renderEnglishHwEditorModal() : '',
     state.repairDoneModal ? renderRepairDoneModal() : '',
     state.moveTaskPicker ? renderMoveTaskPicker() : '',
     state.restorePreview && !(state.view === 'settings') ? renderRestoreModal() : '',

@@ -95,3 +95,6 @@ Read current files rather than assuming stored notes remain current. Reconcile u
 - Task editor: under the date, «X از ظرفیت معمولت (Y)», red when the day is over capacity.
 - send-push (deployed v14): digest skips shelved tasks; «مرور هفته‌ت مونده» for 3 days while a ritual is unfinished. tailwind.css rebuilt. sw.js cache v68. Harness fixture has a ritual row, stuck tasks and a shelved task.
 - 2026-10-23: مرور هفته step 1 has «انصراف» (cancelRitual): backs out of a ritual started by mistake (e.g. «شروع مرور الان» tapped right after finishing), deferred delete of that ai_reports row with واگرد, so the last finished ritual shows again. The accidental duplicate from 2026-10-23 17:30 UTC was deleted by hand. sw.js cache v69.
+
+## 2026-10-23 — انگلیسی: «ویرایش تکلیف» (Claude)
+- Every homework (open and done, phone and desktop) has a pen button that opens «ویرایش تکلیف» (renderEditorFrame; state.enHwEditor; openEnglishHwEditor / confirmEnglishHwEditor): the homework's text, unit, deadline (the next class chips, plus its current date), and each chunk's title and minutes (1–120). Only changed rows are written. Chunk days don't move when the deadline changes. Delete from the editor goes through deleteEnglishHomework (with واگرد). sw.js cache v70.
