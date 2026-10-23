@@ -562,27 +562,42 @@ function renderStreakPanel(){
       <div class="flex items-center justify-between text-[10px] font-bold text-slate-400 mb-2"><span>${title}</span><span>${right}</span></div>
       <div class="w-full bg-slate-900 h-1.5 rounded-full overflow-hidden"><div class="${tone} h-full rounded-full" style="width:${Math.max(2, pct)}%"></div></div>
     </div>`;
-  // the last weeks, one column per week (شنبه on top), oldest on the right
+  // the last weeks as a calendar (شنبه..جمعه across, newest week at the bottom);
+  // the arrows page back STREAK_MAP_WEEKS at a time, no further than the first completion
   const todayKey = dateKey(new Date());
+  const page = state.streakPage || 0;
   const c = new Date(); c.setHours(12, 0, 0, 0);
-  c.setDate(c.getDate() - ((c.getDay() + 1) % 7) - (STREAK_MAP_WEEKS - 1) * 7);
-  const CELL = { l1:'bg-amber-500/30', l2:'bg-amber-500/60', l3:'bg-amber-500', frozen:'bg-sky-400/40', miss:'bg-rose-500/30', out:'bg-slate-900/40', '':'bg-slate-800' };
-  let cols = '';
-  for(let w = 0; w < STREAK_MAP_WEEKS; w++){
-    let month = '', col = '';
-    for(let i = 0; i < 7; i++, c.setDate(c.getDate() + 1)){
-      const key = dateKey(c);
-      const [, jm, jd] = gregorianToJalali(c.getFullYear(), c.getMonth() + 1, c.getDate());
-      if(jd === 1) month = MONTHS_JALALI[jm - 1];
-      const n = doneCounts.get(key) || 0;
-      const cls = key > todayKey || !sk.first || key < sk.first ? 'out' : n ? (n >= 4 ? 'l3' : n >= 2 ? 'l2' : 'l1') : sk.log.get(key) || '';
-      const label = n ? `${fd(n)} کار` : cls === 'frozen' ? 'فریز' : cls === 'miss' ? 'جا افتاد' : '';
-      col += `<span class="w-3 h-3 rounded-sm ${CELL[cls]} ${key === todayKey ? 'ring-1 ring-white/70' : ''}" title="${formatDateShort(key)}${label ? ' — ' + label : ''}"></span>`;
-    }
-    cols += `<div class="flex flex-col gap-1"><span class="h-3 text-[8px] text-slate-600 font-bold whitespace-nowrap">${month}</span>${col}</div>`;
+  c.setDate(c.getDate() - (c.getDay() + 1) % 7 - ((page + 1) * STREAK_MAP_WEEKS - 1) * 7);
+  const canPrev = !!sk.first && dateKey(c) > sk.first;
+  const canNext = page > 0;
+  const CELL = {
+    done:'bg-amber-500 text-slate-950 font-black',
+    frozen:'bg-sky-500/15 text-sky-300 border border-sky-500/30 font-bold',
+    miss:'bg-rose-500/10 text-rose-400/80 border border-rose-500/30 font-bold',
+    open:'bg-slate-800/50 border border-slate-700 text-slate-200 font-bold',
+    out:'text-slate-700 font-bold',
+  };
+  const tally = { done:0, frozen:0, miss:0 };
+  const rangeFrom = dateKey(c);
+  const cells = [];
+  for(let i = 0; i < STREAK_MAP_WEEKS * 7; i++, c.setDate(c.getDate() + 1)){
+    const key = dateKey(c);
+    if(key > todayKey){ cells.push('<span class="aspect-square"></span>'); continue; }
+    const [, jm, jd] = gregorianToJalali(c.getFullYear(), c.getMonth() + 1, c.getDate());
+    const n = doneCounts.get(key) || 0;
+    const kind = n ? 'done' : key === todayKey ? 'open' : sk.log.get(key) || 'out';
+    if(tally[kind] !== undefined) tally[kind]++;
+    const label = n ? `${fd(n)} کار تموم شد` : kind === 'frozen' ? 'فریز خرج شد' : kind === 'miss' ? 'جا افتاد' : kind === 'open' ? 'امروز — هنوز کاری تموم نشده' : '';
+    const day = kind === 'frozen' ? fa('snowflake', 'text-[10px]') : kind === 'miss' ? `<span class="line-through">${fd(jd)}</span>` : fd(jd);
+    // the first of a month carries the month's name, so the rows read like dates
+    const body = jd === 1 || i === 0 ? `<span class="flex flex-col items-center leading-none gap-0.5">${day}<span class="text-[7px] font-black opacity-80">${MONTHS_JALALI[jm - 1]}</span></span>` : day;
+    cells.push(`<span title="${formatDateShort(key)}${label ? ' — ' + label : ''}" class="aspect-square flex items-center justify-center rounded-xl text-xs relative ${CELL[kind]} ${key === todayKey ? 'ring-2 ring-white/70' : ''}">${body}${n > 1 ? `<span class="absolute -top-1 -left-1 min-w-4 h-4 px-1 rounded-full bg-slate-950 border border-amber-500/50 text-amber-400 text-[8px] font-black flex items-center justify-center">${fd(n)}</span>` : ''}</span>`);
   }
-  const legend = [['l1','۱ کار'], ['l2','۲–۳'], ['l3','۴ به بالا'], ['frozen','فریز'], ['miss','جا افتاد']]
-    .map(([k, l]) => `<span class="flex items-center gap-1.5"><i class="w-2.5 h-2.5 rounded-sm ${CELL[k]}"></i>${l}</span>`).join('');
+  const rangeTo = dateKey(new Date(Math.min(c.getTime() - 864e5, Date.now())));
+  const arrow = (on, fn, icon, label) => `<button type="button" ${on ? `onclick="${fn}()"` : 'disabled'} aria-label="${label}" class="w-9 h-9 flex items-center justify-center rounded-lg border border-slate-800 bg-slate-900 ${on ? 'text-slate-400' : 'text-slate-700 opacity-40'}">${fa(icon, 'text-xs')}</button>`;
+  const legend = [['done', 'کار تموم شد', ''], ['frozen', 'فریز خرج شد', fa('snowflake', 'text-[7px]')], ['miss', 'جا افتاد', '']]
+    .map(([k, l, ic]) => `<span class="flex items-center gap-1.5"><i class="w-3.5 h-3.5 rounded-md flex items-center justify-center not-italic ${CELL[k]}">${ic}</i>${l}</span>`).join('');
+  const summary = [tally.done && `${fd(tally.done)} روز فعال`, tally.frozen && `${fd(tally.frozen)} فریز`, tally.miss && `${fd(tally.miss)} روز جا افتاده`].filter(Boolean).join('، ') || 'توی این روزها هنوز چیزی ثبت نشده';
   return renderDialog({ title:'زنجیره', onClose:'closeStreakPanel()', wide:true, body:`
     <div class="flex items-center gap-4">
       <div class="w-14 h-14 bg-amber-500/10 text-amber-500 rounded-2xl flex items-center justify-center border border-amber-500/10">${fa('fire', 'text-2xl')}</div>
@@ -596,15 +611,26 @@ function renderStreakPanel(){
     </div>
     ${next ? bar(`${fa('trophy', 'text-amber-500 ml-1')} نشان بعدی: ${fd(next)} روز`, `${fd(next - streak)} روز مونده`, Math.round((streak - prev) / (next - prev) * 100), 'bg-amber-500') : ''}
     ${bar(`${fa('snowflake', 'text-sky-400 ml-1')} فریز: ${fd(freezes)} از ${fd(STREAK_FREEZE_MAX)}`, freezeFull ? 'پُره' : `${fd(STREAK_FREEZE_EVERY - towardFreeze)} روز تا فریز بعدی`, freezeFull ? 100 : Math.round(towardFreeze / STREAK_FREEZE_EVERY * 100), 'bg-sky-400')}
-    <div>
-      ${fieldLabel(`${fd(STREAK_MAP_WEEKS)} هفته‌ی اخیر`)}
-      <div class="mt-3 flex gap-1 overflow-x-auto no-scrollbar pb-1">${cols}</div>
-      <div class="flex flex-wrap gap-3 mt-3 text-[9px] font-bold text-slate-500">${legend}</div>
+    <div class="bg-slate-900/50 border border-slate-800 rounded-3xl p-4 w-full max-w-sm mx-auto">
+      <div class="flex items-center justify-between mb-1">
+        ${arrow(canPrev, 'streakPagePrev', 'chevron-right', 'هفته‌های قبل')}
+        <span class="text-sm font-black text-white">${formatDateShort(rangeFrom)} تا ${formatDateShort(rangeTo)}</span>
+        ${arrow(canNext, 'streakPageNext', 'chevron-left', 'هفته‌های بعد')}
+      </div>
+      <p class="text-center text-[10px] font-bold text-slate-500 mb-4">${summary}</p>
+      <div class="grid grid-cols-7 gap-1 mb-2 text-center">
+        ${['ش','ی','د','س','چ','پ','ج'].map((w, i) => `<span class="text-[9px] font-black ${i === 6 ? 'text-rose-900' : 'text-slate-600'}">${w}</span>`).join('')}
+      </div>
+      <div class="grid grid-cols-7 gap-1 text-center">${cells.join('')}</div>
+      <div class="flex flex-wrap justify-center gap-x-4 gap-y-2 mt-4 text-[10px] font-bold text-slate-400">${legend}</div>
     </div>
     <p class="text-[10px] text-slate-500 leading-relaxed">هر روزی که دست‌کم یه کار رو تموم کنی یه روز به زنجیره اضافه می‌شه (روزِ تموم‌شدن حسابه، نه روزی که برنامه‌ش بود). هر ${fd(STREAK_FREEZE_EVERY)} روز فعال یه فریز جایزه می‌گیری، حداکثر ${fd(STREAK_FREEZE_MAX)} تا؛ روزی که جا بندازی خودش خرج می‌شه و زنجیره می‌مونه، ولی اون روز شمرده نمی‌شه.</p>`,
     footer: dlgSecondary('بستن', 'closeStreakPanel()'),
   });
 }
+
+function streakPagePrev(){ state.streakPage = (state.streakPage || 0) + 1; render(); }
+function streakPageNext(){ state.streakPage = Math.max(0, (state.streakPage || 0) - 1); render(); }
 
 /* ---------- after ticking a task (or an English chunk) done ---------- */
 function renderTaskCompletionModal(){

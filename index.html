@@ -5028,7 +5028,7 @@ function toggleTodayFold(id, urgent){
 const STREAK_FREEZE_EVERY = 7;
 const STREAK_FREEZE_MAX = 2;
 const STREAK_MILESTONES = [3, 7, 14, 21, 30, 50, 75, 100, 150, 200, 300, 365, 500, 730, 1000];
-const STREAK_MAP_WEEKS = 16;
+const STREAK_MAP_WEEKS = 6;
 function computeStreak(){
   const doneCounts = new Map(); // day -> how many tasks were finished on it
   state.tasks.forEach(t => {
@@ -5073,10 +5073,8 @@ function computeStreak(){
   }
   return { streak, atRisk, freezes, frozeYesterday, best, bestEnd, since, towardFreeze, first, doneCounts, log };
 }
-function openStreakPanel(){ state.streakPanel = true; render(); }
+function openStreakPanel(){ state.streakPanel = true; state.streakPage = 0; render(); }
 function closeStreakPanel(){ state.streakPanel = false; render(); }
-/* The last STREAK_MAP_WEEKS weeks, one column per week (شنبه on top), oldest
-   first — so in this RTL page time runs right to left like everything else. */
 
 /* ---------- archive (completed tasks older than the threshold, hidden from the main list) ---------- */
 const ARCHIVE_THRESHOLD_DAYS = 7;
