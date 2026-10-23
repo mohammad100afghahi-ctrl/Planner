@@ -398,41 +398,53 @@ ${reminderLines}
 
   const aiRes = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
-    headers: { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
+    headers: {
+      "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01",
+      "anthropic-beta": "server-side-fallback-2026-07-01",
+    },
     body: JSON.stringify({
-      model: "claude-sonnet-5",
-      max_tokens: 4000,
-      thinking: { type: "disabled" },
-      tools: [{
-        name: "submit_week_plan",
-        description: "پیش‌نویس چیدمان هفته: روز پیشنهادی برای کارها",
-        input_schema: {
-          type: "object",
-          properties: {
-            changes: {
-              type: "array",
-              items: {
-                type: "object",
-                properties: {
-                  task_id: { type: "string" },
-                  new_date: { type: ["string", "null"], description: "YYYY-MM-DD، یا null یعنی «بعداً». اگه تاریخ عوض نمی‌شه نفرستش." },
-                  new_duration_min: { type: "integer" },
-                  why: { type: "string" },
+      model: "claude-sonnet-5-5",
+      // thinking shares this budget with the answer
+      max_tokens: 16000,
+      // fitting tasks under each day's capacity is the hard part: let it think
+      thinking: { type: "adaptive" },
+      output_config: {
+        effort: "medium",
+        // a JSON answer in exactly this shape (Sonnet 5.5 refuses a forced tool call)
+        format: {
+          type: "json_schema",
+          schema: {
+            type: "object",
+            properties: {
+              changes: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    task_id: { type: "string" },
+                    new_date: { anyOf: [{ type: "string" }, { type: "null" }], description: "YYYY-MM-DD، یا null یعنی «بعداً». اگه تاریخ عوض نمی‌شه نفرستش." },
+                    new_duration_min: { type: "integer" },
+                    why: { type: "string" },
+                  },
+                  required: ["task_id", "why"],
+                  additionalProperties: false,
                 },
-                required: ["task_id", "why"],
               },
             },
+            required: ["changes"],
+            additionalProperties: false,
           },
-          required: ["changes"],
         },
-      }],
-      tool_choice: { type: "tool", name: "submit_week_plan" },
+      },
+      // a safety refusal is retried on another model instead of failing
+      fallbacks: "default",
       messages: [{ role: "user", content: prompt }],
     }),
   });
   if (!aiRes.ok) throw await aiErrorFrom(aiRes);
   const aiData = await aiRes.json();
-  const decision = aiData.content?.find((b: any) => b.type === "tool_use")?.input;
+  let decision: any = null;
+  try { decision = JSON.parse(aiData.content?.find((b: any) => b.type === "text")?.text || ""); } catch { /* no plan */ }
   if (!decision) return null;
 
   // validate every proposal against the tasks we actually offered
@@ -499,11 +511,17 @@ async function breakTask(sb: SupabaseClient, uid: string, taskId: string, apiKey
 
   const aiRes = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
-    headers: { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
+    headers: {
+      "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01",
+      "anthropic-beta": "server-side-fallback-2026-07-01",
+    },
     body: JSON.stringify({
-      model: "claude-sonnet-5",
+      model: "claude-sonnet-5-5",
       max_tokens: 200,
-      thinking: { type: "disabled" },
+      // one short sentence: no thinking (Sonnet 5.5's "off" is between_tools; there are no tools here)
+      thinking: { type: "between_tools" },
+      output_config: { effort: "low" },
+      fallbacks: "default",
       messages: [{ role: "user", content: prompt }],
     }),
   });

@@ -124,35 +124,44 @@ ${reasonLine ? `دلیل‌هایی که توی ۳۰ روز اخیر برای ا
 
     const aiRes = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
+      headers: {
+        "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01",
+        "anthropic-beta": "server-side-fallback-2026-07-01",
+      },
       body: JSON.stringify({
-        model: "claude-sonnet-5",
-        max_tokens: 4000, // Persian titles are token-heavy; a cut-off answer has no usable chunks
-        // Sonnet 5 thinks by default, which would eat this small token budget
-        thinking: { type: "disabled" },
-        tools: [{
-          name: "submit_chunks",
-          description: "تکه‌های تکلیف انگلیسی، هر کدوم روی یه روز",
-          input_schema: {
-            type: "object",
-            properties: {
-              chunks: {
-                type: "array",
-                items: {
-                  type: "object",
-                  properties: {
-                    title: { type: "string" },
-                    minutes: { type: "integer" },
-                    day: { type: "string", description: "YYYY-MM-DD" },
+        model: "claude-sonnet-5-5",
+        // thinking shares this budget with the answer; Persian titles are token-heavy too
+        max_tokens: 16000,
+        thinking: { type: "adaptive" },
+        output_config: {
+          effort: "medium",
+          // a JSON answer in exactly this shape (Sonnet 5.5 refuses a forced tool call)
+          format: {
+            type: "json_schema",
+            schema: {
+              type: "object",
+              properties: {
+                chunks: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      title: { type: "string" },
+                      minutes: { type: "integer" },
+                      day: { type: "string", description: "YYYY-MM-DD" },
+                    },
+                    required: ["title", "minutes", "day"],
+                    additionalProperties: false,
                   },
-                  required: ["title", "minutes", "day"],
                 },
               },
+              required: ["chunks"],
+              additionalProperties: false,
             },
-            required: ["chunks"],
           },
-        }],
-        tool_choice: { type: "tool", name: "submit_chunks" },
+        },
+        // a safety refusal is retried on another model instead of failing
+        fallbacks: "default",
         messages: [{ role: "user", content: prompt }],
       }),
     });
@@ -170,7 +179,8 @@ ${reasonLine ? `دلیل‌هایی که توی ۳۰ روز اخیر برای ا
        under another key, a day with a time or slashes is cut to YYYY-MM-DD,
        and a day outside the offered ones moves to the nearest offered day
        instead of throwing the chunk away. */
-    const tool = aiData.content?.find((b: any) => b.type === "tool_use")?.input;
+    let tool: any = aiData.content?.find((b: any) => b.type === "text")?.text;
+    try { tool = JSON.parse(tool); } catch { /* read leniently below */ }
     let raw: any = tool?.chunks ?? tool;
     if (typeof raw === "string") { try { raw = JSON.parse(raw); } catch { raw = null; } }
     if (raw && !Array.isArray(raw) && typeof raw === "object") raw = Object.values(raw).find(Array.isArray);

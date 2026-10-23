@@ -104,3 +104,9 @@ Read current files rather than assuming stored notes remain current. Reconcile u
 
 ## 2026-10-24 — انگلیسی › تنظیمات: phone layout (Claude)
 - On the phone the class-time rows were two per line and the time inputs spilled out of their boxes; «ساعت تمرین روزانه» and «کلاس چقدر طول می‌کشه؟» sat side by side and overlapped. englishSettingsCard(mob) now puts one class per row and stacks those two fields on the phone; desktop unchanged. sw.js cache v72.
+
+## 2026-10-24 — هوشواره on Sonnet 5.5 (Claude)
+- All three AI calls moved from claude-sonnet-5 to claude-sonnet-5-5 (same price). Sonnet 5.5 rejects `thinking: disabled` and a forced `tool_choice`, so the answers now come back as JSON text through `output_config.format` (json_schema, additionalProperties false) instead of a forced tool call, and are read with JSON.parse.
+- proposeWeek (مرور هفته step 3) and english-plan: adaptive thinking, effort medium, max_tokens 16000. «بشکنش»: `thinking: between_tools` (no thinking without tools), effort low, max_tokens 200.
+- Every call sends `anthropic-beta: server-side-fallback-2026-07-01` + `fallbacks: "default"`, so a safety refusal is retried on another model instead of failing.
+- Deployed generate-ai-report v21 and english-plan v5. The request shapes were checked against the API first through a temporary `ai-shape-test` function, now a 410 stub; delete it from the Supabase dashboard (the MCP has no delete).
