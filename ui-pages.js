@@ -148,9 +148,9 @@ function englishSettingsCard(mob){
         <div class="flex items-center justify-between px-1"><p class="text-[10px] font-black text-slate-500 uppercase tracking-widest">روزهای کلاس</p><span class="text-[10px] font-black text-amber-500">${s.classDays.length ? `هفته‌ای ${fd(s.classDays.length)} جلسه` : 'انتخاب نشده'}</span></div>
         <div class="flex gap-1 justify-between">${weekdayBtns(s.classDays, d => `toggleEnglishClassDay(${d})`, 'amber', 'w-9 h-9')}</div>
       </div>
-      ${s.classDays.length ? `<div class="space-y-3">${fieldLabel('ساعت شروع کلاس')}<div class="grid grid-cols-${mob ? '2' : '3'} gap-3">${WEEKDAY_DISPLAY_ORDER.filter(d => s.classDays.includes(d)).map(d => `<label class="flex items-center justify-between gap-2 p-3 bg-slate-900/50 rounded-2xl border border-slate-800 text-[11px] text-slate-400">${WEEKDAYS_FA[d]}<input type="time" value="${ea(enClassTime(d))}" onchange="if(this.value) setEnglishClassTime(${d}, this.value)" class="${box}"></label>`).join('')}</div></div>` : ''}
-      <div class="grid grid-cols-2 gap-4">
-        ${field('ساعت تمرین روزانه', `<input type="time" value="${ea(s.practiceTime)}" onchange="if(this.value) saveEnglishSettings({ practiceTime:this.value })" class="${box} w-full p-3">`)}
+      ${s.classDays.length ? `<div class="space-y-3">${fieldLabel('ساعت شروع کلاس')}<div class="grid ${mob ? 'grid-cols-1 gap-2' : 'grid-cols-3 gap-3'}">${WEEKDAY_DISPLAY_ORDER.filter(d => s.classDays.includes(d)).map(d => `<label class="flex items-center justify-between gap-2 p-3 bg-slate-900/50 rounded-2xl border border-slate-800 text-[11px] text-slate-400 min-w-0"><span class="shrink-0">${WEEKDAYS_FA[d]}</span><input type="time" value="${ea(enClassTime(d))}" onchange="if(this.value) setEnglishClassTime(${d}, this.value)" class="${box} ${mob ? 'min-w-0' : ''}"></label>`).join('')}</div></div>` : ''}
+      <div class="grid ${mob ? 'grid-cols-1' : 'grid-cols-2'} gap-4">
+        ${field('ساعت تمرین روزانه', `<input type="time" value="${ea(s.practiceTime)}" onchange="if(this.value) saveEnglishSettings({ practiceTime:this.value })" class="${box} w-full min-w-0 p-3">`)}
         ${field('کلاس چقدر طول می‌کشه؟', segmented([[60, 'یک ساعت'], [90, '۹۰ دقیقه'], [120, 'دو ساعت']], s.classMinutes, m => `saveEnglishSettings({ classMinutes:${m} })`))}
       </div>
       <div class="border-t border-slate-800 pt-6 space-y-3">
