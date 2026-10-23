@@ -101,3 +101,6 @@ Read current files rather than assuming stored notes remain current. Reconcile u
 
 ## 2026-10-23 — زنجیره: calendar instead of the heatmap (Claude)
 - The streak panel's GitHub-style grid (one column per week, no weekday or day labels, amber/rose at low alpha that looked alike) was unreadable. It is now a calendar like the date picker: ش..ج across, STREAK_MAP_WEEKS (now 6) weeks down, each cell shows its Jalali day (month name on the 1st and the first cell). Solid amber = finished something (badge with the count when >1), sky + snowflake = freeze spent, rose outline + struck number = missed, faded = before the first completion, today ringed. Header shows the date range and a tally; arrows (state.streakPage, streakPagePrev/Next) page back 6 weeks at a time, no further than the first completion. Capped at max-w-sm so the wide desktop dialog keeps small cells. tailwind.css rebuilt. sw.js cache v71.
+
+## 2026-10-24 — انگلیسی › تنظیمات: phone layout (Claude)
+- On the phone the class-time rows were two per line and the time inputs spilled out of their boxes; «ساعت تمرین روزانه» and «کلاس چقدر طول می‌کشه؟» sat side by side and overlapped. englishSettingsCard(mob) now puts one class per row and stacks those two fields on the phone; desktop unchanged. sw.js cache v72.
