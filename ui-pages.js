@@ -42,13 +42,12 @@ function enWeekBars(){
 }
 /* The English page's own weekly goal (english_settings.weekly_goal_min) — the
    minutes of enWeekBars, nothing from tasks or tags. */
-const EN_GOAL_CHOICES = [[0, 'بدون هدف'], [60, '۱ ساعت'], [120, '۲ ساعت'], [240, '۴ ساعت']];
 function enWeekGoal(){
   const goal = englishSettings().weeklyGoalMin || 0;
   const done = enWeekBars().reduce((n, b) => n + b.minutes, 0);
   return { goal, done, pct: goal ? Math.min(100, Math.round(done / goal * 100)) : 0 };
 }
-// the custom hours box under the goal chips: any number of hours up to 50 (the column's 3000 minutes)
+// the goal in hours, any number up to 50 (the column's 3000 minutes); empty clears it
 function setEnglishWeeklyGoalHours(value){
   const h = parseFloat(toEnDigits(String(value || '')).replace(/[٫,]/g, '.'));
   saveEnglishSettings({ weeklyGoalMin: h > 0 ? Math.min(3000, Math.max(15, Math.round(h * 60))) : null });
@@ -201,9 +200,9 @@ function englishSettingsCard(mob){
         ${field('ساعت تمرین روزانه', `<input type="time" value="${ea(s.practiceTime)}" onchange="if(this.value) saveEnglishSettings({ practiceTime:this.value })" class="${box} w-full min-w-0 p-3">`)}
         ${field('کلاس چقدر طول می‌کشه؟', segmented([[60, 'یک ساعت'], [90, '۹۰ دقیقه'], [120, 'دو ساعت']], s.classMinutes, m => `saveEnglishSettings({ classMinutes:${m} })`))}
       </div>
-      ${field('هدف هفتگی تمرین', segmented(EN_GOAL_CHOICES, s.weeklyGoalMin || 0, m => `saveEnglishSettings({ weeklyGoalMin:${m} || null })`) + `
+      ${field('هدف هفتگی تمرین', `
         <div class="relative">
-          <input type="text" inputmode="decimal" placeholder="سفارشی — مثلاً ۶ یا ۲٫۵" value="${s.weeklyGoalMin && !EN_GOAL_CHOICES.some(([v]) => v === s.weeklyGoalMin) ? fd(+(s.weeklyGoalMin / 60).toFixed(2)) : ''}" onchange="setEnglishWeeklyGoalHours(this.value)"
+          <input type="text" inputmode="decimal" placeholder="بدون هدف" value="${s.weeklyGoalMin ? fd(+(s.weeklyGoalMin / 60).toFixed(2)) : ''}" onchange="setEnglishWeeklyGoalHours(this.value)"
             class="w-full bg-slate-900 border border-slate-800 rounded-2xl p-3 text-sm font-black text-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500/50 focus:outline-none transition-all pl-12 placeholder:text-slate-600">
           <span class="absolute left-4 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-500">ساعت</span>
         </div>`)}
