@@ -4830,21 +4830,6 @@ async function addEnglishHomework(){
     rollback: () => { state.englishChunks = state.englishChunks.filter(c => !ids.has(c.id)); },
   });
 }
-// «ریز کار جدید…» under an open homework, same as a task's inline subtask input
-async function addEnglishSub(hwId){
-  const input = document.getElementById('en-sub-input-' + hwId);
-  const title = ((input && input.value) || '').trim();
-  if(!title || !state.englishHomework.some(h => h.id === hwId)) return;
-  const position = Math.max(-1, ...enChunksOf(hwId).map(c => c.position)) + 1;
-  const row = enNewChunkRow(hwId, title, position, new Date().toISOString());
-  state.englishChunks.push(englishChunkFromRow(row));
-  render();
-  focusEl('en-sub-input-' + hwId);
-  await persist(sb.from('english_chunks').insert(row), {
-    message: 'ریز کار ذخیره نشد — اینترنتت رو چک کن و دوباره امتحان کن.',
-    rollback: () => { state.englishChunks = state.englishChunks.filter(c => c.id !== row.id); },
-  });
-}
 async function toggleEnglishChunk(id){
   const c = state.englishChunks.find(x => x.id === id);
   if(!c) return;

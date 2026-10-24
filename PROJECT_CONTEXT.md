@@ -112,6 +112,6 @@ Read current files rather than assuming stored notes remain current. Reconcile u
 - Deployed generate-ai-report v21 and english-plan v5. The request shapes were checked against the API first through a temporary `ai-shape-test` function, now a 410 stub; delete it from the Supabase dashboard (the MCP has no delete).
 
 ## 2026-10-24 — انگلیسی: ریز کار دستی به‌جای تقسیم هوشمند
-- The AI split (english-plan) is gone from the app: a homework is written with optional ریز کارها typed by hand (form list, inline «ریز کار جدید…» under each open homework, add/remove in «ویرایش تکلیف»). With none, the homework itself becomes its one ریز کار. english_chunks rows keep their shape; day = the day added, minutes default 10.
+- The AI split (english-plan) is gone from the app: a homework is written with optional ریز کارها typed by hand (form list, add/remove in «ویرایش تکلیف»; the inline input under each homework was removed on request). With none, the homework itself becomes its one ریز کار. english_chunks rows keep their shape; day = the day added, minutes default 10.
 - Removed «چرا نشد؟» (skips) chips and the «چرا جا می‌مونه» stats card — they depended on per-day planning. The skips column stays in the DB unused. supabase/functions/english-plan removed from the repo; it is still deployed but nothing calls it (delete from the dashboard).
 - send-push wording «تکه» → «ریز کار» changed in the repo but NOT deployed yet (deploy was blocked by permissions). sw.js cache v73.

@@ -107,13 +107,6 @@ function renderEnglishHwEditorModal(){
         </div></div>`)}`,
   });
 }
-// the inline «ریز کار جدید…» row at the bottom of an open homework
-const enSubInput = (hwId, cls = '') => `
-  <div class="flex items-center gap-3 bg-slate-900/30 border border-dashed border-slate-800 p-3 rounded-xl ${cls}">
-    ${fa('plus', 'text-slate-700 text-xs')}
-    <input type="text" id="en-sub-input-${hwId}" data-preserve dir="auto" placeholder="ریز کار جدید…" onkeydown="if(event.key==='Enter'){event.preventDefault(); addEnglishSub('${hwId}');}" class="flex-1 min-w-0 bg-transparent text-xs text-slate-300 focus:outline-none placeholder:text-slate-600">
-    <button type="button" onclick="addEnglishSub('${hwId}')" class="text-[10px] font-black text-amber-400">افزودن</button>
-  </div>`;
 function enChunkCard(c, i, n){
   return `
     <div class="bg-slate-800/40 p-5 rounded-3xl border border-slate-800 hover:border-amber-500/30 transition-all group relative overflow-hidden ${c.done ? 'opacity-60' : ''}">
@@ -254,7 +247,6 @@ function renderEnglishDesktop(){
             </div>
           </div>
           <div class="grid grid-cols-2 gap-4">${chunks.map((c, i) => enChunkCard(c, i, chunks.length)).join('')}</div>
-          ${enSubInput(h.id, 'mt-4')}
         </div>`;
     }).join('') : `<div class="bg-slate-950/50 border border-dashed border-slate-800 rounded-3xl p-6">${emptyNote('تکلیف بازی نداری. بعد از هر کلاس تکلیف رو همین بالا بنویس و اگه خواستی ریز کارهاش رو هم زیرش اضافه کن.', 'puzzle-piece')}</div>`}
     ${doneHw.length ? `
@@ -348,7 +340,7 @@ function renderEnglishMobile(){
                     <div><h4 class="text-xs font-bold text-slate-200 mb-1" dir="auto">${esc(h.title)}</h4><p class="text-[10px] text-slate-500 leading-relaxed">${h.unit ? `${esc(h.unit)} · ` : ''}${enDueLabel(h)}</p></div>
                     <div class="flex items-center gap-1 shrink-0"><button type="button" onclick="openEnglishHwEditor('${h.id}')" aria-label="ویرایش تکلیف" class="text-slate-600 p-1">${fa('pen', 'text-[10px]')}</button><button type="button" onclick="deleteEnglishHomework('${h.id}')" aria-label="حذف تکلیف" class="text-slate-600 p-1">${fa('trash-can', 'text-[10px]')}</button></div>
                   </div>
-                  <div class="space-y-3">${ch.map(chunkRow).join('')}${enSubInput(h.id)}</div>
+                  <div class="space-y-3">${ch.map(chunkRow).join('')}</div>
                 </div>`;
             }).join('')}
             ${openHw.length && !formOpen ? `<button type="button" onclick="state.enAddOpen=true; render()" class="w-full py-3 bg-slate-950 border border-dashed border-slate-800 rounded-xl text-[10px] font-black text-slate-500">+ ثبت تکلیف جدید</button>` : ''}
