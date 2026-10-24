@@ -203,27 +203,23 @@ function englishTodayCard(mob){
   if(!state.englishSettings && !(state.englishHomework || []).length) return `
     <div class="${card}">
       ${head('')}
-      <p class="text-[11px] text-slate-400 leading-relaxed mb-4 relative z-10">روزهای کلاست رو بگو تا تکلیف هر جلسه رو خرد کنم و بذارم روی روزهات.</p>
+      <p class="text-[11px] text-slate-400 leading-relaxed mb-4 relative z-10">روزهای کلاست رو بگو تا مهلت هر تکلیف خودکار جلسه‌ی بعد بشه و بعد از کلاس یادت بندازم تکلیف رو بنویسی.</p>
       <button type="button" onclick="state.englishTab='settings'; navigateTo('english')" class="w-full py-3 bg-amber-500/10 text-amber-400 rounded-xl text-[10px] font-black hover:bg-amber-500/20 transition-all border border-amber-500/10 tracking-widest uppercase relative z-10">تنظیم روزهای کلاس</button>
       ${watermark}
     </div>`;
   const { streak, doneToday, atRisk } = englishStreak();
   const today = dateKey(new Date());
   const chunks = enTodayChunks();
-  const askFor = state.englishPlanning ? null : enNeedsHomeworkPrompt();
+  const askFor = enNeedsHomeworkPrompt();
   const minTicked = (state.englishPractice || []).some(p => p.day === today);
   const classLater = enIsClassDay(today) && !enClassEndedToday();
-  const row = c => {
-    const late = !c.done && c.day < today;
-    return `
+  const row = c => `
       <div>
         <button type="button" onclick="toggleEnglishChunk('${c.id}')" class="w-full flex items-center gap-2 text-right">
           ${c.done ? fa('circle-check', 'text-emerald-500 text-[10px]') : '<div class="w-2.5 h-2.5 border border-slate-700 rounded-sm shrink-0"></div>'}
           <span class="text-[11px] ${c.done ? 'text-slate-400' : 'text-slate-300'}" dir="auto">${esc(c.title)} (${c.done ? 'تکمیل شده' : fmtMin(c.minutes)})</span>
         </button>
-        ${late ? `<div class="flex items-center gap-1.5 flex-wrap mt-2 pr-4"><span class="text-[9px] font-bold text-rose-400">چرا نشد؟</span>${Object.keys(EN_SKIP_REASONS).map(k => `<button type="button" onclick="skipEnglishChunk('${c.id}','${k}')" class="px-2 py-0.5 bg-slate-800 text-slate-400 rounded-md text-[9px] font-bold border border-slate-700 hover:text-white">${EN_SKIP_REASONS[k]}</button>`).join('')}</div>` : ''}
       </div>`;
-  };
   return `
     <div class="${card}">
       ${head(`<button type="button" onclick="navigateTo('english')" class="${mob ? 'text-[9px]' : 'text-[10px]'} font-black text-amber-500">تکالیف فعال</button>`)}
@@ -236,15 +232,14 @@ function englishTodayCard(mob){
               oninput="state.newHomework.title=this.value" onkeydown="if(event.key==='Enter'){event.preventDefault(); addEnglishHomework();}"
               class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-[11px] text-slate-200 focus:outline-none focus:border-amber-500/50 placeholder:text-slate-600" />
             <div class="flex gap-2">
-              <button type="button" onclick="addEnglishHomework()" class="flex-1 py-2 bg-amber-500 text-slate-950 rounded-lg text-[10px] font-black">ثبت و خرد کن</button>
+              <button type="button" onclick="addEnglishHomework()" class="flex-1 py-2 bg-amber-500 text-slate-950 rounded-lg text-[10px] font-black">ثبت تکلیف</button>
               <button type="button" onclick="enNoHomework()" class="px-3 py-2 bg-slate-800 text-slate-400 rounded-lg text-[10px] font-black">تکلیف نداشتیم</button>
             </div>
           </div>` : ''}
-        ${state.englishPlanning ? `<p class="text-[10px] font-bold text-amber-400 flex items-center gap-1.5">${fa('wand-magic-sparkles', 'text-[9px]')} هوشواره داره تکلیف رو خرد می‌کنه…</p>` : ''}
         <div class="${mob ? 'p-3 bg-slate-950 rounded-xl' : 'p-4 bg-slate-900/80 rounded-2xl'} border border-slate-800">
-          <p class="text-[10px] text-slate-500 mb-2">تکه تمرین‌های امروز:</p>
+          <p class="text-[10px] text-slate-500 mb-2">ریز کارهای تکلیف:</p>
           <div class="space-y-2">
-            ${chunks.length ? chunks.map(row).join('') : `<p class="text-[11px] text-slate-400 leading-relaxed">امروز تکه‌ای نداری. حداقلِ امروز: ${EN_MIN_IDEAS[new Date().getDay()]}</p>`}
+            ${chunks.length ? chunks.map(row).join('') : `<p class="text-[11px] text-slate-400 leading-relaxed">ریز کار بازی نداری. حداقلِ امروز: ${EN_MIN_IDEAS[new Date().getDay()]}</p>`}
           </div>
         </div>
         ${atRisk ? `<p class="text-[10px] font-bold text-rose-400 leading-relaxed">دیروز جا افتاد — امروز نذار دوتا بشه، وگرنه زنجیره‌ی ${fd(streak)} روزه‌ت می‌شکنه.</p>` : ''}

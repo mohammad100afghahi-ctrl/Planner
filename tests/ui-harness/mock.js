@@ -56,7 +56,6 @@
     if(/\/functions\/v1\//.test(url)){
       writes.push({ fn:url.split('/functions/v1/')[1], body: init && init.body });
       let body = { ok:true };
-      if(url.includes('english-plan')) body = { chunks:[{ day:new Date().toISOString().slice(0,10), minutes:15, title:'بخش اول تکلیف' }] };
       if(url.includes('send-push')) body = { publicKey:'BPxxxx', sent:1 };
       if(url.includes('generate-ai-report')) body = /"break"/.test((init && init.body) || '') ? { step:'شماره‌ی بیمه‌گذار رو از کارت بیمه پیدا کن و ذخیره کن' } : { ok:true };
       return Promise.resolve(new Response(JSON.stringify(body), { status:200, headers:{ 'Content-Type':'application/json' } }));

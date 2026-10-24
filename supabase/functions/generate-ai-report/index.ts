@@ -36,8 +36,7 @@ function clip(text: string, max: number): string {
 /* ---------- هوشواره health ----------
    Turns a failed Anthropic call into a kind the app can act on, with a Persian
    message the user can actually follow, and records it in ai_health so the app
-   can show a banner instead of silently going quiet. Kept identical in
-   english-plan/index.ts. */
+   can show a banner instead of silently going quiet. */
 class AIError extends Error {
   constructor(public kind: string, message: string) { super(message); }
 }
