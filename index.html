@@ -714,7 +714,7 @@ let state = {
   backups: null, // [{ id, kind:'auto'|'download'|'pre-restore', createdAt, counts }] — server copies, newest first
   backupBusy: false,
   restorePreview: null, // { payload, backupId, label, counts, mode:'merge'|'replace' } while confirming a restore
-  taskCompletionModal: null, // { taskId | chunkId, minutes, difficulty } shown right after checking a task (or an English chunk) done
+  taskCompletionModal: null, // { taskId | chunkId, minutes } shown right after checking a task (or an English chunk) done
   aiReports: [], // [{ id, periodStart, periodEnd, createdAt, seenAt, replan, ritual, completedAt }] — مرور هفته
   aiReportGenerating: false,
   aiReportError: null,
@@ -2195,7 +2195,7 @@ async function toggleTaskDone(taskId, evt){
     if(subErr) writeFailed('subtask sync', subErr);
   }
   if(turningDone){
-    state.taskCompletionModal = { taskId, minutes:null, difficulty:null };
+    state.taskCompletionModal = { taskId, minutes:null };
     render();
   }
 }function completionSetMinutes(min){ state.taskCompletionModal.minutes = min; render(); }
@@ -2203,7 +2203,6 @@ function completionSetCustomMinutes(value){
   const v = parseInt(toEnDigits(value));
   state.taskCompletionModal.minutes = (v && v > 0) ? v : null;
 }
-function completionSetDifficulty(level){ state.taskCompletionModal.difficulty = level; render(); }
 async function addActualMinToTask(taskId, deltaMin){
   const t = state.tasks.find(t => t.id === taskId);
   if(!t || deltaMin <= 0) return;
@@ -2220,12 +2219,6 @@ async function confirmTaskCompletion(){
   if(!t) return;
   render();
   if(m.minutes && m.minutes > 0) await addActualMinToTask(t.id, m.minutes);
-  if(m.difficulty){
-    t.difficulty = m.difficulty;
-    render();
-    const { error } = await sb.from('tasks').update({ difficulty:m.difficulty }).eq('id', t.id);
-    if(error) writeFailed('save difficulty', error);
-  }
 }
 function skipTaskCompletion(){ state.taskCompletionModal = null; render(); }
 /* «افزودن تسک سریع برای امروز»: just a title, dated today — everything else
@@ -2287,10 +2280,10 @@ async function toggleSubtask(taskId, subId, evt){
   if(t.done !== wasDone){
     const { error: taskErr } = await sb.from('tasks').update({ done:t.done, completed_at:t.completedAt }).eq('id', taskId);
     if(taskErr) writeFailed('parent sync', taskErr);
-    // finishing a task by ticking its last subtask should prompt for time/difficulty
+    // finishing a task by ticking its last subtask should ask how long it took
     // just like ticking the task itself does
     if(t.done){
-      state.taskCompletionModal = { taskId, minutes:null, difficulty:null };
+      state.taskCompletionModal = { taskId, minutes:null };
       render();
     }
   }
@@ -4825,7 +4818,7 @@ async function toggleEnglishChunk(id){
   // unticking takes the logged time and difficulty back with it
   if(!c.done){ c.actualMin = null; c.difficulty = null; }
   // same question a finished task gets; the planned minutes are the starting answer
-  if(c.done) state.taskCompletionModal = { chunkId:id, minutes:c.minutes, difficulty:null };
+  if(c.done) state.taskCompletionModal = { chunkId:id, minutes:c.minutes };
   render();
   await persist(sb.from('english_chunks').update({ done:c.done, done_at:c.doneAt, actual_min:c.actualMin, difficulty:c.difficulty }).eq('id', id), {
     rollback: () => { Object.assign(c, before); if(state.taskCompletionModal && state.taskCompletionModal.chunkId === id) state.taskCompletionModal = null; },
@@ -4835,11 +4828,10 @@ async function confirmEnglishCompletion(m){
   state.taskCompletionModal = null;
   const c = state.englishChunks.find(x => x.id === m.chunkId);
   if(!c || !c.done){ render(); return; }
-  const before = { actualMin:c.actualMin, difficulty:c.difficulty };
+  const before = { actualMin:c.actualMin };
   c.actualMin = m.minutes && m.minutes > 0 ? Math.min(600, m.minutes) : null;
-  c.difficulty = m.difficulty || null;
   render();
-  await persist(sb.from('english_chunks').update({ actual_min:c.actualMin, difficulty:c.difficulty }).eq('id', c.id), {
+  await persist(sb.from('english_chunks').update({ actual_min:c.actualMin }).eq('id', c.id), {
     rollback: () => { Object.assign(c, before); },
   });
 }

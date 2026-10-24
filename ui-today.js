@@ -642,8 +642,7 @@ function renderTaskCompletionModal(){
         <input type="text" inputmode="numeric" placeholder="سفارشی" value="${customVal}" oninput="normalizeNumericInput(this); completionSetCustomMinutes(this.value)"
           class="w-full bg-slate-900 border border-slate-800 rounded-2xl p-3 text-sm font-black text-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500/50 focus:outline-none transition-all pl-12">
         <span class="absolute left-4 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-500">MIN</span>
-      </div>`)}
-    ${field('سختیش چقدر بود؟ (اختیاری)', `<div class="flex gap-1">${[['easy','راحت'], ['medium','معمولی'], ['hard','سخت']].map(([k, l]) => quick(m.difficulty === k, l, `completionSetDifficulty('${k}')`)).join('')}</div>`)}`,
+      </div>`)}`,
     footer: dlgPrimary('ثبت', 'confirmTaskCompletion()') + dlgSecondary('رد کردن', 'skipTaskCompletion()'),
   });
 }
