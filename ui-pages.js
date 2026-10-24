@@ -311,6 +311,7 @@ function renderEnglishDesktop(){
                     </div>
                   </div>
                   <div class="flex items-center gap-1">
+                    <button type="button" onclick="reopenEnglishHomework('${h.id}')" title="برگردون به تکالیف فعال" aria-label="برگردون به تکالیف فعال" class="reveal opacity-0 group-hover:opacity-100 p-2 text-slate-600 hover:text-amber-400 transition-all">${fa('rotate-left', 'text-xs')}</button>
                     <button type="button" onclick="enToggleDone('${h.id}')" aria-label="جزئیات" class="reveal opacity-0 group-hover:opacity-100 p-2 text-slate-600 hover:text-white transition-all">${fa(open ? 'eye-slash' : 'eye', 'text-xs')}</button>
                     <button type="button" onclick="openEnglishHwEditor('${h.id}')" title="ویرایش" aria-label="ویرایش" class="reveal opacity-0 group-hover:opacity-100 p-2 text-slate-600 hover:text-white transition-all">${fa('pen', 'text-xs')}</button>
                     <button type="button" onclick="deleteEnglishHomework('${h.id}')" aria-label="حذف" class="reveal opacity-0 group-hover:opacity-100 p-2 text-slate-600 hover:text-rose-500 transition-all">${fa('trash', 'text-xs')}</button>
@@ -419,7 +420,7 @@ function renderEnglishMobile(){
         ${doneHw.length ? `
           <section>
             <button type="button" onclick="state.enDoneListOpen=!state.enDoneListOpen; render()" class="flex items-center gap-2 text-slate-600 mb-4">${fa(state.enDoneListOpen ? 'chevron-down' : 'chevron-left', 'text-[10px]')}<span class="text-[10px] font-black uppercase tracking-widest">تکالیف انجام شده (${fd(doneHw.length)})</span></button>
-            ${state.enDoneListOpen ? `<div class="space-y-2">${doneHw.map(h => `<div class="bg-slate-950 p-4 rounded-2xl border border-slate-800 flex items-center justify-between gap-3"><div class="flex items-center gap-3">${fa('circle-check', 'text-emerald-500 text-xs')}<span class="text-xs font-bold text-slate-400" dir="auto">${esc(h.title)}</span></div><div class="flex items-center gap-3 shrink-0"><button type="button" onclick="openEnglishHwEditor('${h.id}')" aria-label="ویرایش" class="text-slate-600">${fa('pen', 'text-[10px]')}</button><button type="button" onclick="deleteEnglishHomework('${h.id}')" aria-label="حذف" class="text-slate-600">${fa('trash-can', 'text-[10px]')}</button></div></div>`).join('')}</div>` : ''}
+            ${state.enDoneListOpen ? `<div class="space-y-2">${doneHw.map(h => `<div class="bg-slate-950 p-4 rounded-2xl border border-slate-800 flex items-center justify-between gap-3"><div class="flex items-center gap-3">${fa('circle-check', 'text-emerald-500 text-xs')}<span class="text-xs font-bold text-slate-400" dir="auto">${esc(h.title)}</span></div><div class="flex items-center gap-3 shrink-0"><button type="button" onclick="reopenEnglishHomework('${h.id}')" aria-label="برگردون به تکالیف فعال" class="text-slate-600">${fa('rotate-left', 'text-[10px]')}</button><button type="button" onclick="openEnglishHwEditor('${h.id}')" aria-label="ویرایش" class="text-slate-600">${fa('pen', 'text-[10px]')}</button><button type="button" onclick="deleteEnglishHomework('${h.id}')" aria-label="حذف" class="text-slate-600">${fa('trash-can', 'text-[10px]')}</button></div></div>`).join('')}</div>` : ''}
           </section>` : ''}`}
       </div>
     </main>`;

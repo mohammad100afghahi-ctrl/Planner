@@ -4824,6 +4824,13 @@ async function toggleEnglishChunk(id){
     rollback: () => { Object.assign(c, before); if(state.taskCompletionModal && state.taskCompletionModal.chunkId === id) state.taskCompletionModal = null; },
   });
 }
+/* «برگردون به تکالیف فعال» on a finished homework: unticks the ریز کار ticked
+   last (the one most likely hit by mistake), which puts the homework back in
+   the open list; the rest stay done. */
+function reopenEnglishHomework(id){
+  const last = enChunksOf(id).filter(c => c.done).sort((a, b) => String(b.doneAt || '').localeCompare(String(a.doneAt || '')))[0];
+  if(last) toggleEnglishChunk(last.id);
+}
 async function confirmEnglishCompletion(m){
   state.taskCompletionModal = null;
   const c = state.englishChunks.find(x => x.id === m.chunkId);
