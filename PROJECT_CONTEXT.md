@@ -115,3 +115,4 @@ Read current files rather than assuming stored notes remain current. Reconcile u
 - The AI split (english-plan) is gone from the app: a homework is written with optional ریز کارها typed by hand (form list, add/remove in «ویرایش تکلیف»; the inline input under each homework was removed on request). With none, the homework itself becomes its one ریز کار. english_chunks rows keep their shape; day = the day added, minutes default 10.
 - Removed «چرا نشد؟» (skips) chips and the «چرا جا می‌مونه» stats card — they depended on per-day planning. The skips column stays in the DB unused. supabase/functions/english-plan removed from the repo; it is still deployed but nothing calls it (delete from the dashboard).
 - send-push wording «تکه» → «ریز کار» (deployed v16). sw.js cache v74.
+- 2026-10-24: phone «ثبت تکلیف» form got «انصراف» (enCloseAddForm) — closes it, clears the draft, and hides the after-class «تکلیف چی بود؟» prompt for this visit. sw.js v75.

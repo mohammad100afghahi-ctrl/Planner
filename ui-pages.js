@@ -48,7 +48,7 @@ function enTodayProgress(){
   const pct = doneMin + openMin ? Math.round(doneMin / (doneMin + openMin) * 100) : (minTicked ? 100 : 0);
   return { pct, openMin, minTicked };
 }
-function englishHwForm(mob){
+function englishHwForm(mob, canClose){
   const nh = state.newHomework;
   const due = enDueChoices();
   const dueOn = due.some(([k]) => k === nh.dueOn) ? nh.dueOn : due[0][0];
@@ -80,10 +80,20 @@ function englishHwForm(mob){
             return `<button type="button" onclick="state.newHomework.dueOn='${next}'; render()" title="${due.length > 1 ? 'برای مهلت بعدی بزن' : ''}" class="flex items-center gap-2 bg-slate-900 px-3 py-2 rounded-xl border border-slate-800">${fa('calendar', 'text-[10px] text-slate-500')}<span class="text-[10px] text-slate-400">مهلت: ${due[i][1]}</span>${due.length > 1 ? fa('rotate', 'text-[8px] text-slate-600') : ''}</button>`; })()}
           <input type="text" data-preserve placeholder="یونیت / درس" value="${ea(nh.unit)}" oninput="state.newHomework.unit=this.value" class="w-28 bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-[10px] text-slate-300 focus:outline-none focus:border-amber-500/50 placeholder:text-slate-600">
         </div>
-        <button type="button" onclick="addEnglishHomework()" class="bg-amber-500 hover:bg-amber-400 text-slate-950 px-6 py-2.5 rounded-xl text-[11px] font-black transition-all flex items-center gap-2">ثبت تکلیف</button>
+        <div class="flex items-center gap-2">
+          ${canClose ? `<button type="button" onclick="enCloseAddForm()" class="px-4 py-2.5 bg-slate-800 text-slate-400 rounded-xl text-[11px] font-black">انصراف</button>` : ''}
+          <button type="button" onclick="addEnglishHomework()" class="bg-amber-500 hover:bg-amber-400 text-slate-950 px-6 py-2.5 rounded-xl text-[11px] font-black transition-all flex items-center gap-2">ثبت تکلیف</button>
+        </div>
       </div>
       ${!s.classDays.length ? `<p class="text-[10px] text-slate-500">روزهای کلاست رو انتخاب کن تا مهلت هر تکلیف خودکار «جلسه‌ی بعد» بشه و بعد از کلاس یادت بندازم.</p>` : ''}
     </div>`;
+}
+// «انصراف» on the phone form: closes it and drops what was typed (the «تکلیف چی بود؟» prompt too, for this visit)
+function enCloseAddForm(){
+  state.enAddOpen = false;
+  state.enAddDismissed = true;
+  Object.assign(state.newHomework, { title:'', dueOn:'', subs:[] });
+  render();
 }
 function renderEnglishHwEditorModal(){
   const ed = state.enHwEditor;
@@ -293,7 +303,7 @@ function renderEnglishMobile(){
   const doneHw = englishDoneHomework();
   const p = enTodayProgress();
   const askFor = enNeedsHomeworkPrompt();
-  const formOpen = state.enAddOpen || !!askFor;
+  const formOpen = state.enAddOpen || (!!askFor && !state.enAddDismissed);
   const today = dateKey(new Date());
   const soonest = openHw[0];
   const chunkRow = c => c.done ? `
@@ -331,7 +341,7 @@ function renderEnglishMobile(){
             ${soonest ? `<span class="text-[9px] font-bold ${daysUntil(soonest.dueOn) <= 1 ? 'text-rose-400' : 'text-slate-500'}">Deadline: ${enDayLabel(soonest.dueOn)}</span>` : `<button type="button" onclick="state.enAddOpen=!state.enAddOpen; render()" class="text-[10px] font-black text-amber-400">+ ثبت تکلیف</button>`}
           </div>
           <div class="space-y-4">
-            ${formOpen || !openHw.length ? `<div class="bg-slate-900 border border-slate-800 rounded-3xl p-5">${englishHwForm(true)}</div>` : ''}
+            ${formOpen || !openHw.length ? `<div class="bg-slate-900 border border-slate-800 rounded-3xl p-5">${englishHwForm(true, openHw.length > 0)}</div>` : ''}
             ${openHw.map(h => {
               const ch = enChunksOf(h.id);
               return `
