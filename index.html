@@ -1911,22 +1911,7 @@ function computeTagWeeklyMinutes(tagId){
       const relevantDate = (t.done && t.completedAt) ? dateKey(new Date(t.completedAt)) : t.date;
       return relevantDate && relevantDate >= start && relevantDate <= end;
     })
-    .reduce((s,t) => s + taskGoalMinutes(t), 0)
-    + (isEnglishTag(tagId) ? englishChunkMinutesBetween(start, end) : 0);
-}
-/* Homework chunks aren't tasks, so they carry no tag — a finished chunk counts
-   toward the weekly goal of the tag named «انگلیسی» (generate-ai-report does
-   the same; keep the two in step). Real minutes if they were given when it was
-   ticked, the planned ones otherwise — same rule as taskGoalMinutes. */
-function isEnglishTag(tagId){
-  const tag = state.tags.find(t => t.id === tagId);
-  return !!tag && /انگلیسی|english/i.test(tag.name);
-}
-function englishChunkMinutesBetween(start, end){
-  return (state.englishChunks || []).filter(c => c.done).reduce((n, c) => {
-    const day = c.doneAt ? dateKey(new Date(c.doneAt)) : c.day;
-    return day >= start && day <= end ? n + (c.actualMin || c.minutes) : n;
-  }, 0);
+    .reduce((s,t) => s + taskGoalMinutes(t), 0);
 }
 async function setTagGoal(tagId, weeklyMinutes){
   const existing = state.tagGoals.find(g => g.tagId === tagId);
@@ -4624,7 +4609,7 @@ async function confirmMaintEditor(){
    missed, and class days don't count either way. The timed pushes (after
    class, daily practice time, the night before a class) are in send-push's
    englishFor — keep the class-day rules there in step with the ones here. */
-const DEFAULT_ENGLISH_SETTINGS = { classDays:[], classTime:'18:00', classTimes:{}, classMinutes:90, practiceTime:'20:00', push:true };
+const DEFAULT_ENGLISH_SETTINGS = { classDays:[], classTime:'18:00', classTimes:{}, classMinutes:90, practiceTime:'20:00', push:true, weeklyGoalMin:null };
 const EN_WEEKDAY_SHORT = ['ی','د','س','چ','پ','ج','ش']; // getDay() order
 // what the 5-minute minimum can be, one per weekday so it isn't the same line every day
 const EN_MIN_IDEAS = [
@@ -4643,6 +4628,7 @@ function englishSettingsFromRow(r){
     classDays:(r.class_days || []).map(Number), classTime:r.class_time || '18:00',
     classTimes:(r.class_times && typeof r.class_times === 'object') ? r.class_times : {},
     classMinutes:Number(r.class_minutes) || 90, practiceTime:r.practice_time || '20:00', push:r.push !== false,
+    weeklyGoalMin:Number(r.weekly_goal_min) || null,
   };
 }
 function englishHomeworkFromRow(r){
@@ -4760,7 +4746,7 @@ async function saveEnglishSettings(patch){
   render();
   await persist(sb.from('english_settings').upsert({
     class_days: next.classDays, class_time: next.classTime, class_times: next.classTimes || {}, class_minutes: next.classMinutes,
-    practice_time: next.practiceTime, push: next.push, updated_at: new Date().toISOString(),
+    practice_time: next.practiceTime, push: next.push, weekly_goal_min: next.weeklyGoalMin || null, updated_at: new Date().toISOString(),
   }, { onConflict:'user_id' }), {
     message: 'تنظیمات انگلیسی ذخیره نشد — اینترنتت رو چک کن و دوباره امتحان کن.',
     rollback: () => { state.englishSettings = before; },

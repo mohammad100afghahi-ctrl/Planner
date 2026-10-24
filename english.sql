@@ -18,6 +18,7 @@ create table if not exists public.english_settings (
   class_minutes smallint not null default 90 check (class_minutes between 15 and 300),
   practice_time text not null default '20:00' check (practice_time ~ '^[0-2][0-9]:[0-5][0-9]$'),
   push          boolean not null default true,
+  weekly_goal_min smallint check (weekly_goal_min is null or weekly_goal_min between 15 and 3000), -- the page's own weekly goal (added 2026-10-24)
   pushed        jsonb not null default '{}'::jsonb,   -- { after, practice, eve: 'YYYY-MM-DD' } — written by send-push only
   updated_at    timestamptz not null default now()
 );
