@@ -133,7 +133,7 @@ function urgentRepairsLine(repairs: any[]): string {
    sends whatever has just come due:
      after    — the class just ended and no homework is written down for today
      practice — the daily practice time, unless today is already done
-     eve      — 21:00 the night before a class, while chunks are still open
+     eve      — 21:00 the night before a class, while ریز کارها are still open
    english_settings.pushed remembers the day each one last went out, so a nudge
    goes once a day however often the cron runs; ENGLISH_WINDOW_MIN stops a late
    cron from ringing in the middle of the night. */
@@ -168,8 +168,8 @@ async function englishDigestLine(sb: SupabaseClient, uid: string, today: string)
   const due = open.filter((c: any) => c.day <= today);
   const classToday = !!s && (s.class_days || []).map(Number).includes(weekdayOf(today));
   const mins = due.reduce((n: number, c: any) => n + (c.minutes || 0), 0);
-  if (classToday && open.length) return `انگلیسی: امروز ساعت ${fa(classTimeOn(s, today))} کلاس داری و ${fa(open.length)} تکه از تکلیف مونده`;
-  if (due.length) return `انگلیسی: ${fa(due.length)} تکه برای امروز (${fa(mins)} دقیقه)`;
+  if (classToday && open.length) return `انگلیسی: امروز ساعت ${fa(classTimeOn(s, today))} کلاس داری و ${fa(open.length)} ریز کار از تکلیف مونده`;
+  if (due.length) return `انگلیسی: ${fa(due.length)} ریز کار از تکلیف مونده (${fa(mins)} دقیقه)`;
   if (classToday) return `انگلیسی: امروز ساعت ${fa(classTimeOn(s, today))} کلاس داری`;
   return "";
 }
@@ -203,7 +203,7 @@ async function englishFor(sb: SupabaseClient, uid: string): Promise<Payload[]> {
     const { count } = await sb.from("english_homework").select("id", { count: "exact", head: true }).eq("user_id", uid).gte("assigned_on", today);
     if (!count) out.push({
       title: "انگلیسی — تکلیف امروز چی بود؟",
-      body: "تا یادته ثبتش کن؛ خودم خردش می‌کنم و می‌ذارمش روی روزهات.",
+      body: "تا یادته ثبتش کن و اگه خواستی ریز کارهاش رو هم بنویس.",
       tag: "medar-english-class",
     });
   }
@@ -215,7 +215,7 @@ async function englishFor(sb: SupabaseClient, uid: string): Promise<Payload[]> {
       const mins = open.reduce((n: number, c: any) => n + (c.minutes || 0), 0);
       out.push({
         title: "انگلیسی — فردا کلاس داری",
-        body: `${fa(open.length)} تکه مونده، حدود ${fa(mins)} دقیقه وقت می‌بره. همین امشب با «${clip(open[0].title, 40)}» شروع کن.`,
+        body: `${fa(open.length)} ریز کار مونده، حدود ${fa(mins)} دقیقه وقت می‌بره. همین امشب با «${clip(open[0].title, 40)}» شروع کن.`,
         tag: "medar-english",
       });
       eveSent = true;
@@ -233,13 +233,13 @@ async function englishFor(sb: SupabaseClient, uid: string): Promise<Payload[]> {
       const tail = missedYesterday ? " دیروز جا افتاد؛ نذار دوتا بشه." : "";
       out.push(due.length
         ? {
-          title: "انگلیسی — فقط همین یه تکه",
-          body: `«${clip(due[0].title, 60)}» — ${fa(due[0].minutes)} دقیقه${due.length > 1 ? ` (و ${fa(due.length - 1)} تکه‌ی دیگه)` : ""}.${tail}`,
+          title: "انگلیسی — فقط همین یه ریز کار",
+          body: `«${clip(due[0].title, 60)}» — ${fa(due[0].minutes)} دقیقه${due.length > 1 ? ` (و ${fa(due.length - 1)} ریز کار دیگه)` : ""}.${tail}`,
           tag: "medar-english",
         }
         : {
           title: "انگلیسی — ۵ دقیقه‌ی امروز",
-          body: `تکه‌ای برای امروز نداری؛ ۵ دقیقه مرور کن تا زنجیره‌ت نشکنه.${tail}`,
+          body: `ریز کار بازی نداری؛ ۵ دقیقه مرور کن تا زنجیره‌ت نشکنه.${tail}`,
           tag: "medar-english",
         });
     }

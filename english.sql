@@ -1,7 +1,7 @@
 -- «انگلیسی»: classes with a teacher (Top Notch) and the homework that wasn't
--- getting done. After each class the homework is written down in one line;
--- the english-plan edge function cuts it into 10–15 minute chunks spread over
--- the days until the next class, and each day's chunks show on امروز.
+-- getting done. After each class the homework is written down in one line,
+-- with the ریز کارها it breaks into typed by hand (english_chunks); the open
+-- ones show on امروز. (Until 2026-10 the english-plan function cut it with AI.)
 --
 -- ✅ این مایگریشن روی پروژهٔ Planner اجرا شده (english_homework).
 --    این فایل فقط سند ساختاره؛ لازم نیست دوباره اجراش کنی.

@@ -765,8 +765,7 @@ let state = {
   englishChunks: [], // [{ id, homeworkId, title, minutes, day, position, done, doneAt, skips:[{ day, reason }], createdAt }]
   englishPractice: [], // [{ day, createdAt }] — days the 5-minute minimum was ticked
   englishTab: 'hw', // 'hw' | 'done' | 'stats' | 'settings'
-  newHomework: { title:'', unit:'', dueOn:'' },
-  englishPlanning: null, // the homework id هوشواره is cutting into chunks right now
+  newHomework: { title:'', unit:'', dueOn:'', subs:[] }, // subs: the ریز کارها typed into the form, not saved yet
   enHwEditor: null, // { hwId, title, unit, dueOn, chunks:[{ id, title, minutes, done }] } while editing a homework
   aiHealth: null, // { errorKind, errorMessage, errorAt, okAt } — did هوشواره's last AI call work?
   userEmail: '', // the signed-in account, shown in the header
@@ -4616,18 +4615,16 @@ async function confirmMaintEditor(){
 
 /* ---------- انگلیسی ----------
    Classes with a teacher (Top Notch), and the homework that wasn't getting
-   done. After each class the homework is written down in one line; هوشواره
-   (the english-plan edge function) cuts it into 10–15 minute chunks and
-   spreads them over the days until the next class, and each day's chunks sit
-   in a card on امروز. A chunk whose day went by is asked «چرا نشد؟» with one
-   tap (english_chunks.skips) — that pattern feeds the next plan and the
-   weekly review. The chain counts days with a chunk done or the 5-minute
+   done. After each class the homework is written down in one line, with the
+   ریز کارها it breaks into typed by hand — the same way a task gets its
+   subtasks (english_chunks are those ریز کارها; a homework written without any
+   gets one, itself). The open ones sit in a card on امروز until they're done.
+   The chain counts days with a ریز کار done or the 5-minute
    minimum (english_practice); it only breaks when two days in a row are
    missed, and class days don't count either way. The timed pushes (after
    class, daily practice time, the night before a class) are in send-push's
    englishFor — keep the class-day rules there in step with the ones here. */
 const DEFAULT_ENGLISH_SETTINGS = { classDays:[], classTime:'18:00', classTimes:{}, classMinutes:90, practiceTime:'20:00', push:true };
-const EN_SKIP_REASONS = { time:'وقت نشد', hard:'سخت بود', forgot:'یادم رفت', mood:'حوصله نداشتم' };
 const EN_WEEKDAY_SHORT = ['ی','د','س','چ','پ','ج','ش']; // getDay() order
 // what the 5-minute minimum can be, one per weekday so it isn't the same line every day
 const EN_MIN_IDEAS = [
@@ -4640,7 +4637,6 @@ const EN_MIN_IDEAS = [
   'واژه‌هایی که سر کلاس یاد گرفتی رو مرور کن.',
 ];
 const EN_NOHW_KEY = 'medar-english-nohw'; // the class date «تکلیف نداشتیم» was tapped for
-const EN_PLAN_MAX_DAYS = 14;
 
 function englishSettingsFromRow(r){
   return {
@@ -4708,7 +4704,7 @@ function enDueLabel(h){
   return `کلاسش ${toFaDigits(-n)} روز پیش بود`;
 }
 const enChunksOf = id => (state.englishChunks || []).filter(c => c.homeworkId === id)
-  .sort((a, b) => a.day.localeCompare(b.day) || a.position - b.position);
+  .sort((a, b) => a.position - b.position || a.createdAt.localeCompare(b.createdAt));
 
 /* Days that count: a chunk ticked off that day, or the 5-minute minimum. */
 function enPracticedDays(){
@@ -4778,43 +4774,28 @@ function toggleEnglishClassDay(d){
   saveEnglishSettings({ classDays: days.includes(d) ? days.filter(x => x !== d) : [...days, d].sort((a, b) => a - b) });
 }
 
-// the days a new homework may be spread over: from today (tomorrow, right after
-// a class) to the day before the next class
-function enPlanDays(hw){
-  const today = dateKey(new Date());
-  const start = enClassEndedToday() ? enAddDays(today, 1) : today;
-  let end = enAddDays(hw.dueOn, -1);
-  if(end < start) end = hw.dueOn >= start ? hw.dueOn : start; // class is tomorrow: the morning before it is all there is
-  const days = [];
-  for(let k = start; k <= end && days.length < EN_PLAN_MAX_DAYS; k = enAddDays(k, 1)) days.push(k);
-  return days;
+const EN_SUB_MINUTES = 10; // a ریز کار's planned minutes until it's edited or the real time is given
+function enNewChunkRow(hwId, title, position, createdAt){
+  return { id: uid(), homework_id: hwId, title, minutes: EN_SUB_MINUTES, day: dateKey(new Date()), position, created_at: createdAt };
 }
-// هوشواره didn't answer (offline, no credit): an even split, so the homework still lands on the days
-function enFallbackChunks(hw, days){
-  const n = Math.min(days.length, 3);
-  const title = hw.title.length > 90 ? hw.title.slice(0, 89) + '…' : hw.title;
-  return days.slice(0, n).map((day, i) => ({ day, minutes:15, title: n === 1 ? title : `بخش ${toFaDigits(i + 1)} از ${toFaDigits(n)}: ${title}` }));
+function enAddNewSub(){
+  const input = document.getElementById('new-hw-sub');
+  const title = ((input && input.value) || '').trim();
+  if(!title) return;
+  state.newHomework.subs.push(title);
+  if(input) input.value = '';
+  render();
+  focusEl('new-hw-sub');
 }
-async function callEnglishPlan(payload){
-  const { data:{ session } } = await sb.auth.getSession();
-  const ctl = new AbortController();
-  const timer = setTimeout(() => ctl.abort(), 40000);
-  try{
-    const res = await fetch(`${SUPABASE_URL}/functions/v1/english-plan`, {
-      method:'POST', signal: ctl.signal,
-      headers:{ 'Content-Type':'application/json', 'Authorization':`Bearer ${session?.access_token}` },
-      body: JSON.stringify(payload),
-    });
-    const data = await res.json().catch(() => ({}));
-    if(!res.ok || !Array.isArray(data.chunks) || !data.chunks.length) throw new Error(data.error || 'english-plan ' + res.status);
-    return data.chunks;
-  } finally { clearTimeout(timer); }
-}
+function enRemoveNewSub(i){ state.newHomework.subs.splice(i, 1); render(); }
 async function addEnglishHomework(){
   const nh = state.newHomework;
   const quick = document.getElementById('en-quick-title'), full = document.getElementById('new-hw-title');
   const title = ((quick && quick.value) || (full && full.value) || nh.title || '').trim();
-  if(!title || state.englishPlanning) return;
+  if(!title) return;
+  // a ریز کار still sitting in the input counts too
+  const pendingSub = ((document.getElementById('new-hw-sub') || {}).value || '').trim();
+  const subs = [...(nh.subs || []), ...(pendingSub ? [pendingSub] : [])];
   const today = dateKey(new Date());
   const upcoming = enUpcomingClass();
   const dueOn = nh.dueOn && nh.dueOn >= today ? nh.dueOn : (upcoming || enAddDays(today, 7));
@@ -4824,41 +4805,45 @@ async function addEnglishHomework(){
     assignedOn: last && daysUntil(last) >= -6 && last <= dueOn ? last : today,
     createdAt: new Date().toISOString(),
   };
+  const t0 = Date.now();
+  const titles = subs.length ? subs : [title.length > 90 ? title.slice(0, 89) + '…' : title];
+  const rows = titles.map((t, i) => enNewChunkRow(hw.id, t, i, new Date(t0 + i).toISOString()));
+  const ids = new Set(rows.map(r => r.id));
   state.englishHomework.push(hw);
-  state.newHomework = { title:'', unit:hw.unit, dueOn:'' }; // the unit usually stays the same next time
-  state.englishPlanning = hw.id;
+  state.englishChunks.push(...rows.map(englishChunkFromRow));
+  state.newHomework = { title:'', unit:hw.unit, dueOn:'', subs:[] }; // the unit usually stays the same next time
+  state.enAddOpen = false;
   render();
   const saved = await persist(sb.from('english_homework').insert({
     id:hw.id, title:hw.title, unit:hw.unit, assigned_on:hw.assignedOn, due_on:hw.dueOn, created_at:hw.createdAt,
   }), {
     message: 'تکلیف ذخیره نشد — اینترنتت رو چک کن و دوباره امتحان کن.',
-    rollback: () => { state.englishHomework = state.englishHomework.filter(x => x.id !== hw.id); state.newHomework.title = title; },
+    rollback: () => {
+      state.englishHomework = state.englishHomework.filter(x => x.id !== hw.id);
+      state.englishChunks = state.englishChunks.filter(c => !ids.has(c.id));
+      Object.assign(state.newHomework, { title, subs });
+    },
   });
-  if(!saved){ state.englishPlanning = null; render(); return; }
-
-  const days = enPlanDays(hw);
-  let chunks, viaAI = true;
-  try{
-    chunks = await callEnglishPlan({ title:hw.title, unit:hw.unit, due_on:hw.dueOn, days });
-  } catch(e){
-    console.error('english-plan failed', e);
-    viaAI = false;
-    chunks = enFallbackChunks(hw, days);
-  }
-  const t0 = Date.now();
-  const rows = chunks.map((c, i) => ({
-    id: uid(), homework_id: hw.id, title: c.title, minutes: c.minutes, day: c.day, position: i,
-    created_at: new Date(t0 + i).toISOString(),
-  }));
-  const ids = new Set(rows.map(r => r.id));
-  state.englishChunks.push(...rows.map(englishChunkFromRow));
-  state.englishPlanning = null;
-  render();
+  if(!saved) return;
   await persist(sb.from('english_chunks').insert(rows), {
-    message: 'تکه‌های تکلیف ذخیره نشدن — اینترنتت رو چک کن و دوباره امتحان کن.',
+    message: 'ریز کارهای تکلیف ذخیره نشدن — اینترنتت رو چک کن و دوباره امتحان کن.',
     rollback: () => { state.englishChunks = state.englishChunks.filter(c => !ids.has(c.id)); },
   });
-  if(!viaAI) showInfoToast('هوشواره جواب نداد؛ خودم تکلیف رو مساوی بین روزها تقسیم کردم.');
+}
+// «ریز کار جدید…» under an open homework, same as a task's inline subtask input
+async function addEnglishSub(hwId){
+  const input = document.getElementById('en-sub-input-' + hwId);
+  const title = ((input && input.value) || '').trim();
+  if(!title || !state.englishHomework.some(h => h.id === hwId)) return;
+  const position = Math.max(-1, ...enChunksOf(hwId).map(c => c.position)) + 1;
+  const row = enNewChunkRow(hwId, title, position, new Date().toISOString());
+  state.englishChunks.push(englishChunkFromRow(row));
+  render();
+  focusEl('en-sub-input-' + hwId);
+  await persist(sb.from('english_chunks').insert(row), {
+    message: 'ریز کار ذخیره نشد — اینترنتت رو چک کن و دوباره امتحان کن.',
+    rollback: () => { state.englishChunks = state.englishChunks.filter(c => c.id !== row.id); },
+  });
 }
 async function toggleEnglishChunk(id){
   const c = state.englishChunks.find(x => x.id === id);
@@ -4887,20 +4872,6 @@ async function confirmEnglishCompletion(m){
     rollback: () => { Object.assign(c, before); },
   });
 }
-/* «چرا نشد؟»: the reason is kept with the day it was missed on, and the chunk
-   moves to today — so it's asked once per miss, not every time the page opens. */
-async function skipEnglishChunk(id, reason){
-  const c = state.englishChunks.find(x => x.id === id);
-  const today = dateKey(new Date());
-  if(!c || c.done || c.day >= today || !EN_SKIP_REASONS[reason]) return;
-  const before = { day:c.day, skips:c.skips };
-  c.skips = [...c.skips, { day:c.day, reason }];
-  c.day = today;
-  render();
-  await persist(sb.from('english_chunks').update({ day:c.day, skips:c.skips }).eq('id', id), {
-    rollback: () => { Object.assign(c, before); },
-  });
-}
 async function toggleEnglishMin(){
   const today = dateKey(new Date());
   const had = state.englishPractice.find(p => p.day === today);
@@ -4919,16 +4890,36 @@ async function toggleEnglishMin(){
     });
   }
 }
-/* «ویرایش تکلیف»: the homework's own line, unit and deadline, plus the title
-   and minutes of each of its chunks. The chunks keep their days — moving the
-   deadline doesn't re-plan them. */
+/* «ویرایش تکلیف»: the homework's own line, unit and deadline, plus its
+   ریز کارها — renamed, re-timed, added or removed. Nothing is written until «ذخیره». */
 function openEnglishHwEditor(id){
   const h = state.englishHomework.find(x => x.id === id);
-  if(!h || state.englishPlanning === id) return;
+  if(!h) return;
   state.enHwEditor = {
     hwId:h.id, title:h.title, unit:h.unit, dueOn:h.dueOn,
     chunks: enChunksOf(id).map(c => ({ id:c.id, title:c.title, minutes:String(c.minutes), done:c.done })),
+    removed: [],
   };
+  render();
+}
+function enEditorAddSub(){
+  const input = document.getElementById('en-editor-sub');
+  const title = ((input && input.value) || '').trim();
+  if(!title || !state.enHwEditor) return;
+  state.enHwEditor.chunks.push({ id:uid(), title, minutes:String(EN_SUB_MINUTES), done:false, isNew:true });
+  render();
+  focusEl('en-editor-sub');
+}
+function enEditorRemoveSub(i){
+  const ed = state.enHwEditor;
+  const [removed] = ed.chunks.splice(i, 1);
+  if(!removed) return;
+  if(!removed.isNew) ed.removed.push(removed.id);
+  showUndoToast(`ریزکار «${removed.title}» حذف شد`, () => {
+    if(state.enHwEditor !== ed) return;
+    ed.chunks.splice(i, 0, removed);
+    ed.removed = ed.removed.filter(x => x !== removed.id);
+  });
   render();
 }
 function closeEnglishHwEditor(){ state.enHwEditor = null; render(); }
@@ -4940,7 +4931,7 @@ async function confirmEnglishHwEditor(){
   if(!h){ render(); return; }
   const before = { title:h.title, unit:h.unit, dueOn:h.dueOn };
   Object.assign(h, { title:ed.title.trim(), unit:ed.unit.trim(), dueOn:ed.dueOn });
-  const edits = ed.chunks.map(e => {
+  const edits = ed.chunks.filter(e => !e.isNew).map(e => {
     const c = state.englishChunks.find(x => x.id === e.id);
     if(!c) return null;
     const title = e.title.trim() || c.title;
@@ -4948,6 +4939,13 @@ async function confirmEnglishHwEditor(){
     return title === c.title && minutes === c.minutes ? null : { c, title, minutes, before:{ title:c.title, minutes:c.minutes } };
   }).filter(Boolean);
   edits.forEach(x => Object.assign(x.c, { title:x.title, minutes:x.minutes }));
+  const base = Math.max(-1, ...enChunksOf(h.id).map(c => c.position)) + 1, t0 = Date.now();
+  const added = ed.chunks.filter(e => e.isNew).map((e, i) => ({ ...enNewChunkRow(h.id, e.title.trim() || 'ریز کار', base + i, new Date(t0 + i).toISOString()),
+    minutes: Math.min(120, Math.max(1, parseInt(e.minutes, 10) || EN_SUB_MINUTES)) }));
+  const addedIds = new Set(added.map(r => r.id));
+  state.englishChunks.push(...added.map(englishChunkFromRow));
+  const removedChunks = state.englishChunks.filter(c => ed.removed.includes(c.id));
+  state.englishChunks = state.englishChunks.filter(c => !ed.removed.includes(c.id));
   render();
   const hwChanged = before.title !== h.title || before.unit !== h.unit || before.dueOn !== h.dueOn;
   await Promise.all([
@@ -4959,6 +4957,14 @@ async function confirmEnglishHwEditor(){
       message: 'تغییرات تکه‌ها ذخیره نشد — اینترنتت رو چک کن و دوباره امتحان کن.',
       rollback: () => { Object.assign(x.c, x.before); },
     })),
+    added.length && persist(sb.from('english_chunks').insert(added), {
+      message: 'ریز کارهای جدید ذخیره نشدن — اینترنتت رو چک کن و دوباره امتحان کن.',
+      rollback: () => { state.englishChunks = state.englishChunks.filter(c => !addedIds.has(c.id)); },
+    }),
+    removedChunks.length && persist(sb.from('english_chunks').delete().in('id', removedChunks.map(c => c.id)), {
+      message: 'ریز کارهای حذف‌شده پاک نشدن — اینترنتت رو چک کن و دوباره امتحان کن.',
+      rollback: () => { state.englishChunks.push(...removedChunks); },
+    }),
   ]);
 }
 const pendingEnglishDeleteTimers = {}; // homework / chunk id -> timeoutId, while the undo window is open
@@ -4984,7 +4990,7 @@ function deleteEnglishChunk(id){
   const idx = state.englishChunks.findIndex(x => x.id === id);
   if(idx === -1) return;
   const [removed] = state.englishChunks.splice(idx, 1);
-  showUndoToast('تکه حذف شد', () => {
+  showUndoToast(`ریزکار «${removed.title}» حذف شد`, () => {
     clearTimeout(pendingEnglishDeleteTimers[id]);
     delete pendingEnglishDeleteTimers[id];
     state.englishChunks.splice(idx, 0, removed);
@@ -5316,7 +5322,7 @@ const BACKUP_TABLE_LABELS = {
   reminders:'یادآورها', subscriptions:'اشتراک‌ها', purchases:'خریدها', ai_reports:'مرورهای هفته',
   tag_goals:'اهداف هفتگی', mother_care:'تنظیمات مادر', mother_care_items:'ملاحظه‌های مادر',
   home_repairs:'تعمیرات خونه', home_repair_parts:'قطعه‌های تعمیر', home_maintenance:'نگهداری دوره‌ای خونه',
-  english_settings:'تنظیمات انگلیسی', english_homework:'تکلیف‌های انگلیسی', english_chunks:'تکه‌های تکلیف انگلیسی', english_practice:'روزهای تمرین انگلیسی',
+  english_settings:'تنظیمات انگلیسی', english_homework:'تکلیف‌های انگلیسی', english_chunks:'ریز کارهای تکلیف انگلیسی', english_practice:'روزهای تمرین انگلیسی',
 };
 const BACKUP_KIND_LABELS = { auto:'خودکار هفتگی', download:'دانلود دستی', 'pre-restore':'قبل از بازیابی' };
 const BACKUP_OVERDUE_DAYS = 30;
