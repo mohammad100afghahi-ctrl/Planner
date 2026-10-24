@@ -636,7 +636,7 @@ function renderTaskCompletionModal(){
   const customVal = (m.minutes && !quickVals.includes(m.minutes)) ? m.minutes : '';
   const quick = (on, label, onclick) => `<button type="button" onclick="${onclick}" class="flex-1 py-2 rounded-lg text-[10px] font-black ${on ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400'}">${label}</button>`;
   return renderDialog({ title:`${fa('circle-check', 'text-emerald-500 ml-1')} ${esc(t.title)}`, onClose:'skipTaskCompletion()', body:`
-    ${field(`چقدر واقعاً طول کشید؟ ${m.chunkId ? '(دقیقه — می‌ره توی هدف هفتگیِ انگلیسی)' : '(اختیاری)'}`, `
+    ${field(`چقدر واقعاً طول کشید؟ ${m.chunkId ? '(دقیقه — می‌ره توی هدف هفتگیِ تب انگلیسی)' : '(اختیاری)'}`, `
       <div class="flex gap-1">${quickVals.map(v => quick(m.minutes === v, fd(v), `completionSetMinutes(${v})`)).join('')}</div>
       <div class="relative">
         <input type="text" inputmode="numeric" placeholder="سفارشی" value="${customVal}" oninput="normalizeNumericInput(this); completionSetCustomMinutes(this.value)"

@@ -40,6 +40,29 @@ function enWeekBars(){
   }
   return out;
 }
+/* The English page's own weekly goal (english_settings.weekly_goal_min) — the
+   minutes of enWeekBars, nothing from tasks or tags. */
+const EN_GOAL_CHOICES = [[0, 'بدون هدف'], [60, '۱ ساعت'], [120, '۲ ساعت'], [240, '۴ ساعت']];
+function enWeekGoal(){
+  const goal = englishSettings().weeklyGoalMin || 0;
+  const done = enWeekBars().reduce((n, b) => n + b.minutes, 0);
+  return { goal, done, pct: goal ? Math.min(100, Math.round(done / goal * 100)) : 0 };
+}
+function englishGoalCard(mob){
+  const g = enWeekGoal();
+  return `
+    <div class="bg-slate-950 border border-slate-800 rounded-3xl ${mob ? 'p-5' : 'p-6'}">
+      <h4 class="${mob ? 'text-[10px]' : 'text-xs'} font-black text-white uppercase tracking-widest mb-4 flex items-center gap-2">${fa('bullseye', 'text-amber-500')} هدف هفته</h4>
+      ${g.goal ? `
+        <div class="p-3 bg-amber-500/5 ${mob ? 'rounded-xl' : 'rounded-2xl'} border border-amber-500/10">
+          <p class="${mob ? 'text-[10px]' : 'text-xs'} font-bold text-slate-300 mb-2 leading-relaxed">${formatDuration(g.done)} از ${formatDuration(g.goal)}${g.pct >= 100 ? ' ✓' : ''}</p>
+          <div class="w-full bg-slate-900 h-1.5 rounded-full overflow-hidden"><div class="${g.pct >= 100 ? 'bg-emerald-500' : 'bg-amber-500'} h-full rounded-full" style="width:${Math.max(3, g.pct)}%"></div></div>
+          <p class="text-[10px] text-slate-500 mt-2">${g.pct >= 100 ? 'هدف این هفته رسید.' : `${formatDuration(g.goal - g.done)} تا هدف این هفته (شنبه تا جمعه)`}</p>
+        </div>`
+      : `<p class="text-[11px] text-slate-400 leading-relaxed mb-3">برای انگلیسی هدف هفتگی نذاشتی. زمان ریز کارها و تمرین‌های روزانه اینجا جمع می‌شه.</p>
+         <button type="button" onclick="state.englishTab='settings'; render()" class="w-full py-3 bg-amber-500/10 text-amber-400 rounded-xl text-[10px] font-black hover:bg-amber-500/20 transition-all border border-amber-500/10">تعیین هدف هفته</button>`}
+    </div>`;
+}
 function enTodayProgress(){
   const chunks = enTodayChunks();
   const doneMin = chunks.filter(c => c.done).reduce((n, c) => n + (c.actualMin || c.minutes), 0);
@@ -173,6 +196,7 @@ function englishSettingsCard(mob){
         ${field('ساعت تمرین روزانه', `<input type="time" value="${ea(s.practiceTime)}" onchange="if(this.value) saveEnglishSettings({ practiceTime:this.value })" class="${box} w-full min-w-0 p-3">`)}
         ${field('کلاس چقدر طول می‌کشه؟', segmented([[60, 'یک ساعت'], [90, '۹۰ دقیقه'], [120, 'دو ساعت']], s.classMinutes, m => `saveEnglishSettings({ classMinutes:${m} })`))}
       </div>
+      ${field('هدف هفتگی تمرین', segmented(EN_GOAL_CHOICES, s.weeklyGoalMin || 0, m => `saveEnglishSettings({ weeklyGoalMin:${m} || null })`) + `<p class="text-[10px] text-slate-500 leading-relaxed px-1">زمان ریز کارهای انجام‌شده و حداقل‌های روزانه (هر کدوم ۵ دقیقه) حساب می‌شه — فقط برای همین تب، جدا از هدف تگ‌ها.</p>`)}
       <div class="border-t border-slate-800 pt-6 space-y-3">
         ${toggleRow('اعلان‌های انگلیسی روی گوشی', 'بعد از کلاس، سر ساعت تمرین، و ساعت ۹ شبِ قبل از کلاس', s.push, `saveEnglishSettings({ push:${!s.push} })`)}
         ${state.pushStatus === 'on' ? '' : `<p class="text-[10px] text-amber-400/80 leading-relaxed">اعلان‌ها روی این دستگاه خاموشه — از «تنظیمات» روشنش کن.</p>`}
@@ -188,6 +212,7 @@ function englishRightColumn(){
   const todayK = dateKey(new Date());
   const r = 40, circ = 251;
   return `
+    ${englishGoalCard(false)}
     <div class="bg-slate-950 border border-slate-800 rounded-3xl p-6">
       <div class="flex items-center justify-between mb-6">
         <h4 class="text-xs font-black text-white uppercase tracking-widest flex items-center gap-2">${fa('fire', 'text-amber-500')} هدف روزانه تمرین</h4>
@@ -335,6 +360,7 @@ function renderEnglishMobile(){
             <div class="bg-slate-950/50 p-3 rounded-2xl border border-indigo-500/5"><p class="text-[9px] font-black text-slate-500 mb-1">زمان کل تمرین</p><span class="text-lg font-black text-white">${st.minutes >= 60 ? `${fd(Math.round(st.minutes / 60))} ساعت` : fmtMin(st.minutes)}</span></div>
           </div>
         </div>
+        ${englishGoalCard(true)}
         <section id="homework">
           <div class="flex items-center justify-between mb-4 px-1">
             <h3 class="text-xs font-black text-white uppercase tracking-widest">تکالیف فعال (Homework)</h3>
