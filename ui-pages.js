@@ -213,7 +213,6 @@ function englishSettingsCard(mob){
     </div>`;
 }
 function englishRightColumn(){
-  const { streak, atRisk } = englishStreak();
   const p = enTodayProgress();
   const bars = enWeekBars();
   const max = Math.max(5, ...bars.map(b => b.minutes));
@@ -244,14 +243,12 @@ function englishRightColumn(){
           <p class="text-[10px] text-slate-500 mt-2 leading-relaxed">${EN_MIN_IDEAS[new Date().getDay()]}</p>
         </div>
         <button type="button" onclick="toggleEnglishMin()" class="w-full py-3 ${p.minTicked ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/10' : 'bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 border-amber-500/10'} rounded-xl text-[10px] font-black transition-all border tracking-widest uppercase">${p.minTicked ? `${fa('check', 'ml-1')} ۵ دقیقه‌ی امروز ثبت شد` : 'ثبت ۵ دقیقه تمرین'}</button>
-        ${atRisk ? `<p class="text-[10px] font-bold text-rose-400 leading-relaxed">دیروز جا افتاد — امروز نذار دوتا بشه، وگرنه زنجیره‌ی ${fd(streak)} روزه‌ت می‌شکنه.</p>` : ''}
       </div>
     </div>
     <div class="bg-slate-950 border border-slate-800 rounded-3xl p-6">
       <h4 class="text-xs font-black text-white uppercase tracking-widest mb-4 flex items-center gap-2">${fa('chart-line', 'text-indigo-400')} الگوی مطالعه</h4>
       <div class="space-y-4">
         <div class="flex items-center justify-between px-2"><span class="text-[11px] text-slate-500">میانگین هفتگی</span><span class="text-[11px] font-bold text-slate-300">${fd(avg)} دقیقه/روز</span></div>
-        <div class="flex items-center justify-between px-2"><span class="text-[11px] text-slate-500">زنجیره</span><span class="text-[11px] font-bold text-amber-500">${fd(streak)} روز</span></div>
         <div class="flex items-end justify-between h-20 px-2 gap-1">
           ${bars.map(b => `<div class="w-full ${b.minutes ? 'bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.2)]' : enIsClassDay(b.key) ? 'bg-indigo-500/30' : 'bg-slate-900'} rounded-t-lg ${b.key === todayK ? 'ring-1 ring-amber-400/40' : ''}" style="height:${Math.max(12, Math.round(b.minutes / max * 100))}%" title="${ea(enDayLabel(b.key))}: ${fd(b.minutes)} دقیقه"></div>`).join('')}
         </div>
@@ -261,11 +258,10 @@ function englishRightColumn(){
 }
 function renderEnglishDesktop(){
   const tab = state.englishTab === 'done' ? 'hw' : state.englishTab;
-  const { streak } = englishStreak();
   const s = englishSettings();
   const openHw = englishOpenHomework();
   const doneHw = englishDoneHomework();
-  const header = deskHeader({ title:'یادگیری انگلیسی', sub:'مدیریت تکالیف و تمرین‌های روزانه', profile:`زنجیره ${fd(streak)} روز`,
+  const header = deskHeader({ title:'یادگیری انگلیسی', sub:'مدیریت تکالیف و تمرین‌های روزانه',
     right: segTabs([['hw','تکالیف'], ['stats','روند پیشرفت'], ['settings','تنظیمات']], tab, id => `state.englishTab='${id}'; render()`, 'bg-amber-500/10 text-amber-400') });
   const hwBody = `
     <div class="bg-slate-950 border border-slate-800 rounded-3xl p-6">
@@ -330,7 +326,6 @@ function renderEnglishDesktop(){
   return deskMain({ header, body, fab: deskFab(`state.englishTab='hw'; render(); focusEl('new-hw-title')`, 'amber', 'ثبت تکلیف') });
 }
 function renderEnglishMobile(){
-  const { streak } = englishStreak();
   const st = enStats();
   const s = englishSettings();
   const openHw = englishOpenHomework();
@@ -362,7 +357,6 @@ function renderEnglishMobile(){
         <div class="bg-indigo-600/10 border border-indigo-500/20 rounded-3xl p-5">
           <div class="flex items-center justify-between mb-6">
             <h3 class="text-xs font-black text-white flex items-center gap-2 uppercase tracking-widest">${fa('chart-simple', 'text-indigo-400')} وضعیت یادگیری</h3>
-            <span class="text-[10px] font-black text-indigo-400 italic">روز ${fd(streak)} زنجیره</span>
           </div>
           <div class="grid grid-cols-2 gap-4">
             <div class="bg-slate-950/50 p-3 rounded-2xl border border-indigo-500/5"><p class="text-[9px] font-black text-slate-500 mb-1">تکالیف تکمیل شده</p><span class="text-lg font-black text-white">${fd(st.pct)}٪</span></div>
