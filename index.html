@@ -4597,9 +4597,8 @@ async function confirmMaintEditor(){
    ریز کارها it breaks into typed by hand — the same way a task gets its
    subtasks (english_chunks are those ریز کارها; a homework written without any
    gets one, itself). The open ones sit in a card on امروز until they're done.
-   The chain counts days with a ریز کار done or the 5-minute
-   minimum (english_practice); it only breaks when two days in a row are
-   missed, and class days don't count either way. The timed pushes (after
+   A day with a ریز کار done or the 5-minute minimum (english_practice)
+   counts toward the main streak (computeStreak). The timed pushes (after
    class, daily practice time, the night before a class) are in send-push's
    englishFor — keep the class-day rules there in step with the ones here. */
 const DEFAULT_ENGLISH_SETTINGS = { classDays:[], classTime:'18:00', classTimes:{}, classMinutes:90, practiceTime:'20:00', push:true, weeklyGoalMin:null };
@@ -4690,24 +4689,6 @@ function enPracticedDays(){
   const days = new Set((state.englishPractice || []).map(p => p.day));
   (state.englishChunks || []).forEach(c => { if(c.done && c.doneAt) days.add(dateKey(new Date(c.doneAt))); });
   return days;
-}
-/* «دو روز پشت سر هم جا نیفتد»: one missed day is forgiven, the second in a row
-   ends the chain. Class days are skipped over — not a miss, not a point. */
-function englishStreak(){
-  const days = enPracticedDays();
-  const today = dateKey(new Date());
-  const doneToday = days.has(today);
-  const first = [...days].sort()[0];
-  let streak = doneToday ? 1 : 0, misses = 0, missedLast = null;
-  if(first){
-    for(let k = enAddDays(today, -1); k >= first; k = enAddDays(k, -1)){
-      if(days.has(k)){ streak++; misses = 0; if(missedLast === null) missedLast = false; }
-      else if(enIsClassDay(k)) continue;
-      else { if(missedLast === null) missedLast = true; if(++misses >= 2) break; }
-    }
-  }
-  // the last day that counted was missed and today isn't done yet: one more and it's gone
-  return { streak, doneToday, atRisk: streak > 0 && !!missedLast && !doneToday };
 }
 // chunks to show today: everything open whose day has come, plus what was ticked off today
 function enTodayChunks(){
@@ -4996,6 +4977,8 @@ function toggleTodayFold(id, urgent){
 
 
 /* ---------- streak (Duolingo-style: consecutive days with >=1 task completed on that task's own date) ----------
+   English counts too: each ریز کار ticked off and the 5-minute minimum is one
+   more thing done that day (see enPracticedDays).
    Streak freezes are derived from history rather than stored, so every device
    agrees and nothing can drift: replay each day from the first completion. Every
    STREAK_FREEZE_EVERY active days earns one freeze (holding at most
@@ -5015,6 +4998,9 @@ function computeStreak(){
     const completedKey = t.completedAt ? dateKey(new Date(t.completedAt)) : t.date;
     if(completedKey) doneCounts.set(completedKey, (doneCounts.get(completedKey) || 0) + 1);
   });
+  const bump = key => doneCounts.set(key, (doneCounts.get(key) || 0) + 1);
+  (state.englishPractice || []).forEach(p => bump(p.day));
+  (state.englishChunks || []).forEach(c => { if(c.done && c.doneAt) bump(dateKey(new Date(c.doneAt))); });
 
   const todayKey = dateKey(new Date());
   const atRisk = !doneCounts.has(todayKey);

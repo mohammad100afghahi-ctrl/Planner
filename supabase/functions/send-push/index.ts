@@ -227,19 +227,15 @@ async function englishFor(sb: SupabaseClient, uid: string): Promise<Payload[]> {
     // the night-before warning already says what's left — don't ring twice
     if (!eveSent && !practiced.has(today)) {
       const due = open.filter((c: any) => c.day <= today);
-      // yesterday slipped (class days don't count either way): the chain breaks on a second miss
-      const y = addDaysKey(today, -1);
-      const missedYesterday = !practiced.has(y) && !days.includes(weekdayOf(y));
-      const tail = missedYesterday ? " دیروز جا افتاد؛ نذار دوتا بشه." : "";
       out.push(due.length
         ? {
           title: "انگلیسی — فقط همین یه ریز کار",
-          body: `«${clip(due[0].title, 60)}» — ${fa(due[0].minutes)} دقیقه${due.length > 1 ? ` (و ${fa(due.length - 1)} ریز کار دیگه)` : ""}.${tail}`,
+          body: `«${clip(due[0].title, 60)}» — ${fa(due[0].minutes)} دقیقه${due.length > 1 ? ` (و ${fa(due.length - 1)} ریز کار دیگه)` : ""}.`,
           tag: "medar-english",
         }
         : {
           title: "انگلیسی — ۵ دقیقه‌ی امروز",
-          body: `ریز کار بازی نداری؛ ۵ دقیقه مرور کن تا زنجیره‌ت نشکنه.${tail}`,
+          body: `ریز کار بازی نداری؛ ۵ دقیقه مرور کن تا استریکت نشکنه.`,
           tag: "medar-english",
         });
     }
@@ -252,8 +248,9 @@ async function englishFor(sb: SupabaseClient, uid: string): Promise<Payload[]> {
 
 /* ---------- استریک ----------
    The same replay as computeStreak() in index.html — keep the two in step: a
-   day counts when a task was finished on it, every STREAK_FREEZE_EVERY active
-   days earn a freeze (at most STREAK_FREEZE_MAX), a missed day spends one.
+   day counts when a task, an English ریز کار or the 5-minute minimum was done
+   on it, every STREAK_FREEZE_EVERY active days earn a freeze (at most
+   STREAK_FREEZE_MAX), a missed day spends one.
    streakFor() rides the every-10-minutes `english-push` cron and warns at
    21:00 and 23:00 while today is still empty. Nothing is stored: each time is
    a 10-minute window, and the cron lands in it exactly once. */
@@ -274,6 +271,14 @@ async function streakState(sb: SupabaseClient, uid: string, today: string) {
     }
     if (!data || data.length < 1000) break;
   }
+  const [chunks, practice] = await Promise.all([
+    sb.from("english_chunks").select("done_at").eq("user_id", uid).eq("done", true).not("done_at", "is", null),
+    sb.from("english_practice").select("day").eq("user_id", uid),
+  ]);
+  if (chunks.error) throw chunks.error;
+  if (practice.error) throw practice.error;
+  for (const c of chunks.data || []) days.add(localDayOf(c.done_at));
+  for (const p of practice.data || []) days.add(p.day);
   let streak = 0, freezes = 0, towardFreeze = 0;
   const first = [...days].sort()[0];
   if (first && first <= today) {

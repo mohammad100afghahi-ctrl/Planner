@@ -207,8 +207,8 @@ function englishTodayCard(mob){
       <button type="button" onclick="state.englishTab='settings'; navigateTo('english')" class="w-full py-3 bg-amber-500/10 text-amber-400 rounded-xl text-[10px] font-black hover:bg-amber-500/20 transition-all border border-amber-500/10 tracking-widest uppercase relative z-10">تنظیم روزهای کلاس</button>
       ${watermark}
     </div>`;
-  const { streak, doneToday, atRisk } = englishStreak();
   const today = dateKey(new Date());
+  const doneToday = enPracticedDays().has(today);
   const chunks = enTodayChunks();
   const askFor = enNeedsHomeworkPrompt();
   const minTicked = (state.englishPractice || []).some(p => p.day === today);
@@ -242,9 +242,8 @@ function englishTodayCard(mob){
             ${chunks.length ? chunks.map(row).join('') : `<p class="text-[11px] text-slate-400 leading-relaxed">ریز کار بازی نداری. حداقلِ امروز: ${EN_MIN_IDEAS[new Date().getDay()]}</p>`}
           </div>
         </div>
-        ${atRisk ? `<p class="text-[10px] font-bold text-rose-400 leading-relaxed">دیروز جا افتاد — امروز نذار دوتا بشه، وگرنه زنجیره‌ی ${fd(streak)} روزه‌ت می‌شکنه.</p>` : ''}
         ${doneToday && !minTicked
-          ? `<div class="w-full py-3 bg-emerald-500/10 text-emerald-400 rounded-xl text-[10px] font-black border border-emerald-500/10 tracking-widest uppercase text-center">${fa('check', 'ml-1')} امروز انجام شد${streak > 1 ? ` — زنجیره ${fd(streak)} روز` : ''}</div>`
+          ? `<div class="w-full py-3 bg-emerald-500/10 text-emerald-400 rounded-xl text-[10px] font-black border border-emerald-500/10 tracking-widest uppercase text-center">${fa('check', 'ml-1')} امروز انجام شد</div>`
           : mob
             ? `<button type="button" onclick="toggleEnglishMin()" class="w-full py-3 ${minTicked ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/10' : 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-900/10'} rounded-xl text-[10px] font-black">${minTicked ? `${fa('check', 'ml-1')} تمرین امروز ثبت شد` : 'ثبت تمرین امروز'}</button>`
             : `<button type="button" onclick="toggleEnglishMin()" class="w-full py-3 ${minTicked ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/10' : 'bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 border-amber-500/10'} rounded-xl text-[10px] font-black transition-all border tracking-widest uppercase">${minTicked ? `${fa('check', 'ml-1')} ۵ دقیقه‌ی امروز ثبت شد` : 'ثبت تمرین انجام شده'}</button>`}
@@ -544,7 +543,7 @@ function renderStreakPanel(){
   const freezeFull = freezes >= STREAK_FREEZE_MAX;
   const doneToday = doneCounts.get(dateKey(new Date())) || 0;
   let status;
-  if(doneToday) status = `<p class="text-[11px] font-bold text-emerald-400">امروز ثبت شد — ${fd(doneToday)} کار تموم کردی.</p>`;
+  if(doneToday) status = `<p class="text-[11px] font-bold text-emerald-400">امروز ثبت شد — ${fd(doneToday)} کار انجام دادی.</p>`;
   else if(!streak) status = `<p class="text-[11px] font-bold text-slate-400">الان زنجیره‌ای نداری. امروز یه کار رو تموم کن تا از همین امروز شروع بشه.</p>`;
   else {
     const now = new Date();
@@ -619,7 +618,7 @@ function renderStreakPanel(){
       <div class="grid grid-cols-7 gap-1 text-center">${cells.join('')}</div>
       <div class="flex flex-wrap justify-center gap-x-4 gap-y-2 mt-4 text-[10px] font-bold text-slate-400">${legend}</div>
     </div>
-    <p class="text-[10px] text-slate-500 leading-relaxed">هر روزی که دست‌کم یه کار رو تموم کنی یه روز به زنجیره اضافه می‌شه (روزِ تموم‌شدن حسابه، نه روزی که برنامه‌ش بود). هر ${fd(STREAK_FREEZE_EVERY)} روز فعال یه فریز جایزه می‌گیری، حداکثر ${fd(STREAK_FREEZE_MAX)} تا؛ روزی که جا بندازی خودش خرج می‌شه و زنجیره می‌مونه، ولی اون روز شمرده نمی‌شه.</p>`,
+    <p class="text-[10px] text-slate-500 leading-relaxed">هر روزی که دست‌کم یه کار رو تموم کنی (یا یه ریز کار انگلیسی، یا ۵ دقیقه تمرینش) یه روز به زنجیره اضافه می‌شه (روزِ تموم‌شدن حسابه، نه روزی که برنامه‌ش بود). هر ${fd(STREAK_FREEZE_EVERY)} روز فعال یه فریز جایزه می‌گیری، حداکثر ${fd(STREAK_FREEZE_MAX)} تا؛ روزی که جا بندازی خودش خرج می‌شه و زنجیره می‌مونه، ولی اون روز شمرده نمی‌شه.</p>`,
     footer: dlgSecondary('بستن', 'closeStreakPanel()'),
   });
 }
