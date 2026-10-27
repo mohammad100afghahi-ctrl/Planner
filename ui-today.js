@@ -56,17 +56,25 @@ function overdueLabel(t){
   const n = -daysUntil(t.date);
   return n === 1 ? 'دیروز (انجام نشده)' : `${fd(n)} روز پیش (انجام نشده)`;
 }
-/* notes and subtasks open under the task when its title is tapped */
+/* an open task's ریز کارها, ticked right on its card (امروز and تسک‌ها) — no editor needed */
+function subtaskChecklist(t){
+  if(t.done || !t.subtasks.length) return '';
+  return `
+    <div class="space-y-1.5 mt-2" onclick="event.stopPropagation()">
+      ${t.subtasks.map(s => `
+        <button type="button" onclick="toggleSubtask('${t.id}','${s.id}', event)" aria-label="${s.done ? 'برگرداندن' : 'انجام شد'}" class="w-full flex items-center gap-2 text-right">
+          ${s.done ? fa('circle-check', 'text-emerald-500 text-[10px]') : '<div class="w-2.5 h-2.5 border border-slate-700 rounded-sm shrink-0"></div>'}
+          <span class="text-[11px] ${s.done ? 'text-slate-500 line-through' : 'text-slate-300'}" dir="auto">${esc(s.title)}</span>
+        </button>`).join('')}
+    </div>`;
+}
+const checkAlign = t => subtaskChecklist(t) ? 'items-start' : 'items-center';
+/* notes open under the task when its title is tapped */
 function todayTaskExpansion(t, mob){
-  if(!state.todayExpanded[t.id] || (!t.notes && !t.subtasks.length)) return '';
+  if(!state.todayExpanded[t.id] || !t.notes) return '';
   return `
     <div class="${mob ? 'px-4 pb-4' : 'px-4 pb-4 pr-14'} space-y-2">
-      ${t.notes ? `<p class="text-[11px] text-slate-400 leading-relaxed whitespace-pre-line" dir="auto">${esc(t.notes)}</p>` : ''}
-      ${t.subtasks.map(s => `
-        <div class="flex items-center gap-3 bg-slate-900/50 border border-slate-800 p-3 rounded-xl">
-          <button type="button" onclick="toggleSubtask('${t.id}','${s.id}', event)" aria-label="${s.done ? 'برگرداندن' : 'انجام شد'}" class="w-4 h-4 ${s.done ? 'bg-emerald-500 text-white' : 'border border-slate-700 bg-slate-950'} rounded flex items-center justify-center shrink-0">${s.done ? fa('check', 'text-[8px]') : ''}</button>
-          <span class="text-xs flex-1 ${s.done ? 'text-slate-500 line-through' : 'text-slate-300'}" dir="auto">${esc(s.title)}</span>
-        </div>`).join('')}
+      <p class="text-[11px] text-slate-400 leading-relaxed whitespace-pre-line" dir="auto">${esc(t.notes)}</p>
     </div>`;
 }
 function todayTaskActions(t){
@@ -77,14 +85,14 @@ function todayTaskActions(t){
       <button type="button" onclick="deleteTask('${t.id}', event)" title="حذف" aria-label="حذف" class="p-2 text-slate-500 hover:text-rose-500 transition-colors">${fa('trash', 'text-xs')}</button>
     </div>`;
 }
-const canExpand = t => !!(t.notes || t.subtasks.length);
+const canExpand = t => !!t.notes;
 function todayTaskDesk(t){
   const overdue = !t.done && t.date < dateKey(state.today);
   const expandAttr = canExpand(t) ? `onclick="toggleTodayExpand('${t.id}')" class="cursor-pointer"` : '';
   if(overdue) return `
     <div class="task-item bg-rose-500/5 rounded-2xl border border-rose-500/10 hover:border-rose-500/30 transition-all group">
       <div class="p-4 flex items-center justify-between">
-        <div class="flex items-center gap-4">
+        <div class="flex ${checkAlign(t)} gap-4">
           <button type="button" onclick="toggleTaskDone('${t.id}', event)" aria-label="انجام شد" class="w-6 h-6 border-2 border-rose-500/30 rounded-lg bg-slate-900 flex items-center justify-center transition-colors">${fa('check', 'text-xs text-rose-500 opacity-0 group-hover:opacity-30')}</button>
           <div ${expandAttr}>
             <h4 class="text-sm font-bold text-slate-200" dir="auto">${esc(t.title)}</h4>
@@ -92,6 +100,7 @@ function todayTaskDesk(t){
               <span class="text-[10px] font-bold text-rose-400 flex items-center gap-1">${fa('clock', 'text-[9px]')} ${overdueLabel(t)}</span>
               ${taskMetaSpans(t)}
             </div>
+            ${subtaskChecklist(t)}
           </div>
         </div>
         ${todayTaskActions(t)}
@@ -101,11 +110,12 @@ function todayTaskDesk(t){
   return `
     <div class="task-item bg-slate-800/40 rounded-2xl border border-slate-800 hover:border-indigo-500/30 transition-all group">
       <div class="p-4 flex items-center justify-between">
-        <div class="flex items-center gap-4">
+        <div class="flex ${checkAlign(t)} gap-4">
           <button type="button" onclick="toggleTaskDone('${t.id}', event)" aria-label="انجام شد" class="w-6 h-6 border-2 border-slate-700 rounded-lg bg-slate-900 hover:border-indigo-500 flex items-center justify-center transition-colors group">${fa('check', 'text-xs text-indigo-500 opacity-0 group-hover:opacity-30')}</button>
           <div ${expandAttr}>
             <h4 class="text-sm font-bold text-slate-200" dir="auto">${esc(t.title)}</h4>
             ${taskMetaSpans(t) ? `<div class="flex items-center gap-3 mt-1.5 flex-wrap">${taskMetaSpans(t)}</div>` : ''}
+            ${subtaskChecklist(t)}
           </div>
         </div>
         ${todayTaskActions(t)}
@@ -397,11 +407,14 @@ function todayTaskMob(t){
   if(overdue) return `
     <div class="bg-rose-500/5 rounded-2xl border border-rose-500/10">
       <div class="p-4 flex items-center justify-between gap-3">
-        <div class="flex items-center gap-3 min-w-0">
+        <div class="flex ${checkAlign(t)} gap-3 min-w-0">
           <button type="button" onclick="toggleTaskDone('${t.id}', event)" aria-label="انجام شد" class="w-5 h-5 border-2 border-rose-500/30 rounded-md bg-slate-950 shrink-0"></button>
-          <button type="button" onclick="openTaskEditorEdit('${t.id}')" class="min-w-0 text-right">
-            <h4 class="text-xs font-bold text-slate-200 line-clamp-1" dir="auto">${esc(t.title)}</h4>
-          </button>
+          <div class="min-w-0">
+            <button type="button" onclick="openTaskEditorEdit('${t.id}')" class="min-w-0 text-right">
+              <h4 class="text-xs font-bold text-slate-200 line-clamp-1" dir="auto">${esc(t.title)}</h4>
+            </button>
+            ${subtaskChecklist(t)}
+          </div>
         </div>
         <span title="${ea(overdueLabel(t))}" aria-label="${ea(overdueLabel(t))}">${fa('clock', 'text-rose-400 text-[10px] shrink-0')}</span>
       </div>
@@ -410,11 +423,12 @@ function todayTaskMob(t){
   return `
     <div class="bg-slate-900/50 rounded-2xl border border-slate-800">
       <div class="p-4 flex items-center justify-between gap-4">
-        <div class="flex items-center gap-3 min-w-0">
+        <div class="flex ${checkAlign(t)} gap-3 min-w-0">
           <button type="button" onclick="toggleTaskDone('${t.id}', event)" aria-label="انجام شد" class="w-6 h-6 border-2 border-slate-700 rounded-lg bg-slate-950 shrink-0"></button>
           <div class="min-w-0" ${canExpand(t) ? `onclick="toggleTodayExpand('${t.id}')"` : `onclick="openTaskEditorEdit('${t.id}')"`}>
             <h4 class="text-xs font-bold text-slate-200 ${meta ? 'mb-1' : ''}" dir="auto">${esc(t.title)}</h4>
             ${meta ? `<div class="flex flex-wrap gap-2">${meta}</div>` : ''}
+            ${subtaskChecklist(t)}
           </div>
         </div>
         <button type="button" onclick="openTaskEditorEdit('${t.id}')" aria-label="ویرایش" class="text-slate-600 p-1 shrink-0">${fa('chevron-left', 'text-[10px]')}</button>
