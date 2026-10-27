@@ -45,11 +45,12 @@ function taskListItemDesk(t){
   const meta = taskMetaSpans(t, { priorityLabels:PRIORITY_LABEL, showDate:true });
   return `
     <div onclick="openTaskEditorEdit('${t.id}')" class="task-list-item ${active ? 'active' : ''} p-4 rounded-2xl bg-slate-800/40 border-slate-800 flex items-center justify-between cursor-pointer transition-all hover:bg-slate-800/60 group">
-      <div class="flex items-center gap-4 min-w-0">
+      <div class="flex ${checkAlign(t)} gap-4 min-w-0">
         <button type="button" onclick="toggleTaskDone('${t.id}', event)" aria-label="${t.done ? 'برگرداندن' : 'انجام شد'}" class="w-6 h-6 ${t.done ? 'bg-emerald-500 text-white' : `border-2 ${active ? 'border-indigo-500/50' : 'border-slate-700'} bg-slate-900 text-indigo-400`} rounded-lg flex items-center justify-center shrink-0">${fa('check', `text-xs ${t.done ? '' : 'opacity-0'}`)}</button>
         <div class="min-w-0">
           <h4 class="text-sm font-bold ${t.done ? 'text-slate-500 line-through' : active ? 'text-white' : 'text-slate-200'} leading-tight" dir="auto">${esc(t.title)}</h4>
           ${meta ? `<div class="flex items-center gap-3 mt-1.5 flex-wrap">${meta}</div>` : ''}
+          ${subtaskChecklist(t)}
         </div>
       </div>
       ${fa('chevron-left', `${active ? 'text-indigo-500/50' : 'text-slate-700'} text-xs shrink-0`)}
@@ -134,6 +135,7 @@ function taskListItemMob(t){
           <div class="min-w-0">
             <h4 class="text-sm font-bold ${t.done ? 'text-slate-500 line-through' : t.priority === 'high' ? 'text-white' : 'text-slate-200'} leading-tight ${pills.length ? 'mb-1.5' : ''}" dir="auto">${esc(t.title)}</h4>
             ${pills.length ? `<div class="flex flex-wrap gap-2">${pills.join('')}</div>` : ''}
+            ${subtaskChecklist(t)}
           </div>
         </div>
         ${fa('chevron-left', 'text-slate-700 text-[10px] mt-1 shrink-0')}
@@ -265,7 +267,7 @@ function taskEditorBody(){
               <button type="button" onclick="editorMoveSubtask(${idx}, -1)" ${idx === 0 ? 'disabled' : ''} aria-label="بالا" class="text-slate-600 disabled:opacity-20 leading-none">${fa('chevron-up', 'text-[9px]')}</button>
               <button type="button" onclick="editorMoveSubtask(${idx}, 1)" ${idx === d.subtasks.length - 1 ? 'disabled' : ''} aria-label="پایین" class="text-slate-600 disabled:opacity-20 leading-none">${fa('chevron-down', 'text-[9px]')}</button></span>`}
             <div class="w-4 h-4 ${s.done ? 'bg-emerald-500 text-white' : 'border border-slate-700 bg-slate-950'} rounded flex items-center justify-center shrink-0">${s.done ? fa('check', 'text-[8px]') : ''}</div>
-            <span class="${desk ? 'text-xs' : 'text-[11px]'} ${s.done ? 'text-slate-500 line-through' : 'text-slate-300'} flex-1" dir="auto">${esc(s.title)}</span>
+            <input type="text" dir="auto" value="${ea(s.title)}" oninput="editorRenameSubtask('${s.id}', this.value)" aria-label="عنوان ریز کار" class="${desk ? 'text-xs' : 'text-[11px]'} ${s.done ? 'text-slate-500 line-through' : 'text-slate-300'} flex-1 min-w-0 bg-transparent focus:outline-none">
             <button type="button" onclick="editorDeleteSubtask('${s.id}')" aria-label="حذف" class="${desk ? 'opacity-0 group-hover:opacity-100 reveal' : ''} text-slate-600 hover:text-rose-500 transition-all">${fa('xmark', 'text-xs')}</button>
           </div>`).join('')}
         <div class="flex items-center gap-3 bg-slate-900/30 border border-dashed border-slate-800 p-3 rounded-xl">

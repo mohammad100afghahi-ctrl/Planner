@@ -88,11 +88,11 @@ function englishHwForm(mob, canClose){
         class="w-full bg-slate-900/50 border border-slate-800 rounded-2xl p-4 ${mob ? 'text-[11px]' : 'text-sm'} text-slate-200 focus:outline-none focus:border-amber-500/50 transition-all placeholder:text-slate-600">${esc(nh.title)}</textarea>
       <div class="space-y-2">
         <label class="text-[10px] font-black text-slate-600 uppercase tracking-widest px-1">ریز کارها <span class="font-bold text-slate-700">(اختیاری)</span></label>
-        ${(nh.subs || []).map((t, i) => `
+        ${(nh.subs || []).map((s, i) => `
           <div class="flex items-center gap-3 bg-slate-900/50 border border-slate-800 p-3 rounded-xl group">
-            <div class="w-4 h-4 border border-slate-700 bg-slate-950 rounded shrink-0"></div>
-            <span class="${mob ? 'text-[11px]' : 'text-xs'} text-slate-300 flex-1" dir="auto">${esc(t)}</span>
-            <button type="button" onclick="enRemoveNewSub(${i})" aria-label="حذف" class="${mob ? '' : 'opacity-0 group-hover:opacity-100 reveal'} text-slate-600 hover:text-rose-500 transition-all">${fa('xmark', 'text-xs')}</button>
+            <input type="text" dir="auto" value="${ea(s.title)}" oninput="state.newHomework.subs[${i}].title=this.value" aria-label="عنوان ریز کار" class="flex-1 min-w-0 bg-transparent ${mob ? 'text-[11px]' : 'text-xs'} text-slate-300 focus:outline-none">
+            <span class="flex items-center gap-1 text-[10px] font-bold text-slate-500 shrink-0"><input type="text" inputmode="numeric" value="${ea(s.minutes)}" oninput="state.newHomework.subs[${i}].minutes=normalizeNumericInput(this)" aria-label="دقیقه" class="w-10 bg-slate-950 border border-slate-800 rounded-lg px-1 py-0.5 text-center text-slate-200"> دقیقه</span>
+            <button type="button" onclick="enRemoveNewSub(${i})" aria-label="حذف" class="${mob ? '' : 'opacity-0 group-hover:opacity-100 reveal'} text-slate-600 hover:text-rose-500 transition-all shrink-0">${fa('xmark', 'text-xs')}</button>
           </div>`).join('')}
         <div class="flex items-center gap-3 bg-slate-900/30 border border-dashed border-slate-800 p-3 rounded-xl">
           ${fa('plus', 'text-slate-700 text-xs')}
@@ -106,6 +106,7 @@ function englishHwForm(mob, canClose){
           ${(() => { const i = Math.max(0, due.findIndex(([k]) => k === dueOn)); const next = due[(i + 1) % due.length][0];
             return `<button type="button" onclick="state.newHomework.dueOn='${next}'; render()" title="${due.length > 1 ? 'برای مهلت بعدی بزن' : ''}" class="flex items-center gap-2 bg-slate-900 px-3 py-2 rounded-xl border border-slate-800">${fa('calendar', 'text-[10px] text-slate-500')}<span class="text-[10px] text-slate-400">مهلت: ${due[i][1]}</span>${due.length > 1 ? fa('rotate', 'text-[8px] text-slate-600') : ''}</button>`; })()}
           <input type="text" data-preserve placeholder="یونیت / درس" value="${ea(nh.unit)}" oninput="state.newHomework.unit=this.value" class="w-28 bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-[10px] text-slate-300 focus:outline-none focus:border-amber-500/50 placeholder:text-slate-600">
+          ${(nh.subs || []).length ? '' : `<span class="flex items-center gap-2 bg-slate-900 px-3 py-2 rounded-xl border border-slate-800">${fa('hourglass-half', 'text-[10px] text-slate-500')}<input type="text" inputmode="numeric" placeholder="${fd(EN_SUB_MINUTES)}" value="${ea(nh.minutes)}" oninput="state.newHomework.minutes=normalizeNumericInput(this)" aria-label="مدت به دقیقه" class="w-8 bg-transparent text-center text-[10px] text-slate-300 focus:outline-none placeholder:text-slate-600"><span class="text-[10px] text-slate-500">دقیقه</span></span>`}
         </div>
         <div class="flex items-center gap-2">
           ${canClose ? `<button type="button" onclick="enCloseAddForm()" class="px-4 py-2.5 bg-slate-800 text-slate-400 rounded-xl text-[11px] font-black">انصراف</button>` : ''}
@@ -119,7 +120,7 @@ function englishHwForm(mob, canClose){
 function enCloseAddForm(){
   state.enAddOpen = false;
   state.enAddDismissed = true;
-  Object.assign(state.newHomework, { title:'', dueOn:'', subs:[] });
+  Object.assign(state.newHomework, { title:'', dueOn:'', minutes:'', subs:[] });
   render();
 }
 function renderEnglishHwEditorModal(){

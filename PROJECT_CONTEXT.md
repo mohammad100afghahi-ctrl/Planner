@@ -125,3 +125,8 @@ Read current files rather than assuming stored notes remain current. Reconcile u
 - englishStreak() and every English-only chain display are gone (desktop header, «الگوی مطالعه» row, phone «روز N زنجیره», the «دیروز جا افتاد» warnings on the English page and the امروز card).
 - computeStreak() now also counts each ticked ریز کار (by done_at) and each 5-minute minimum (english_practice) as something done that day; send-push streakState() reads the same two tables, so the 21:00/23:00 warning and the digest agree. The English practice push no longer mentions a separate chain. sw.js v83.
 - send-push deployed as v17.
+
+## 2026-10-28 — ریز کارها: duration on the homework form, rename in place, tick on the card (Claude)
+- English «ثبت تکلیف» form: an «⌛ دقیقه» box sets the homework's own time while it has no ریز کار; once ریز کارها are added the box goes and each row has its own title + minutes inputs (newHomework.subs is now [{title, minutes}], default 10).
+- Task editor: each subtask's title is an input (editorRenameSubtask), so a typo no longer needs delete + retype.
+- Task cards on امروز and تسک‌ها (both layouts): an open task's ریز کارها are listed under its title and tick in place (subtaskChecklist in ui-today.js, stopPropagation so the editor doesn't open). Tap-to-expand on امروز now only shows notes. sw.js v84.

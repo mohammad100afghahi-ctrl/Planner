@@ -765,7 +765,7 @@ let state = {
   englishChunks: [], // [{ id, homeworkId, title, minutes, day, position, done, doneAt, skips:[{ day, reason }], createdAt }]
   englishPractice: [], // [{ day, createdAt }] — days the 5-minute minimum was ticked
   englishTab: 'hw', // 'hw' | 'done' | 'stats' | 'settings'
-  newHomework: { title:'', unit:'', dueOn:'', subs:[] }, // subs: the ریز کارها typed into the form, not saved yet
+  newHomework: { title:'', unit:'', dueOn:'', minutes:'', subs:[] }, // subs: the ریز کارها typed into the form ({title, minutes}), not saved yet; minutes: the homework's own time while it has none
   enHwEditor: null, // { hwId, title, unit, dueOn, chunks:[{ id, title, minutes, done }] } while editing a homework
   aiHealth: null, // { errorKind, errorMessage, errorAt, okAt } — did هوشواره's last AI call work?
   userEmail: '', // the signed-in account, shown in the header
@@ -2537,6 +2537,10 @@ function editorAddSubtask(){
   if(!title) return;
   state.taskEditor.draft.subtasks.push({ id: uid(), title, done:false });
   render();
+}
+function editorRenameSubtask(subId, title){
+  const s = state.taskEditor && state.taskEditor.draft.subtasks.find(x => x.id === subId);
+  if(s) s.title = title;
 }
 function editorDeleteSubtask(subId){
   const ed = state.taskEditor;
@@ -4742,7 +4746,7 @@ function enAddNewSub(){
   const input = document.getElementById('new-hw-sub');
   const title = ((input && input.value) || '').trim();
   if(!title) return;
-  state.newHomework.subs.push(title);
+  state.newHomework.subs.push({ title, minutes:String(EN_SUB_MINUTES) });
   if(input) input.value = '';
   render();
   focusEl('new-hw-sub');
@@ -4755,7 +4759,9 @@ async function addEnglishHomework(){
   if(!title) return;
   // a ریز کار still sitting in the input counts too
   const pendingSub = ((document.getElementById('new-hw-sub') || {}).value || '').trim();
-  const subs = [...(nh.subs || []), ...(pendingSub ? [pendingSub] : [])];
+  const subs = [...(nh.subs || []), ...(pendingSub ? [{ title:pendingSub, minutes:String(EN_SUB_MINUTES) }] : [])]
+    .map(s => ({ title:s.title.trim(), minutes:s.minutes })).filter(s => s.title);
+  const mins = v => Math.min(120, Math.max(1, parseInt(v, 10) || EN_SUB_MINUTES));
   const today = dateKey(new Date());
   const upcoming = enUpcomingClass();
   const dueOn = nh.dueOn && nh.dueOn >= today ? nh.dueOn : (upcoming || enAddDays(today, 7));
@@ -4766,12 +4772,13 @@ async function addEnglishHomework(){
     createdAt: new Date().toISOString(),
   };
   const t0 = Date.now();
-  const titles = subs.length ? subs : [title.length > 90 ? title.slice(0, 89) + '…' : title];
-  const rows = titles.map((t, i) => enNewChunkRow(hw.id, t, i, new Date(t0 + i).toISOString()));
+  const parts = subs.length ? subs : [{ title:title.length > 90 ? title.slice(0, 89) + '…' : title, minutes:nh.minutes }];
+  const rows = parts.map((s, i) => ({ ...enNewChunkRow(hw.id, s.title, i, new Date(t0 + i).toISOString()), minutes:mins(s.minutes) }));
   const ids = new Set(rows.map(r => r.id));
   state.englishHomework.push(hw);
   state.englishChunks.push(...rows.map(englishChunkFromRow));
-  state.newHomework = { title:'', unit:hw.unit, dueOn:'', subs:[] }; // the unit usually stays the same next time
+  const draftMinutes = nh.minutes;
+  state.newHomework = { title:'', unit:hw.unit, dueOn:'', minutes:'', subs:[] }; // the unit usually stays the same next time
   state.enAddOpen = false;
   render();
   const saved = await persist(sb.from('english_homework').insert({
@@ -4781,7 +4788,7 @@ async function addEnglishHomework(){
     rollback: () => {
       state.englishHomework = state.englishHomework.filter(x => x.id !== hw.id);
       state.englishChunks = state.englishChunks.filter(c => !ids.has(c.id));
-      Object.assign(state.newHomework, { title, subs });
+      Object.assign(state.newHomework, { title, subs, minutes:draftMinutes });
     },
   });
   if(!saved) return;
