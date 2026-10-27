@@ -124,4 +124,4 @@ Read current files rather than assuming stored notes remain current. Reconcile u
 ## 2026-10-28 — انگلیسی: زنجیره‌ی جدا حذف شد، به استریک اصلی وصل شد (Claude)
 - englishStreak() and every English-only chain display are gone (desktop header, «الگوی مطالعه» row, phone «روز N زنجیره», the «دیروز جا افتاد» warnings on the English page and the امروز card).
 - computeStreak() now also counts each ticked ریز کار (by done_at) and each 5-minute minimum (english_practice) as something done that day; send-push streakState() reads the same two tables, so the 21:00/23:00 warning and the digest agree. The English practice push no longer mentions a separate chain. sw.js v83.
-- send-push needs a redeploy for the server side to count English (not deployed yet).
+- send-push deployed as v17.
