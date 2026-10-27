@@ -364,8 +364,10 @@ function renderArchiveDesktop(){
 function renderArchiveMobile(){
   const sec = state.archiveSection;
   const tasks = archiveTasksList();
-  const bought = [...state.purchases.filter(p => p.bought)].sort((a, b) => (b.boughtAt || '').localeCompare(a.boughtAt || ''));
+  const byDate = [...state.purchases.filter(p => p.bought)].sort((a, b) => (b.boughtAt || '').localeCompare(a.boughtAt || ''));
+  const bought = state.purchaseSort === 'cheapest' || state.purchaseSort === 'priciest' ? sortPurchases(byDate) : byDate;
   const f = state.archiveFilters;
+  const sortChip = (mode, label) => `<button type="button" onclick="setPurchaseSort('${mode}')" class="bg-slate-800 px-3 py-1.5 rounded-lg text-[9px] font-black ${(state.purchaseSort === mode || (mode === 'default' && bought === byDate)) ? 'text-indigo-400' : 'text-slate-400'} border border-slate-700 whitespace-nowrap">${label}</button>`;
   const item = (title, sub, tagHtml, actions) => `
     <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex items-center justify-between gap-4 opacity-70">
       <div class="flex items-center gap-3 min-w-0">
@@ -391,6 +393,9 @@ function renderArchiveMobile(){
         <button type="button" onclick="state.archiveFilterOpen=!state.archiveFilterOpen; render()" class="bg-slate-800 px-3 py-1.5 rounded-lg text-[9px] font-black ${f.tagIds.length ? 'text-indigo-400' : 'text-slate-400'} border border-slate-700 whitespace-nowrap">${f.tagIds.length ? `${fd(f.tagIds.length)} تگ` : 'همه تگ‌ها'} ${fa('chevron-down', 'ml-1')}</button>
         <button type="button" onclick="state.archiveFilterOpen=!state.archiveFilterOpen; render()" class="bg-slate-800 px-3 py-1.5 rounded-lg text-[9px] font-black ${f.dateFrom || f.dateTo ? 'text-indigo-400' : 'text-slate-400'} border border-slate-700 whitespace-nowrap">تاریخ تکمیل ${fa('calendar', 'text-[8px] ml-1')}</button>
         <span class="bg-slate-800 px-3 py-1.5 rounded-lg text-[9px] font-black text-slate-400 border border-slate-700 whitespace-nowrap">جدیدترین ${fa('arrow-down-wide-short', 'ml-1')}</span>
+      </div>` : sec === 'purchases' ? `
+      <div class="bg-slate-900/50 border-b border-slate-800/50 px-4 py-3 flex items-center gap-3 overflow-x-auto no-scrollbar">
+        ${sortChip('default', 'جدیدترین')}${sortChip('cheapest', 'ارزان‌ترین')}${sortChip('priciest', 'گران‌ترین')}
       </div>` : ''}
     <main class="safe-area-bottom p-4">
       ${renderStatusBars()}

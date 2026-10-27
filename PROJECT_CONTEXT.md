@@ -130,3 +130,7 @@ Read current files rather than assuming stored notes remain current. Reconcile u
 - English «ثبت تکلیف» form: an «⌛ دقیقه» box sets the homework's own time while it has no ریز کار; once ریز کارها are added the box goes and each row has its own title + minutes inputs (newHomework.subs is now [{title, minutes}], default 10).
 - Task editor: each subtask's title is an input (editorRenameSubtask), so a typo no longer needs delete + retype.
 - Task cards on امروز and تسک‌ها (both layouts): an open task's ریز کارها are listed under its title and tick in place (subtaskChecklist in ui-today.js, stopPropagation so the editor doesn't open). Tap-to-expand on امروز now only shows notes. sw.js v84.
+
+## 2026-10-28 — phone parity pass (Claude)
+- Audited desktop vs phone renders for features that only worked on the laptop. Fixed: امروز overdue tasks on the phone now open their notes on tap (they went straight to the editor) and show «دیروز / N روز پیش (انجام نشده)» as text instead of a hover-only tooltip; انگلیسی on the phone gets «روند پیشرفت» (button on «وضعیت یادگیری») with «الگوی مطالعه» (englishPatternCard, shared with desktop) and «وضعیت قبل از هر کلاس»; آرشیو › خریدها on the phone gets the جدیدترین / ارزان‌ترین / گران‌ترین sort. sw.js v85.
+- Checked and left as is (reachable another way on the phone): ریز کار delete and repair parts go through their editors, task copy/delete through the task editor, print button exists on both.

@@ -215,10 +215,6 @@ function englishSettingsCard(mob){
 }
 function englishRightColumn(){
   const p = enTodayProgress();
-  const bars = enWeekBars();
-  const max = Math.max(5, ...bars.map(b => b.minutes));
-  const avg = Math.round(bars.reduce((n, b) => n + b.minutes, 0) / 7);
-  const todayK = dateKey(new Date());
   const r = 40, circ = 251;
   return `
     ${englishGoalCard(false)}
@@ -246,7 +242,16 @@ function englishRightColumn(){
         <button type="button" onclick="toggleEnglishMin()" class="w-full py-3 ${p.minTicked ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/10' : 'bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 border-amber-500/10'} rounded-xl text-[10px] font-black transition-all border tracking-widest uppercase">${p.minTicked ? `${fa('check', 'ml-1')} ۵ دقیقه‌ی امروز ثبت شد` : 'ثبت ۵ دقیقه تمرین'}</button>
       </div>
     </div>
-    <div class="bg-slate-950 border border-slate-800 rounded-3xl p-6">
+    ${englishPatternCard(false)}`;
+}
+// «الگوی مطالعه»: this week's practice minutes, day by day (desktop column, phone «روند پیشرفت»)
+function englishPatternCard(mob){
+  const bars = enWeekBars();
+  const max = Math.max(5, ...bars.map(b => b.minutes));
+  const avg = Math.round(bars.reduce((n, b) => n + b.minutes, 0) / 7);
+  const todayK = dateKey(new Date());
+  return `
+    <div class="bg-slate-950 border border-slate-800 rounded-3xl ${mob ? 'p-5' : 'p-6'}">
       <h4 class="text-xs font-black text-white uppercase tracking-widest mb-4 flex items-center gap-2">${fa('chart-line', 'text-indigo-400')} الگوی مطالعه</h4>
       <div class="space-y-4">
         <div class="flex items-center justify-between px-2"><span class="text-[11px] text-slate-500">میانگین هفتگی</span><span class="text-[11px] font-bold text-slate-300">${fd(avg)} دقیقه/روز</span></div>
@@ -347,17 +352,18 @@ function renderEnglishMobile(){
           <span class="text-[8px] font-bold text-indigo-400 uppercase tracking-widest shrink-0">${fd(c.minutes)} MIN</span>
         </button>
       </div>`;
-  const settingsView = state.englishTab === 'settings';
+  const settingsView = state.englishTab === 'settings', statsView = state.englishTab === 'stats';
   return `
     ${mobHeader(mobTitle('انگلیسی', `<span class="text-[9px] font-black text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/10 uppercase">تمرین انگلیسی</span>`).replace('text-lg font-black text-white', 'text-lg font-black text-white uppercase tracking-tight'),
-      mobIconBtn(settingsView ? 'xmark' : 'gear', `state.englishTab='${settingsView ? 'hw' : 'settings'}'; render()`, settingsView ? 'بستن تنظیمات' : 'تنظیمات'))}
+      mobIconBtn(settingsView || statsView ? 'xmark' : 'gear', `state.englishTab='${settingsView || statsView ? 'hw' : 'settings'}'; render()`, settingsView ? 'بستن تنظیمات' : statsView ? 'بستن روند پیشرفت' : 'تنظیمات'))}
     <main class="safe-area-bottom">
       <div class="p-4 space-y-6">
         ${renderStatusBars()}
-        ${settingsView ? englishSettingsCard(true) : `
+        ${settingsView ? englishSettingsCard(true) : statsView ? `${englishPatternCard(true)}${englishStatsCards()}` : `
         <div class="bg-indigo-600/10 border border-indigo-500/20 rounded-3xl p-5">
           <div class="flex items-center justify-between mb-6">
             <h3 class="text-xs font-black text-white flex items-center gap-2 uppercase tracking-widest">${fa('chart-simple', 'text-indigo-400')} وضعیت یادگیری</h3>
+            <button type="button" onclick="state.englishTab='stats'; render()" class="text-[10px] font-black text-indigo-400">روند پیشرفت ${fa('chevron-left', 'text-[8px] mr-1')}</button>
           </div>
           <div class="grid grid-cols-2 gap-4">
             <div class="bg-slate-950/50 p-3 rounded-2xl border border-indigo-500/5"><p class="text-[9px] font-black text-slate-500 mb-1">تکالیف تکمیل شده</p><span class="text-lg font-black text-white">${fd(st.pct)}٪</span></div>

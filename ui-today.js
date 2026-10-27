@@ -409,15 +409,15 @@ function todayTaskMob(t){
       <div class="p-4 flex items-center justify-between gap-3">
         <div class="flex ${checkAlign(t)} gap-3 min-w-0">
           <button type="button" onclick="toggleTaskDone('${t.id}', event)" aria-label="انجام شد" class="w-5 h-5 border-2 border-rose-500/30 rounded-md bg-slate-950 shrink-0"></button>
-          <div class="min-w-0">
-            <button type="button" onclick="openTaskEditorEdit('${t.id}')" class="min-w-0 text-right">
-              <h4 class="text-xs font-bold text-slate-200 line-clamp-1" dir="auto">${esc(t.title)}</h4>
-            </button>
+          <div class="min-w-0" ${canExpand(t) ? `onclick="toggleTodayExpand('${t.id}')"` : `onclick="openTaskEditorEdit('${t.id}')"`}>
+            <h4 class="text-xs font-bold text-slate-200 line-clamp-1 mb-1" dir="auto">${esc(t.title)}</h4>
+            <span class="text-[9px] font-black text-rose-400 flex items-center gap-1">${fa('clock', 'text-[8px]')} ${overdueLabel(t)}</span>
             ${subtaskChecklist(t)}
           </div>
         </div>
-        <span title="${ea(overdueLabel(t))}" aria-label="${ea(overdueLabel(t))}">${fa('clock', 'text-rose-400 text-[10px] shrink-0')}</span>
+        <button type="button" onclick="openTaskEditorEdit('${t.id}')" aria-label="ویرایش" class="text-slate-600 p-1 shrink-0">${fa('chevron-left', 'text-[10px]')}</button>
       </div>
+      ${todayTaskExpansion(t, true)}
     </div>`;
   const meta = taskMetaSpans(t, { mob:true });
   return `
