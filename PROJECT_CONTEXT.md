@@ -134,3 +134,6 @@ Read current files rather than assuming stored notes remain current. Reconcile u
 ## 2026-10-28 — phone parity pass (Claude)
 - Audited desktop vs phone renders for features that only worked on the laptop. Fixed: امروز overdue tasks on the phone now open their notes on tap (they went straight to the editor) and show «دیروز / N روز پیش (انجام نشده)» as text instead of a hover-only tooltip; انگلیسی on the phone gets «روند پیشرفت» (button on «وضعیت یادگیری») with «الگوی مطالعه» (englishPatternCard, shared with desktop) and «وضعیت قبل از هر کلاس»; آرشیو › خریدها on the phone gets the جدیدترین / ارزان‌ترین / گران‌ترین sort. sw.js v85.
 - Checked and left as is (reachable another way on the phone): ریز کار delete and repair parts go through their editors, task copy/delete through the task editor, print button exists on both.
+
+## 2026-10-29 — login password eye (Claude)
+- Sign-in form: an eye button inside the password field shows/hides what was typed (toggleLoginPassword in ui-shell.js), so a phone keyboard's auto-capitals or Persian layout is visible before submitting. sw.js v86.
