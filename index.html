@@ -379,6 +379,10 @@ global.jalaali = {
 <script src="./ui-tasks.js"></script>
 <script src="./ui-pages.js"></script>
 <script src="./ui-system.js"></script>
+<!-- هوشاور: the tab, then one file per exercise (remove an exercise = drop its line) -->
+<script src="./hooshavar.js"></script>
+<script src="./hooshavar-morning.js"></script>
+<script src="./hooshavar-focus.js"></script>
 <script>
 /* ---------- storage keys ---------- */
 const SUPABASE_URL = 'https://byqowlvyupcusjjyxwaf.supabase.co';
@@ -5465,10 +5469,13 @@ let appBooted = false;
 function bootApp(){
   if(appBooted) return;
   appBooted = true;
+  const askedView = new URLSearchParams(location.search).get('view');
+  if(askedView){ state.view = askedView; history.replaceState(null, '', location.pathname); }
   startApp();
   loadAll();
   refreshPushStatus();
   loadBackups();
+  hooshavarLoad();
 }
 function startApp(){
   appStarted = true;
@@ -5552,6 +5559,10 @@ if('serviceWorker' in navigator){
     if(document.visibilityState === 'hidden' && updatePending) location.reload();
     // a PWA can sit open for days; look for a new release whenever it comes back
     if(document.visibilityState === 'visible') navigator.serviceWorker.getRegistration().then(r => r && r.update()).catch(() => {});
+  });
+  // a tapped notification can name a page: «open-view» to an open app, ?view= to a new one
+  navigator.serviceWorker.addEventListener('message', e => {
+    if(e.data && e.data.type === 'open-view' && appStarted) navigateTo(e.data.view);
   });
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('./sw.js').catch(e => console.error('SW register failed', e));
