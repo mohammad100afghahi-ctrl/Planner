@@ -584,6 +584,13 @@ function render(){
 }
 
 /* ---------- sign-in (no screen in the reference: built from its form parts) ---------- */
+function toggleLoginPassword(btn){
+  const input = document.getElementById('loginPassword');
+  const show = input.type === 'password';
+  input.type = show ? 'text' : 'password';
+  btn.innerHTML = fa(show ? 'eye-slash' : 'eye', 'text-xs');
+  btn.setAttribute('aria-label', show ? 'پنهان کردن رمز' : 'نمایش رمز');
+}
 function renderLogin(){
   loginShown = true;
   appStarted = false; // an early-painted local copy must not render over the form
@@ -600,7 +607,7 @@ function renderLogin(){
           </div>
         </div>
         <div class="space-y-1.5">${fieldLabel('ایمیل')}<input id="loginEmail" type="email" autocomplete="username" required dir="ltr" class="${inputCls}"></div>
-        <div class="space-y-1.5">${fieldLabel('رمز عبور')}<input id="loginPassword" type="password" autocomplete="current-password" required dir="ltr" class="${inputCls}"></div>
+        <div class="space-y-1.5">${fieldLabel('رمز عبور')}<div class="relative"><input id="loginPassword" type="password" autocomplete="current-password" required dir="ltr" class="${inputCls} pr-12"><button type="button" onclick="toggleLoginPassword(this)" aria-label="نمایش رمز" class="absolute right-3 top-1/2 -translate-y-1/2 p-2 text-slate-600 hover:text-white transition-all">${fa('eye', 'text-xs')}</button></div></div>
         <button type="submit" id="loginSubmit" class="w-full py-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl font-black shadow-lg shadow-indigo-900/40 transition-all disabled:opacity-50">ورود</button>
         <div class="text-[11px] font-bold text-rose-400 min-h-[1em]" id="loginError" role="alert"></div>
       </form>
