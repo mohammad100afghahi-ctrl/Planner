@@ -5500,7 +5500,7 @@ async function submitLogin(e){
   btn.disabled = true;
   errEl.textContent = '';
   const { error } = await sb.auth.signInWithPassword({
-    email: document.getElementById('loginEmail').value.trim(),
+    email: document.getElementById('loginEmail').value.trim().toLowerCase(),
     password: document.getElementById('loginPassword').value,
   });
   if(error){
