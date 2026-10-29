@@ -138,3 +138,4 @@ Read current files rather than assuming stored notes remain current. Reconcile u
 ## 2026-10-29 — login password eye (Claude)
 - Sign-in form: an eye button inside the password field shows/hides what was typed (toggleLoginPassword in ui-shell.js), so a phone keyboard's auto-capitals or Persian layout is visible before submitting. sw.js v86.
 - Login email: lower-cased before sign-in, and the field turns off auto-capitalise/autocorrect/spellcheck — a phone keyboard's capitalised or "corrected" email was failing as invalid credentials. sw.js v87.
+- Login email: all whitespace and invisible format characters (RLM/LRM, ZWNJ/ZWJ, bidi embeds, BOM) are stripped before sign-in; a keyboard-suggested email still failed after the lower-case fix. sw.js v88.
