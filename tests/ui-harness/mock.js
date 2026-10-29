@@ -9,7 +9,7 @@
   function chain(name){
     let op = 'select', payload = null, single = null; const filters = [];
     const q = {
-      select(){ return q; }, order(){ return q; }, limit(){ return q; },
+      select(){ return q; }, order(){ return q; }, limit(){ return q; }, is(){ return q; },
       eq(k, v){ filters.push([k, v]); return q; }, in(k, v){ filters.push([k, v]); return q; },
       insert(p){ op = 'insert'; payload = p; return q; },
       update(p){ op = 'update'; payload = p; return q; },
