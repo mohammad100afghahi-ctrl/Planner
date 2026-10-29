@@ -2,6 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient, SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import webpush from "npm:web-push@3.6.7";
 import jalaali from "npm:jalaali-js@1.2.8";
+import { hooshavarFocusRun } from "./hooshavar-focus.ts"; // هوشاور exercise — remove with it
 
 /* ---------- اعلان روی گوشی ----------
    Three ways in:
@@ -11,6 +12,7 @@ import jalaali from "npm:jalaali-js@1.2.8";
      x-cron-secret + {action:"english"}  — the every-10-minutes pg_cron job: «انگلیسی» nudges
                                           that are due right now (see englishFor), and the
                                           21:00 / 23:00 streak warning (see streakFor)
+     x-cron-secret + {action:"hooshavar-focus"} — every minute: هوشاور › جلسهٔ تمرکز (hooshavar-focus.ts)
      user JWT + {action:"publicKey"}     — the app asks for the VAPID public key before subscribing
      user JWT + {action:"test"}          — «ارسال اعلان آزمایشی»: the caller's digest right now
    The morning digest is up to four notifications, each with its own tag so one
@@ -87,7 +89,7 @@ function subLabel(n: number): string {
   return `${fa(n)} روز تا تمدید`;
 }
 
-type Payload = { title: string; body: string; tag: string; silent?: boolean };
+type Payload = { title: string; body: string; tag: string; silent?: boolean; view?: string }; // view: the page a tap opens
 
 /* «مادر»: on the chosen weekdays, one consideration for Mom (MS). Same count
    as the app's motherItemForDay — reminder days since 1970-01-01, walking the
@@ -540,6 +542,7 @@ Deno.serve(async (req: Request) => {
       const { data: rows, error } = await sb.from("push_subscriptions").select("user_id");
       if (error) throw error;
       if (action === "tasks") return json(await taskReminderRun(sb));
+      if (action === "hooshavar-focus") return json(await hooshavarFocusRun(sb, sendTo));
       if (action !== "digest" && action !== "english") return json({ error: "unknown action" }, 400);
       const results: any[] = [];
       // one account's failure must not stop the cron from reaching the others

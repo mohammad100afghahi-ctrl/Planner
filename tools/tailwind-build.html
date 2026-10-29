@@ -20,7 +20,7 @@
 <textarea id="out" spellcheck="false"></textarea>
 <div id="probe" hidden></div>
 <script>
-const SOURCES = ['../index.html', '../task-reminders.js', '../ui-shell.js', '../ui-today.js', '../ui-tasks.js', '../ui-pages.js', '../ui-system.js'];
+const SOURCES = ['../index.html', '../task-reminders.js', '../ui-shell.js', '../ui-today.js', '../ui-tasks.js', '../ui-pages.js', '../ui-system.js', '../hooshavar.js', '../hooshavar-morning.js', '../hooshavar-focus.js'];
 (async () => {
   const texts = await Promise.all(SOURCES.map(u => fetch(u, { cache:'no-store' }).then(r => r.ok ? r.text() : '')));
   const tokens = new Set();

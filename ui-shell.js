@@ -33,13 +33,14 @@ const NAV_GROUPS = [
   { label:'برنامه‌ریزی', items:[['today','امروز','calendar-day'], ['tasks','تسک‌ها','list-check'], ['calendar','تقویم جلالی','calendar-days'], ['english','انگلیسی','language']] },
   { label:'محتوا', items:[['ideas','ایده‌ها','lightbulb'], ['prompts','پرامپت‌ها','terminal']] },
   { label:'مالی', items:[['purchases','خریدها','cart-shopping'], ['subscriptions','اشتراک‌ها','credit-card']] },
-  { label:'شخصی', items:[['wins','تونستم','trophy'], ['mother','مادر','heart'], ['repairs','تعمیرات','hammer']] },
+  { label:'شخصی', items:[['wins','تونستم','trophy'], ['mother','مادر','heart'], ['repairs','تعمیرات','hammer'], ['hooshavar','هوشاور','seedling']] },
   { label:'سیستم', items:[['settings','تنظیمات','gear'], ['archive','آرشیو','box-archive'], ['ai-reports','مرور هفته','clipboard-check']] },
 ];
 // the active item's colours and icon tint, exactly as each reference page draws its own entry
 const NAV_ACTIVE = {
   english:['bg-amber-500/10 text-amber-400 border-amber-500/20', ''],
   mother:['bg-rose-500/10 text-rose-400 border-rose-500/20', 'text-rose-500'],
+  hooshavar:['bg-emerald-500/10 text-emerald-400 border-emerald-500/20', 'text-emerald-500'],
 };
 const NAV_ICON_TINT = new Set(['tasks','calendar','ideas','prompts','subscriptions','wins','archive','ai-reports']);
 let resetScrollOnRender = false;
@@ -484,14 +485,14 @@ const DESKTOP_VIEWS = {
   english:() => renderEnglishDesktop(), ideas:() => renderIdeasDesktop(), prompts:() => renderPromptsDesktop(),
   purchases:() => renderPurchasesDesktop(), subscriptions:() => renderSubscriptionsDesktop(), wins:() => renderWinsDesktop(),
   mother:() => renderMotherDesktop(), repairs:() => renderRepairsDesktop(), settings:() => renderSettingsDesktop(),
-  archive:() => renderArchiveDesktop(), 'ai-reports':() => renderAIReportsDesktop(),
+  archive:() => renderArchiveDesktop(), 'ai-reports':() => renderAIReportsDesktop(), hooshavar:() => renderHooshavarDesktop(),
 };
 const MOBILE_VIEWS = {
   today:() => renderTodayMobile(), tasks:() => renderTasksMobile(), calendar:() => renderCalendarMobile(),
   english:() => renderEnglishMobile(), ideas:() => renderIdeasMobile(), prompts:() => renderPromptsMobile(),
   purchases:() => renderPurchasesMobile(), subscriptions:() => renderSubscriptionsMobile(), wins:() => renderWinsMobile(),
   mother:() => renderMotherMobile(), repairs:() => renderRepairsMobile(), settings:() => renderSettingsMobile(),
-  archive:() => renderArchiveMobile(), 'ai-reports':() => renderAIReportsMobile(),
+  archive:() => renderArchiveMobile(), 'ai-reports':() => renderAIReportsMobile(), hooshavar:() => renderHooshavarMobile(),
 };
 function renderOverlays(){
   const desk = isDesk();
@@ -516,6 +517,7 @@ function renderOverlays(){
     state.taskCompletionModal ? renderTaskCompletionModal() : '',
     state.streakPanel ? renderStreakPanel() : '',
     state.winSos ? renderWinSos() : '',
+    hooshavarOverlays(),
     !desk && state.moreMenuOpen ? renderMoreMenu() : '',
     state.undoToast ? renderUndoToast() : '',
     state.saveError ? renderSaveErrorToast() : '',
@@ -560,6 +562,9 @@ function render(){
   const app = document.getElementById('app');
   // boot renders (push status, backups) can arrive before the first data load
   if(!state.tasks){ app.innerHTML = `<div class="min-h-screen flex items-center justify-center text-xs font-bold text-slate-500">در حال بارگذاری…</div>`; return; }
+  // an exercise that has to be done before the app (هوشاور › لنگر صبح) takes the whole screen
+  const gate = hooshavarGate();
+  if(gate){ app.innerHTML = gate + (state.saveError ? renderSaveErrorToast() : ''); return; }
   const scrolls = saveScrolls();
   const desk = isDesk();
   document.body.className = desk ? 'text-slate-100 overflow-hidden' : 'text-slate-100 bg-[#020617] selection:bg-indigo-500/30';

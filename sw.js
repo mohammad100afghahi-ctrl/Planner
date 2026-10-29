@@ -1,7 +1,7 @@
 /* App-shell cache for مدار.
    Bump CACHE_NAME (e.g. medar-shell-v2) whenever index.html/manifest/icons change,
    so returning visitors pick up the new version instead of a stale cached copy. */
-const CACHE_NAME = 'medar-shell-v88';
+const CACHE_NAME = 'medar-shell-v89';
 const APP_SHELL = [
   './',
   './index.html',
@@ -13,6 +13,9 @@ const APP_SHELL = [
   './ui-tasks.js',
   './ui-pages.js',
   './ui-system.js',
+  './hooshavar.js',
+  './hooshavar-morning.js',
+  './hooshavar-focus.js',
   './manifest.json',
   './icon-192.png',
   './icon-512.png',
@@ -104,6 +107,7 @@ self.addEventListener('push', (event) => {
       lang: 'fa',
       icon: './icon-192.png',
       badge: './icon-192.png',
+      data: { view: data.view || null }, // a page to open on tap (e.g. هوشاور)
     })
   );
 });
@@ -114,7 +118,12 @@ self.addEventListener('notificationclick', (event) => {
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
       const open = list.find((c) => new URL(c.url).origin === self.location.origin);
-      return open ? open.focus() : self.clients.openWindow('./');
+      const view = event.notification.data && event.notification.data.view;
+      if(open){
+        if(view) open.postMessage({ type: 'open-view', view });
+        return open.focus();
+      }
+      return self.clients.openWindow(view ? './?view=' + encodeURIComponent(view) : './');
     })
   );
 });
