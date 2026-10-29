@@ -52,7 +52,14 @@ hooshavarRegister({
     const { data, error } = await sb.from('hooshavar_morning').select('*').order('day', { ascending:false }).limit(120);
     if(error) throw error;
     hvMorning.rows = {};
-    data.forEach(r => { hvMorning.rows[r.day] = hvMorningFromRow(r); });
+    data.forEach(r => {
+      // a wake time between midnight and 05:00 is a bug's leftover (or an old app's copy sent again): drop it
+      if(hvNight(r.woke_at) && !r.washed_at && !r.ate_at){
+        sb.from('hooshavar_morning').delete().eq('day', r.day).then(({ error }) => { if(error) console.error('hooshavar_morning cleanup', error); });
+        return;
+      }
+      hvMorning.rows[r.day] = hvMorningFromRow(r);
+    });
     hvMorning.loaded = true;
     // what this device saved while offline (or before the server answered)
     const local = hvMorningLocal();
