@@ -147,3 +147,4 @@ Read current files rather than assuming stored notes remain current. Reconcile u
 - خلاصهٔ هفته (in hooshavar.js): each exercise's summary(days) lines for Sat–Fri, week arrows, copy-as-text button.
 - Notifications: supabase/functions/send-push/hooshavar-focus.ts + action "hooshavar-focus" in index.ts (planned time, and «۲۵ دقیقه تموم شد»). send-push deployed as v18; `hooshavar-focus-push` cron (every minute) scheduled. Tables are applied.
 - Notifications can carry `view`: sw.js opens ./?view=… or posts {type:'open-view'} to an open app (index.html handles both). tailwind-build.html now scans the hooshavar files; tailwind.css rebuilt. sw.js v89.
+- 2026-10-30: لنگر صبح locked at 01:00 and saved 01:10 as Thursday's wake time (the 05:00 day boundary made 01:00 «Thursday», which had no row yet). Now between 00:00 and 05:00 there is no lock and nothing is saved (hvNight); a stored device copy with a night wake time is ignored. The wrong row was deleted. sw.js v90.

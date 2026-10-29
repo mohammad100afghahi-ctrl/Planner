@@ -6,16 +6,21 @@
 
    Today's row is also kept on the device (HV_MORNING_KEY), so the lock opens
    at once on the next launch, and works offline: whatever the server lacks is
-   written again on the next load. Remove: see hooshavar.js. */
+   written again on the next load. Between 00:00 and 05:00 it is still last
+   night: no lock and no wake time, whatever the day's state. Remove: see hooshavar.js. */
 const HV_DAY_START_H = 5;
 const HV_MORNING_KEY = 'medar-hv-morning-v1';
 const hvMorning = { rows:{}, loaded:false, firstSeen:null }; // rows: day → { day, wokeAt, washedAt, ateAt, doneAt }
 
 const hvMorningDay = () => dateKey(new Date(Date.now() - HV_DAY_START_H * 3600_000));
+// an open (or a saved wake time) between midnight and 05:00 is not waking up
+const hvNight = (t = Date.now()) => new Date(t).getHours() < HV_DAY_START_H;
 const hvMorningFromRow = r => ({ day:r.day, wokeAt:r.woke_at, washedAt:r.washed_at, ateAt:r.ate_at, doneAt:r.done_at });
 const hvMorningToRow = m => ({ day:m.day, woke_at:m.wokeAt, washed_at:m.washedAt || null, ate_at:m.ateAt || null, done_at:m.doneAt || null });
 function hvMorningLocal(){
-  try{ return JSON.parse(localStorage.getItem(HV_MORNING_KEY) || 'null'); }catch(_e){ return null; }
+  let m = null;
+  try{ m = JSON.parse(localStorage.getItem(HV_MORNING_KEY) || 'null'); }catch(_e){}
+  return m && m.wokeAt && !hvNight(m.wokeAt) ? m : null;
 }
 function hvMorningKeep(m){ try{ localStorage.setItem(HV_MORNING_KEY, JSON.stringify(m)); }catch(_e){} }
 
@@ -63,6 +68,7 @@ hooshavarRegister({
     }
   },
   gate(){
+    if(hvNight()) return '';
     const day = hvMorningDay();
     let m = hvMorning.rows[day];
     if(!m){
