@@ -156,3 +156,6 @@ Read current files rather than assuming stored notes remain current. Reconcile u
 - تمرکز ۲۵ دقیقه: plans are per date (today/tomorrow on the card; hooshavar_focus_plan PK now (user_id, day); weekday column unused). Session stores planned_time/place/task/delay_min/note/after_done; after-anxiety is required (waits on the card until the day ends), note optional. Summary: days, minutes, anxiety before/after, average start delay.
 - send-push/hooshavar-focus.ts rewritten (per-date plan, «وقت تمرکزه: …», closes sessions at 25 min on the server) deployed as send-push v19 (first cron run after it: 200). sw.js v92, tailwind.css rebuilt, harness mock got .is().
 - 2026-10-30: لنگر صبح day start moved 05:00 → 07:00 (HV_DAY_START_H = 7): 00:00–07:00 no lock, nothing saved. On load any row opened before 07:00 is dropped and deleted (done or not). Today's 05:11 skipped row deleted. sw.js v93.
+
+## 2026-10-31 — امروز: عقب‌افتاده‌ها زیر برنامه امروز، بسته (Claude)
+- #overdue-tasks now comes after #today-tasks (phone and desktop) and is collapsed by default: the rose heading row (title + count + chevron) is a button toggling state.todayOverdueOpen, like «تکمیل شده امروز». sw.js v94.
