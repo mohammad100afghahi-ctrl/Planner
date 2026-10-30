@@ -352,15 +352,6 @@ function renderTodayDesktop(){
       <div class="col-span-8 space-y-8">
         ${callout}
         <div class="space-y-6">
-          ${d.overdue.length ? `
-            <section id="overdue-tasks">
-              <div class="flex items-center gap-3 mb-4">
-                <span class="w-2 h-2 bg-rose-500 rounded-full animate-pulse"></span>
-                <h3 class="text-sm font-black text-rose-500 uppercase tracking-widest">${overdueHeading(d.overdue)}</h3>
-                <span class="text-[10px] font-bold text-slate-600 bg-slate-900 px-2 py-0.5 rounded-full border border-slate-800">${fd(d.overdue.length)} مورد</span>
-              </div>
-              <div class="space-y-3">${d.overdue.map(todayTaskDesk).join('')}</div>
-            </section>` : ''}
           <section id="today-tasks">
             <div class="flex items-center justify-between mb-4">
               <h3 class="text-sm font-black text-white uppercase tracking-widest">برنامه امروز</h3>
@@ -381,6 +372,16 @@ function renderTodayDesktop(){
               ${!d.open.length ? `<div class="py-8 flex flex-col items-center justify-center text-slate-600">${fa(d.scheduled.length ? 'circle-check' : 'mug-hot', 'text-4xl mb-3 opacity-40')}<p class="text-xs font-bold">${d.scheduled.length ? 'همه‌ی کارهای امروز انجام شد' : d.filterCount ? 'کاری با این فیلترها برای امروز نیست' : 'برای امروز کاری ثبت نشده'}</p></div>` : ''}
             </div>
           </section>
+          ${d.overdue.length ? `
+            <section id="overdue-tasks">
+              <button type="button" onclick="state.todayOverdueOpen = !state.todayOverdueOpen; render()" aria-expanded="${!!state.todayOverdueOpen}" class="w-full flex items-center gap-3 group ${state.todayOverdueOpen ? 'mb-4' : ''}">
+                <span class="w-2 h-2 bg-rose-500 rounded-full animate-pulse"></span>
+                <h3 class="text-sm font-black text-rose-500 uppercase tracking-widest">${overdueHeading(d.overdue)}</h3>
+                <span class="text-[10px] font-bold text-slate-600 bg-slate-900 px-2 py-0.5 rounded-full border border-slate-800">${fd(d.overdue.length)} مورد</span>
+                ${fa(state.todayOverdueOpen ? 'chevron-down' : 'chevron-left', 'text-[10px] text-rose-400 mr-auto transition-transform group-hover:translate-y-0.5')}
+              </button>
+              ${state.todayOverdueOpen ? `<div class="space-y-3">${d.overdue.map(todayTaskDesk).join('')}</div>` : ''}
+            </section>` : ''}
           ${d.done.length ? `
             <section id="done-tasks" class="border-t border-slate-800/50 pt-6">
               <button type="button" onclick="state.todayDoneOpen = !state.todayDoneOpen; render()" aria-expanded="${!!state.todayDoneOpen}" class="flex items-center gap-2 text-slate-500 hover:text-slate-300 transition-colors group mb-4">
@@ -471,14 +472,6 @@ function renderTodayMobile(){
           </div>
         </div>
         ${todayCallout(true)}
-        ${d.overdue.length ? `
-          <section id="overdue-tasks">
-            <div class="flex items-center justify-between mb-3 px-1">
-              <div class="flex items-center gap-2"><span class="w-2 h-2 bg-rose-500 rounded-full animate-pulse"></span><h3 class="text-xs font-black text-rose-500 uppercase tracking-widest">${overdueHeading(d.overdue)}</h3></div>
-              <span class="text-[9px] font-bold text-slate-500 bg-slate-900 px-2 py-0.5 rounded-full">${fd(d.overdue.length)} مورد</span>
-            </div>
-            <div class="space-y-2">${d.overdue.map(todayTaskMob).join('')}</div>
-          </section>` : ''}
         <section id="today-tasks">
           <div class="flex items-center justify-between mb-3 px-1">
             <h3 class="text-xs font-black text-white uppercase tracking-widest">برنامه امروز</h3>
@@ -498,6 +491,17 @@ function renderTodayMobile(){
             ${!d.open.length ? `<div class="py-6 flex flex-col items-center justify-center text-slate-600">${fa(d.scheduled.length ? 'circle-check' : 'mug-hot', 'text-4xl mb-3 opacity-40')}<p class="text-[11px] font-bold">${d.scheduled.length ? 'همه‌ی کارهای امروز انجام شد' : d.filterCount ? 'کاری با این فیلترها برای امروز نیست' : 'برای امروز کاری ثبت نشده'}</p></div>` : ''}
           </div>
         </section>
+        ${d.overdue.length ? `
+          <section id="overdue-tasks">
+            <button type="button" onclick="state.todayOverdueOpen = !state.todayOverdueOpen; render()" aria-expanded="${!!state.todayOverdueOpen}" class="w-full flex items-center justify-between px-1 ${state.todayOverdueOpen ? 'mb-3' : ''}">
+              <div class="flex items-center gap-2"><span class="w-2 h-2 bg-rose-500 rounded-full animate-pulse"></span><h3 class="text-xs font-black text-rose-500 uppercase tracking-widest">${overdueHeading(d.overdue)}</h3></div>
+              <div class="flex items-center gap-2">
+                <span class="text-[9px] font-bold text-slate-500 bg-slate-900 px-2 py-0.5 rounded-full">${fd(d.overdue.length)} مورد</span>
+                ${fa(state.todayOverdueOpen ? 'chevron-down' : 'chevron-left', 'text-[10px] text-rose-400')}
+              </div>
+            </button>
+            ${state.todayOverdueOpen ? `<div class="space-y-2">${d.overdue.map(todayTaskMob).join('')}</div>` : ''}
+          </section>` : ''}
         <div class="space-y-4">
           ${englishTodayCard(true)}
           ${motherTodayCard(true)}
