@@ -1,18 +1,18 @@
 /* ---------- هوشاور › لنگر صبح ----------
    The first time the app comes to the front each day (the day starts at
-   05:00) the whole app is replaced by «صبح بخیر. قبل از هر چیز این دو تا:» —
+   07:00) the whole app is replaced by «صبح بخیر. قبل از هر چیز این دو تا:» —
    «صورتم رو شستم» and «یه چیزی خوردم» — then «ساعت چند بیدار شدی؟» (may stay
    empty) and «قبل از این دو تا سراغ موبایل رفتی؟» (نه / یه کم / آره), and a
    closing line with «بریم سراغ روز». «امروز نشد، رد می‌شم» opens the app
    straight away. Answers are kept only when finished: closing the app half-way
    brings the lock back from the start. A day with no row is «باز نشد».
-   Between 00:00 and 05:00 it is still last night: no lock, nothing saved.
+   Between 00:00 and 07:00 it is still last night: no lock, nothing saved.
    Table: hooshavar_morning (hooshavar_morning.sql).
 
    Today's row is also kept on the device (HV_MORNING_KEY), so the lock opens
    at once on the next launch and works offline; whatever the server lacks is
    written again on the next load. Remove: see hooshavar.js. */
-const HV_DAY_START_H = 5;
+const HV_DAY_START_H = 7;
 const HV_MORNING_KEY = 'medar-hv-morning-v2';
 const HV_PHONE = [['no', 'نه'], ['little', 'یه کم'], ['yes', 'آره']];
 const hvMorning = {
@@ -23,7 +23,7 @@ const hvMorning = {
 };
 
 const hvMorningDay = () => dateKey(new Date(Date.now() - HV_DAY_START_H * 3600_000));
-// an open between midnight and 05:00 is not waking up
+// an open between midnight and 07:00 is not waking up
 const hvNight = (t = Date.now()) => new Date(t).getHours() < HV_DAY_START_H;
 const hvMorningFromRow = r => ({ day:r.day, openedAt:r.opened_at, washedAt:r.washed_at, ateAt:r.ate_at,
   wokeTime:r.woke_time, phone:r.phone, skipped:r.skipped, doneAt:r.done_at });
@@ -47,7 +47,7 @@ function hvMorningSeen(){
   return hvMorning.firstSeen;
 }
 document.addEventListener('visibilitychange', () => { if(document.visibilityState === 'visible'){ hvMorningSeen(); if(appStarted) render(); } });
-// a desktop left open overnight: the lock comes up once 05:00 passes
+// a desktop left open overnight: the lock comes up once 07:00 passes
 setInterval(() => { if(appStarted && document.visibilityState === 'visible' && !hvNight() && !hvMorning.rows[hvMorningDay()]) render(); }, 60_000);
 
 async function hvMorningSave(m){
@@ -93,8 +93,8 @@ hooshavarRegister({
     if(error) throw error;
     hvMorning.rows = {};
     data.forEach(r => {
-      // an open saved between midnight and 05:00 is a leftover (an old app's copy sent again): drop it
-      if(hvNight(r.opened_at) && !r.done_at){
+      // an open saved between midnight and 07:00 is a leftover (an old app's copy sent again): drop it
+      if(hvNight(r.opened_at)){
         sb.from('hooshavar_morning').delete().eq('day', r.day).then(({ error }) => { if(error) console.error('hooshavar_morning cleanup', error); });
         return;
       }
