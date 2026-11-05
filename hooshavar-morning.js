@@ -223,11 +223,16 @@ hooshavarRegister({
     const n = v => fd(done.filter(r => r.phone === v).length);
     const wakes = done.map(r => r.wokeTime).filter(Boolean).map(t => { const [h, m] = t.split(':').map(Number); return h * 60 + m; });
     const avg = wakes.length ? Math.round(wakes.reduce((a, x) => a + x, 0) / wakes.length) : null;
-    const far = days.map(d => hvMorning.rows[d]).filter(r => r && (r.charge === 'outside' || r.charge === 'room'));
+    // a day with no charging answer counts in neither line
+    const charged = places => days.map(d => hvMorning.rows[d]).filter(r => r && places.includes(r.charge));
+    const noPhone = list => fd(list.filter(r => r.doneAt && !r.skipped && r.phone === 'no').length);
+    const far = charged(['outside', 'room']);
+    const bed = charged(['bed']);
     return [
       `لنگر صبح: ${fd(done.length)} روز از ۷ (بدون موبایل: ${n('no')}، یه کم: ${n('little')}، با موبایل: ${n('yes')}، رد شده: ${fd(rows.length - done.length)})`,
       `میانگین ساعت بیداری: ${avg == null ? '—' : fd(`${Math.floor(avg / 60)}:${String(avg % 60).padStart(2, '0')}`)}`,
-      `شب‌هایی که موبایل دور از تخت بود: ${fd(far.length)} از ۷ — لنگر صبح در این روزها: ${fd(far.filter(r => r.doneAt && !r.skipped).length)} بار انجام شد`,
+      `شب‌هایی که موبایل دور از تخت بود: ${fd(far.length)} از ۷ — لنگر بدون موبایل در این روزها: ${noPhone(far)} بار`,
+      `شب‌هایی که موبایل کنار تخت بود: ${fd(bed.length)} از ۷ — لنگر بدون موبایل در این روزها: ${noPhone(bed)} بار`,
     ];
   },
 });
