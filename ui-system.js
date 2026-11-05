@@ -25,7 +25,7 @@ function newTagRow(){
   return `
     <div class="mt-6 grid grid-cols-12 gap-3">
       <input type="text" id="new-tag-name" placeholder="نام تگ جدید…" onkeydown="if(event.key==='Enter'){event.preventDefault(); addTag();}" class="col-span-7 bg-slate-900 border border-slate-800 rounded-2xl p-3 text-sm text-slate-200 focus:outline-none focus:border-indigo-500/50 placeholder:text-slate-600">
-      <input type="color" id="new-tag-color" value="#6366f1" aria-label="رنگ تگ" class="col-span-2 h-full min-h-[46px] bg-slate-900 border border-slate-800 rounded-2xl p-1 cursor-pointer">
+      <input type="color" id="new-tag-color" value="#e24e50" aria-label="رنگ تگ" class="col-span-2 h-full min-h-[46px] bg-slate-900 border border-slate-800 rounded-2xl p-1 cursor-pointer">
       <button type="button" onclick="addTag()" class="col-span-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl text-xs font-black transition-all">افزودن تگ</button>
     </div>`;
 }
@@ -408,7 +408,7 @@ function renderArchiveMobile(){
       <div class="space-y-3">
         ${sec === 'shelved' ? (state.shelvedTasks.length ? state.shelvedTasks.map(t => shelvedItem(t, true)).join('') : emptyNote('کاری کنار گذاشته نشده', 'box-archive')) : sec === 'tasks'
           ? (tasks.length ? tasks.map(t => item(esc(t.title), `تکمیل: ${t.completedAt ? jDate(dateKey(new Date(t.completedAt))) : '—'}`,
-              t.tagIds.map(tagById).filter(Boolean).map(g => `<span class="text-[8px] font-black uppercase" style="color:${ea(g.color)}99">${esc(g.name)}</span>`).join(''),
+              t.tagIds.map(tagById).filter(Boolean).map(g => `<span class="text-[8px] font-black uppercase" style="color:${ea(g.color)}">${esc(g.name)}</span>`).join(''),
               `<button type="button" onclick="toggleTaskDone('${t.id}', event)" title="بازیابی" aria-label="بازیابی" class="w-8 h-8 flex items-center justify-center text-indigo-400 bg-indigo-500/5 rounded-lg border border-indigo-500/10">${fa('rotate-left', 'text-[10px]')}</button>
                <button type="button" onclick="openTaskEditorEdit('${t.id}')" aria-label="ویرایش" class="w-8 h-8 flex items-center justify-center text-slate-600">${fa('pen', 'text-[10px]')}</button>`)).join('') : '')
           : bought.map(p => item(esc(p.title), `${p.boughtAt ? `خرید: ${jDate(dateKey(new Date(p.boughtAt)))}` : 'خریداری شده'}${p.price != null ? ` · ${fmtPrice(p.price)}` : ''}`, '',

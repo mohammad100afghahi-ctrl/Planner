@@ -15,7 +15,7 @@ const ea = s => escapeAttr(s == null ? '' : String(s));
 /* Tag colours are the user's own hex values, so tag chips take them inline at
    the same strengths the reference uses for its palette chips (text / 10–20% fill). */
 function tagTint(color, fill = '1a', line = '1a'){
-  const c = /^#[0-9a-f]{6}$/i.test(color || '') ? color : '#6366f1';
+  const c = /^#[0-9a-f]{6}$/i.test(color || '') ? color : '#e24e50';
   return `color:${c};background-color:${c}${fill};border-color:${c}${line}`;
 }
 const tagById = id => state.tags.find(t => t.id === id);
@@ -392,7 +392,7 @@ function renderPickCalendar({ jy, jm, date, prev, next, pick, dots }){
         <button type="button" onclick="${next}()" aria-label="ماه بعد" class="w-9 h-9 flex items-center justify-center text-slate-400 bg-slate-900 rounded-lg border border-slate-800">${fa('chevron-left', 'text-xs')}</button>
       </div>
       <div class="grid grid-cols-7 gap-1 mb-4 text-center">
-        ${['ش','ی','د','س','چ','پ','ج'].map((w, i) => `<span class="text-[9px] font-black ${i === 6 ? 'text-rose-900' : 'text-slate-600'} uppercase tracking-widest">${w}</span>`).join('')}
+        ${['ش','ی','د','س','چ','پ','ج'].map((w, i) => `<span class="text-[9px] font-black ${i === 6 ? 'text-rose-400' : 'text-slate-600'} uppercase tracking-widest">${w}</span>`).join('')}
       </div>
       <div class="grid grid-cols-7 gap-1 text-center">${cells.join('')}</div>
     </div>`;
@@ -424,7 +424,7 @@ function renderEditorFrame({ title, body, onClose, onSave, saveLabel = 'ذخیر
     return inline ? aside : `<div class="modal-overlay fixed inset-0 z-[60] bg-slate-950/60 backdrop-blur-sm" onclick="if(event.target===this) ${onClose}">${aside}</div>`;
   }
   return `
-    <div class="modal-overlay fixed inset-0 z-[60] bg-[#020617] overflow-y-auto" role="dialog" aria-label="${ea(title)}">
+    <div class="modal-overlay fixed inset-0 z-[60] bg-slate-950 overflow-y-auto" role="dialog" aria-label="${ea(title)}">
       <header class="sticky top-0 z-40 bg-slate-950/80 backdrop-blur-xl border-b border-slate-800/50 px-4 py-4 flex items-center justify-between">
         <div class="flex items-center gap-3">
           <button type="button" onclick="${onClose}" aria-label="بازگشت" class="w-9 h-9 flex items-center justify-center text-slate-400 bg-slate-900 rounded-lg border border-slate-800">${fa('arrow-right', 'text-xs')}</button>
@@ -570,7 +570,7 @@ function render(){
   if(gate){ app.innerHTML = gate + (state.saveError ? renderSaveErrorToast() : ''); return; }
   const scrolls = saveScrolls();
   const desk = isDesk();
-  document.body.className = desk ? 'text-slate-100 overflow-hidden' : 'text-slate-100 bg-[#020617] selection:bg-indigo-500/30';
+  document.body.className = desk ? 'text-slate-100 overflow-hidden' : 'text-slate-100 bg-slate-950 selection:bg-indigo-500/30';
   const view = (desk ? DESKTOP_VIEWS : MOBILE_VIEWS)[state.view] || (desk ? DESKTOP_VIEWS : MOBILE_VIEWS).today;
   // a repaint rebuilds every field; the one being typed in gets its focus and caret back
   const ae = document.activeElement;
@@ -603,7 +603,7 @@ function renderLogin(){
   loginShown = true;
   appStarted = false; // an early-painted local copy must not render over the form
   appBooted = false;
-  document.body.className = 'text-slate-100 bg-[#020617]';
+  document.body.className = 'text-slate-100 bg-slate-950';
   document.getElementById('app').innerHTML = `
     <div class="min-h-screen flex items-center justify-center p-4">
       <form class="w-full max-w-sm bg-slate-950 border border-slate-800 rounded-3xl p-8 space-y-6 shadow-2xl" onsubmit="submitLogin(event)">

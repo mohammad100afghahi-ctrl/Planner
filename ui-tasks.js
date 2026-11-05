@@ -398,8 +398,8 @@ function calendarMonthCells(jy, jm){
 }
 function calendarTaskDot(t, glow){
   const tag = t.tagIds.map(tagById).find(Boolean);
-  const color = t.priority === 'high' ? '#f43f5e' : tag ? tag.color : '#6366f1';
-  return `<div class="task-dot ${glow ? 'shadow-[0_0_8px_rgba(79,70,229,0.5)]' : ''}" style="background-color:${ea(color)}" title="${ea(t.title)}"></div>`;
+  const color = t.priority === 'high' ? '#f43f5e' : tag ? tag.color : '#e24e50';
+  return `<div class="task-dot ${glow ? 'shadow-[0_0_8px_rgba(226,78,80,0.5)]' : ''}" style="background-color:${ea(color)}" title="${ea(t.title)}"></div>`;
 }
 function calendarDayCard(t){
   const pill = t.priority === 'high'
@@ -473,7 +473,7 @@ function renderCalendarDesktop(){
     const dots = tasks.slice(0, 7).map((t, i) => calendarTaskDot(t, isSel && i === 0)).join('') + previews.slice(0, 3).map(() => `<div class="task-dot bg-slate-600"></div>`).join('');
     const more = tasks.length > 7 ? `<span class="text-[8px] font-black text-slate-500">+${fd(tasks.length - 7)}</span>` : '';
     return `
-      <div onclick="calendarPageShowDay('${cell.key}')" class="calendar-day cursor-pointer ${cell.friday ? 'bg-rose-500/5' : ''} ${isSel ? 'active border-indigo-500/50' : ''} ${cell.inMonth ? '' : 'opacity-20'}">
+      <div onclick="calendarPageShowDay('${cell.key}')" class="calendar-day cursor-pointer ${cell.friday ? 'bg-rose-500/5' : ''} ${isSel ? 'active border-indigo-500/50' : ''} ${cell.inMonth ? '' : 'out-month'}">
         ${isToday ? `<div class="flex items-center justify-between">${num}<span class="text-[8px] font-black bg-indigo-600 text-white px-1 rounded uppercase">امروز</span></div>` : num}
         ${dots || more ? `<div class="mt-2 flex gap-1 flex-wrap items-center">${dots}${more}</div>` : ''}
       </div>`;
@@ -588,7 +588,7 @@ function renderCalendarMobile(){
         ${renderStatusBars()}
         <div class="bg-slate-900/50 border border-slate-800 rounded-3xl p-4">
           <div class="grid grid-cols-7 gap-1 mb-4 text-center">
-            ${['ش','ی','د','س','چ','پ','ج'].map((w, i) => `<span class="text-[9px] font-black ${i === 6 ? 'text-rose-900' : 'text-slate-600'} uppercase tracking-widest">${w}</span>`).join('')}
+            ${['ش','ی','د','س','چ','پ','ج'].map((w, i) => `<span class="text-[9px] font-black ${i === 6 ? 'text-rose-400' : 'text-slate-600'} uppercase tracking-widest">${w}</span>`).join('')}
           </div>
           <div class="grid grid-cols-7 gap-1 text-center">${cells.join('')}</div>
         </div>

@@ -190,7 +190,7 @@ function focusCard(mob){
         ${goals.map(g => `
           <div class="p-3 bg-indigo-500/5 ${mob ? 'rounded-xl' : 'rounded-2xl'} border border-indigo-500/10" title="${ea(g.reason)}">
             <p class="${mob ? 'text-[10px]' : 'text-xs'} font-bold text-slate-300 mb-2 leading-relaxed">${esc(g.tag.name)}: ${formatDuration(g.actual)} از ${formatDuration(g.target)}${g.pct >= 100 ? ' ✓' : ''}</p>
-            <div class="w-full bg-slate-900 h-1.5 rounded-full overflow-hidden"><div class="${g.pct >= 100 ? 'bg-emerald-500' : 'bg-indigo-500'} h-full rounded-full ${mob ? '' : 'shadow-[0_0_8px_rgba(79,70,229,0.4)]'}" style="width:${Math.max(3, g.pct)}%"></div></div>
+            <div class="w-full bg-slate-900 h-1.5 rounded-full overflow-hidden"><div class="${g.pct >= 100 ? 'bg-emerald-500' : 'bg-indigo-500'} h-full rounded-full ${mob ? '' : 'shadow-[0_0_8px_rgba(226,78,80,0.4)]'}" style="width:${Math.max(3, g.pct)}%"></div></div>
             ${g.reason && !mob ? `<p class="text-[10px] text-slate-500 mt-2">${esc(g.reason)}</p>` : ''}
           </div>`).join('')}
         ${focus.length ? `<div class="space-y-2"><p class="text-[9px] font-black text-indigo-400 px-1">تعهد این هفته</p>${focus.map(t => `
@@ -270,7 +270,7 @@ function motherTodayCard(mob){
     <div class="bg-gradient-to-br from-rose-500/15 to-indigo-500/10 border border-rose-500/20 rounded-3xl p-5">
       <div class="flex items-start justify-between">
         <div class="flex-1">
-          <span class="text-[8px] font-black uppercase tracking-widest bg-rose-500 text-white px-2 py-0.5 rounded-full mb-3 inline-block">مادر</span>
+          <span class="text-[8px] font-black uppercase tracking-widest bg-rose-600 text-white px-2 py-0.5 rounded-full mb-3 inline-block">مادر</span>
           <h3 class="text-sm font-black text-white mb-1">رسیدگی به امور مادر</h3>
           <p class="text-[10px] text-slate-400 mb-4 italic leading-relaxed" dir="auto">${kind}"${esc(item.body)}"</p>
           <div class="flex items-center gap-2">
@@ -631,7 +631,7 @@ function renderStreakPanel(){
       </div>
       <p class="text-center text-[10px] font-bold text-slate-500 mb-4">${summary}</p>
       <div class="grid grid-cols-7 gap-1 mb-2 text-center">
-        ${['ش','ی','د','س','چ','پ','ج'].map((w, i) => `<span class="text-[9px] font-black ${i === 6 ? 'text-rose-900' : 'text-slate-600'}">${w}</span>`).join('')}
+        ${['ش','ی','د','س','چ','پ','ج'].map((w, i) => `<span class="text-[9px] font-black ${i === 6 ? 'text-rose-400' : 'text-slate-600'}">${w}</span>`).join('')}
       </div>
       <div class="grid grid-cols-7 gap-1 text-center">${cells.join('')}</div>
       <div class="flex flex-wrap justify-center gap-x-4 gap-y-2 mt-4 text-[10px] font-bold text-slate-400">${legend}</div>

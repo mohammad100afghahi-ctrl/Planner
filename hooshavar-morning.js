@@ -139,7 +139,7 @@ hooshavarRegister({
       if(hvMorning.loaded) hvMorningSave(m);
       else{ hvMorning.rows[day] = m; hvMorningKeep(m); }
     }
-    document.body.className = 'text-slate-100 bg-[#020617]';
+    document.body.className = 'text-slate-100 bg-slate-950';
     const frame = inner => `
       <div class="min-h-screen flex items-center justify-center p-4">
         <div class="w-full max-w-sm bg-slate-950 border border-slate-800 rounded-3xl p-8 space-y-6 shadow-2xl">
