@@ -275,7 +275,7 @@ function renderEnglishDesktop(){
         ${sectionTitle('ثبت تکلیف جدید', 'plus-circle', 'text-amber-500')}
         <div class="flex items-center gap-3">
           <span class="text-[10px] text-slate-500 font-bold uppercase tracking-wider">روزهای کلاس:</span>
-          <div class="flex gap-1">${WEEKDAY_DISPLAY_ORDER.map(d => `<button type="button" onclick="toggleEnglishClassDay(${d})" title="${WEEKDAYS_FA[d]}" aria-pressed="${s.classDays.includes(d)}" class="w-7 h-7 flex items-center justify-center rounded-lg ${s.classDays.includes(d) ? 'bg-amber-500 text-slate-950' : `bg-slate-900 ${d === 5 ? 'text-rose-900/40' : 'text-slate-500'} hover:bg-slate-800`} text-[10px] font-black transition-all">${WEEKDAYS_FA[d][0]}</button>`).join('')}</div>
+          <div class="flex gap-1">${WEEKDAY_DISPLAY_ORDER.map(d => `<button type="button" onclick="toggleEnglishClassDay(${d})" title="${WEEKDAYS_FA[d]}" aria-pressed="${s.classDays.includes(d)}" class="w-7 h-7 flex items-center justify-center rounded-lg ${s.classDays.includes(d) ? 'bg-amber-500 text-slate-950' : `bg-slate-900 ${d === 5 ? 'text-rose-400' : 'text-slate-500'} hover:bg-slate-800`} text-[10px] font-black transition-all">${WEEKDAYS_FA[d][0]}</button>`).join('')}</div>
         </div>
       </div>
       ${englishHwForm(false)}
@@ -1283,7 +1283,7 @@ function renderPromptsDesktop(){
     right: `
       <div class="flex bg-slate-900/50 p-1 rounded-2xl border border-slate-800">
         ${chip('all', 'همه')}${cats.map(c => chip(c, esc(c))).join('')}
-        <button type="button" data-v="fav" onclick="setPromptFilter(this.dataset.v)" class="px-4 py-1.5 ${state.promptFilter === 'fav' ? 'bg-rose-500/10 text-rose-500' : 'text-rose-500/50 hover:text-rose-500'} rounded-xl text-[10px] font-black flex items-center gap-1">${fa('heart', 'text-[8px]')} مورد علاقه</button>
+        <button type="button" data-v="fav" onclick="setPromptFilter(this.dataset.v)" class="px-4 py-1.5 ${state.promptFilter === 'fav' ? 'bg-rose-500/10 text-rose-500' : 'text-rose-500/80 hover:text-rose-500'} rounded-xl text-[10px] font-black flex items-center gap-1">${fa('heart', 'text-[8px]')} مورد علاقه</button>
       </div>
       <div class="relative">
         ${fa('magnifying-glass', 'absolute right-3 top-1/2 -translate-y-1/2 text-slate-600 text-xs')}
@@ -1395,7 +1395,7 @@ function renderWinsDesktop(){
               ${w.tagIds.map(tagById).filter(Boolean).map(t => `<span class="w-1 h-1 bg-slate-700 rounded-full"></span><span class="text-[10px] font-black px-2 py-0.5 rounded-lg border" style="${tagTint(t.color)}">${esc(t.name)}</span>`).join('')}
             </div>
             <h3 class="text-lg font-black text-white mb-2 leading-tight" dir="auto">${esc(w.title)}</h3>
-            ${w.hardship ? `<p class="text-sm text-slate-400 mb-4 font-medium italic" dir="auto"><span class="text-amber-500/50 not-italic ml-1">با اینکه:</span> ${esc(w.hardship)}</p>` : ''}
+            ${w.hardship ? `<p class="text-sm text-slate-400 mb-4 font-medium italic" dir="auto"><span class="text-amber-500/80 not-italic ml-1">با اینکه:</span> ${esc(w.hardship)}</p>` : ''}
             ${w.why ? `<div class="p-4 bg-slate-950/50 rounded-2xl border border-slate-800"><p class="text-[10px] text-slate-500 mb-1">چرا معنادار بود؟</p><p class="text-[11px] text-slate-300 leading-relaxed font-bold" dir="auto">${esc(w.why)}</p></div>` : ''}
           </div>
           <div class="win-actions opacity-0 transition-opacity flex flex-col gap-2 mr-3">
@@ -1477,7 +1477,7 @@ function renderWinSos(){
   const order = s.order.filter(id => state.wins.some(w => w.id === id));
   const total = order.length;
   const frame = (inner, actions) => `
-    <div class="modal-overlay fixed inset-0 z-[70] bg-[#020617]/95 backdrop-blur-xl flex flex-col items-center justify-center p-6 gap-6" role="dialog" aria-modal="true">
+    <div class="modal-overlay fixed inset-0 z-[70] bg-slate-950/95 backdrop-blur-xl flex flex-col items-center justify-center p-6 gap-6" role="dialog" aria-modal="true">
       ${inner}
       <div class="flex items-center gap-3 w-full max-w-md">${actions}</div>
     </div>`;

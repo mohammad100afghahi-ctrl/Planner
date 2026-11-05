@@ -1,16 +1,16 @@
 /* Rules the UX Pilot screens define in their own <style> blocks, plus print and
    touch handling. Everything else comes from tailwind.css (see tailwind-build.html). */
-body { font-family: 'Vazirmatn', sans-serif; background-color: #020617; -webkit-tap-highlight-color: transparent; }
+body { font-family: 'Vazirmatn', sans-serif; background-color: #000; -webkit-tap-highlight-color: transparent; }
 /* real titles can be one long unbroken word (a URL, an English term); let them wrap instead of widening the page */
 #app :is(h1, h2, h3, h4, p) { overflow-wrap: anywhere; }
 .custom-scrollbar::-webkit-scrollbar { width: 4px; }
 .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-.custom-scrollbar::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 10px; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: #26262a; border-radius: 10px; }
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { scrollbar-width: none; }
-.bg-dark-surface { background-color: #0f172a; }
-.bg-dark-card { background-color: #1e293b; }
-.border-dark { border-color: #334155; }
+.bg-dark-surface { background-color: #0e0e10; }
+.bg-dark-card { background-color: #1c1c1f; }
+.border-dark { border-color: #404046; }
 input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 
 /* hover-revealed row actions (each reference page names its own pair) */
@@ -27,28 +27,29 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
 }
 
 /* تسک‌ها (desktop) */
-.task-list-item.active { background-color: rgba(79, 70, 229, 0.05); border-right: 4px solid #4f46e5; }
+.task-list-item.active { background-color: rgba(142, 16, 28, 0.12); border-right: 4px solid #8e101c; }
 /* تقویم (desktop) */
 .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); }
-.calendar-day { min-height: 120px; border-bottom: 1px solid #1e293b; border-left: 1px solid #1e293b; padding: 12px; transition: all 0.2s; background-color: #020617; position: relative; }
-.calendar-day:hover { background-color: #0f172a; }
-.calendar-day.active { background-color: rgba(79, 70, 229, 0.05); box-shadow: inset 0 0 0 1px #4f46e5; z-index: 10; }
+.calendar-day { min-height: 120px; border-bottom: 1px solid #26262a; border-left: 1px solid #26262a; padding: 12px; transition: all 0.2s; background-color: #000; position: relative; }
+.calendar-day.out-month { opacity: .55; }
+.calendar-day:hover { background-color: #0e0e10; }
+.calendar-day.active { background-color: rgba(142, 16, 28, 0.12); box-shadow: inset 0 0 0 1px #bc1c28; z-index: 10; }
 .task-dot { width: 4px; height: 4px; border-radius: 99px; }
 /* switches (settings, mother) */
-.switch-on { background-color: #4f46e5; }
+.switch-on { background-color: #8e101c; }
 .switch-on-rose { background-color: #f43f5e; }
-.switch-off { background-color: #334155; }
+.switch-off { background-color: #404046; }
 /* phone */
-.active-tab { color: #818cf8; }
-.pill-active { background-color: rgba(79, 70, 229, 0.2); color: #818cf8; border-color: rgba(79, 70, 229, 0.3); }
-.tab-active { color: #818cf8; border-bottom: 2px solid #6366f1; }
+.active-tab { color: #f06868; }
+.pill-active { background-color: rgba(142, 16, 28, 0.25); color: #f06868; border-color: rgba(188, 28, 40, 0.4); }
+.tab-active { color: #f06868; border-bottom: 2px solid #bc1c28; }
 /* #app so a page's own p-4 / px-4 (tailwind.css loads after this file) can't
    shrink the room kept under the 80px tab bar and hide the last row behind it */
 #app .safe-area-bottom { padding-bottom: calc(env(safe-area-inset-bottom) + 104px); }
 #app .safe-area-bottom-sm { padding-bottom: calc(env(safe-area-inset-bottom) + 20px); }
 .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
 .prompt-card:active { transform: scale(0.98); }
-.pick-chip.on { color: #a5b4fc; background-color: rgb(99 102 241 / 0.2); border-color: rgb(99 102 241 / 0.1); }
+.pick-chip.on { color: #f69694; background-color: rgb(188 28 40 / 0.2); border-color: rgb(188 28 40 / 0.2); }
 .dragging { opacity: .4; }
 /* «بخش‌ها» sheet: sits just above the tab bar; the list shows two rows (six
    tabs) and scrolls for the rest — taller while rearranging */
@@ -58,20 +59,40 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
 .tab-sheet-list { max-height: calc(76px * 2 + 8px); }
 .tab-sheet-list--edit { max-height: calc(76px * 3 + 16px); }
 @keyframes tab-sheet-in { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
-/* The phone reference is drawn with 8–11px labels, which are too small to read
-   on a real phone; below the desktop breakpoint every text size (and the icons
-   that inherit it) goes up a step. #app outranks tailwind.css, loaded after this. */
+/* خوانایی (تم سیاه و زرشکی). نوشتهٔ ریز طرح مرجع روی نمایشگر واقعی خونده نمی‌شه،
+   پس اندازه‌ها یه پله بالاتر میان. #app از tailwind.css که بعد از این فایل لود می‌شه
+   جلو می‌زنه. */
 @media (max-width: 1199.98px) {
-  #app .text-\[8px\] { font-size: 10.5px; }
-  #app .text-\[9px\] { font-size: 11.5px; }
-  #app .text-\[10px\] { font-size: 12px; }
-  #app .text-\[11px\] { font-size: 13px; }
-  #app .text-xs { font-size: 13.5px; line-height: 1.25rem; }
-  #app .text-sm { font-size: 15px; line-height: 1.4rem; }
+  #app .text-\[8px\] { font-size: 11.5px; }
+  #app .text-\[9px\] { font-size: 12.5px; }
+  #app .text-\[10px\] { font-size: 13px; }
+  #app .text-\[11px\] { font-size: 14px; }
+  #app .text-xs { font-size: 14.5px; line-height: 1.4rem; }
+  #app .text-sm { font-size: 15.5px; line-height: 1.5rem; }
   #app .text-base { font-size: 16.5px; }
   #app .text-lg { font-size: 20px; }
   #app .text-xl { font-size: 21.5px; }
 }
+@media (min-width: 1200px) {
+  #app .text-\[8px\] { font-size: 11px; }
+  #app .text-\[9px\] { font-size: 12px; }
+  #app .text-\[10px\] { font-size: 12.5px; }
+  #app .text-\[11px\] { font-size: 13px; }
+  #app .text-xs { font-size: 13.5px; line-height: 1.3rem; }
+  #app .text-sm { font-size: 14.5px; line-height: 1.4rem; }
+}
+/* حروف فارسی با فاصله‌گذاری از هم می‌شکنن */
+#app .tracking-widest, #app .tracking-wider, #app .tracking-wide { letter-spacing: 0; }
+/* وزن ۹۰۰ توی نوشتهٔ ریز چشمه‌های حروف رو پر می‌کنه */
+#app .font-black.text-\[8px\], #app .font-black.text-\[9px\], #app .font-black.text-\[10px\],
+#app .font-black.text-\[11px\], #app .font-black.text-xs { font-weight: 700; }
+/* ردیف‌های کم‌رنگ (انجام‌شده، قفسه) هنوز باید خونده بشن */
+#app .opacity-70 { opacity: .92; }
+#app .opacity-60 { opacity: .92; }
+#app .opacity-50 { opacity: .88; }
+#app .opacity-40 { opacity: .8; }
+/* رنگ تگ‌ها رو کاربر انتخاب کرده؛ تیره‌هاش روی سیاه هم باید دیده بشن */
+#app span[style^="color:"] { filter: brightness(1.25) saturate(1.15); }
 
 /* the print sheet is invisible on screen; only it is printed */
 .print-sheet { display: none; }
