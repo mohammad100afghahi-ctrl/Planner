@@ -169,4 +169,4 @@ Read current files rather than assuming stored notes remain current. Reconcile u
 
 ## 2026-11-05 — مرور هفته از سایت برداشته شد، حذف نشد (Claude)
 - WEEKLY_REVIEW_VISIBLE = false in ui-shell.js hides the sidebar item, the phone tab/sheet tile and the امروز card; ?view=ai-reports and navigateTo('ai-reports') land on امروز. Set it to true to bring everything back. On phones the default fourth tab is now انگلیسی. The page code, ritual functions, ai_reports data, backup entry and «کنار گذاشته‌ها» are untouched. sw.js v97.
-- Not changed: cron daily-ai-report-check, generate-ai-report and the send-push review lines still run on the server.
+- Server: cron daily-ai-report-check (jobid 2) paused with cron.alter_job(2, active := false), so no new drafts, AI calls or «آماده‌ست» pushes. No unfinished review exists, so the send-push morning line stays silent. generate-ai-report and send-push are unchanged. To bring the review back, also run cron.alter_job(2, active := true).
