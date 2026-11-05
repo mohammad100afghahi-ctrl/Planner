@@ -12,9 +12,6 @@
 -- hooshavar-english.ts (و دوباره deploy)، بعد
 --   select cron.unschedule('hooshavar-english-push');
 --   drop table public.hooshavar_english_sessions;
---
--- جدول‌های تمرین قبلی (خالی‌ان و دیگه استفاده نمی‌شن):
---   drop table public.hooshavar_focus_sessions, public.hooshavar_focus_plan;
 
 create table if not exists public.hooshavar_english_sessions (
   id          uuid primary key default gen_random_uuid(),
