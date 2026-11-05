@@ -1,11 +1,15 @@
 /* ---------- هوشاور › لنگر صبح ----------
    The first time the app comes to the front each day (the day starts at
-   07:00) the whole app is replaced by «صبح بخیر. قبل از هر چیز این دو تا:» —
-   «صورتم رو شستم» and «یه چیزی خوردم» — then «ساعت چند بیدار شدی؟» (may stay
-   empty) and «قبل از این دو تا سراغ موبایل رفتی؟» (نه / یه کم / آره), and a
-   closing line with «بریم سراغ روز». «امروز نشد، رد می‌شم» opens the app
-   straight away. Answers are kept only when finished: closing the app half-way
-   brings the lock back from the start. A day with no row is «باز نشد».
+   07:00) the whole app is replaced by «صبح بخیر.» and «دیشب موبایل کجا شارژ
+   شد؟», required, then «قبل از هر چیز این دو تا:» — «صورتم رو شستم» and «یه چیزی
+   خوردم» — then «ساعت چند بیدار شدی؟» (may stay empty) and «قبل از این دو تا سراغ
+   موبایل رفتی؟» (نه / یه کم / آره), and a closing line with «بریم سراغ روز».
+   «امروز نشد، رد می‌شم» opens the app once the first question is answered.
+   The charging answer is saved at once and survives a skip, so the summary can
+   compare those nights with the days the lock was really done; the other answers
+   are kept only when finished: closing the app half-way brings the ticks back
+   from the start. A day with no row is «باز نشد». Finishing fires hv-morning-done
+   for whichever exercise wants to follow on.
    Between 00:00 and 07:00 it is still last night: no lock, nothing saved.
    Table: hooshavar_morning (hooshavar_morning.sql).
 
@@ -15,8 +19,9 @@
 const HV_DAY_START_H = 7;
 const HV_MORNING_KEY = 'medar-hv-morning-v2';
 const HV_PHONE = [['no', 'نه'], ['little', 'یه کم'], ['yes', 'آره']];
+const HV_CHARGE = [['outside', 'بیرون اتاق'], ['room', 'توی اتاق، دور از تخت'], ['bed', 'کنار تخت']];
 const hvMorning = {
-  rows:{},       // day → { day, openedAt, washedAt, ateAt, wokeTime, phone, skipped, doneAt }
+  rows:{},       // day → { day, openedAt, charge, washedAt, ateAt, wokeTime, phone, skipped, doneAt }
   loaded:false,
   firstSeen:null,
   flow:null,     // the lock in progress: { day, washedAt, ateAt, wake, end } — not saved until finished
@@ -25,9 +30,9 @@ const hvMorning = {
 const hvMorningDay = () => dateKey(new Date(Date.now() - HV_DAY_START_H * 3600_000));
 // an open between midnight and 07:00 is not waking up
 const hvNight = (t = Date.now()) => new Date(t).getHours() < HV_DAY_START_H;
-const hvMorningFromRow = r => ({ day:r.day, openedAt:r.opened_at, washedAt:r.washed_at, ateAt:r.ate_at,
+const hvMorningFromRow = r => ({ day:r.day, openedAt:r.opened_at, charge:r.charge_place, washedAt:r.washed_at, ateAt:r.ate_at,
   wokeTime:r.woke_time, phone:r.phone, skipped:r.skipped, doneAt:r.done_at });
-const hvMorningToRow = m => ({ day:m.day, opened_at:m.openedAt, washed_at:m.washedAt || null, ate_at:m.ateAt || null,
+const hvMorningToRow = m => ({ day:m.day, opened_at:m.openedAt, charge_place:m.charge || null, washed_at:m.washedAt || null, ate_at:m.ateAt || null,
   woke_time:m.wokeTime || null, phone:m.phone || null, skipped:!!m.skipped, done_at:m.doneAt || null });
 function hvMorningLocal(){
   let m = null;
@@ -62,6 +67,11 @@ function hvMorningFlow(day){
 }
 
 /* ---------- the lock's actions ---------- */
+function hvMorningCharge(charge){
+  const day = hvMorningDay();
+  hvMorningSave({ ...hvMorning.rows[day], charge });
+  render();
+}
 function hvMorningTick(key){
   const f = hvMorningFlow(hvMorningDay());
   f[key] = f[key] ? null : new Date().toISOString(); // a second tap unticks
@@ -75,6 +85,7 @@ function hvMorningAnswer(phone){
     wokeTime: /^([01]?\d|2[0-3]):[0-5]\d$/.test(wake) ? wake.padStart(5, '0') : null,
     phone, skipped:false, doneAt:new Date().toISOString() });
   f.end = phone;
+  document.dispatchEvent(new CustomEvent('hv-morning-done', { detail:{ day } }));
   render();
 }
 function hvMorningSkip(){
@@ -108,6 +119,7 @@ hooshavarRegister({
       const merged = !srv ? local
         : srv.doneAt || !local.doneAt ? { ...srv, openedAt: local.openedAt < srv.openedAt ? local.openedAt : srv.openedAt }
         : { ...local, openedAt: local.openedAt < srv.openedAt ? local.openedAt : srv.openedAt };
+      merged.charge = merged.charge || local.charge || (srv && srv.charge) || null;
       if(JSON.stringify(merged) !== JSON.stringify(srv)) await hvMorningSave(merged);
       else hvMorningKeep(merged);
     }
@@ -123,7 +135,7 @@ hooshavarRegister({
     const f = hvMorning.flow && hvMorning.flow.day === day ? hvMorning.flow : null;
     if(m && m.doneAt && !(f && f.end)) return '';
     if(!m){
-      m = { day, openedAt:hvMorningSeen().at, washedAt:null, ateAt:null, wokeTime:null, phone:null, skipped:false, doneAt:null };
+      m = { day, openedAt:hvMorningSeen().at, charge:null, washedAt:null, ateAt:null, wokeTime:null, phone:null, skipped:false, doneAt:null };
       if(hvMorning.loaded) hvMorningSave(m);
       else{ hvMorning.rows[day] = m; hvMorningKeep(m); }
     }
@@ -154,6 +166,10 @@ hooshavarRegister({
           ${fa(icon, `text-lg ${on ? 'text-emerald-400' : 'text-slate-600'}`)}
         </button>`;
     };
+    const charge = (v, label) => {
+      const on = m.charge === v;
+      return `<button type="button" onclick="hvMorningCharge('${v}')" aria-pressed="${on}" class="w-full p-4 rounded-2xl border text-sm font-black text-right transition-all active:scale-[0.98] ${on ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300' : 'bg-slate-900 border-slate-800 hover:border-slate-700 text-white'}">${label}</button>`;
+    };
     const rest = fl.washedAt && fl.ateAt ? `
       <div class="space-y-2">
         <p class="text-sm font-black text-white">ساعت چند بیدار شدی؟</p>
@@ -164,10 +180,16 @@ hooshavarRegister({
         <div class="grid grid-cols-3 gap-2">${HV_PHONE.map(([v, l]) => `<button type="button" onclick="hvMorningAnswer('${v}')" class="py-3 bg-slate-900 border border-slate-800 hover:border-indigo-500/50 rounded-xl text-sm font-black text-slate-200 transition-all active:scale-95">${l}</button>`).join('')}</div>
       </div>` : '';
     return frame(`
-      <p class="text-sm font-bold text-slate-300 leading-relaxed">صبح بخیر. قبل از هر چیز این دو تا:</p>
-      <div class="space-y-3">${item('washedAt', 'صورتم رو شستم', 'droplet')}${item('ateAt', 'یه چیزی خوردم', 'mug-hot')}</div>
-      ${rest}
-      <button type="button" onclick="hvMorningSkip()" class="w-full pt-2 text-[11px] font-bold text-slate-500 hover:text-slate-300 transition-colors">امروز نشد، رد می‌شم</button>`);
+      <p class="text-sm font-bold text-slate-300 leading-relaxed">صبح بخیر.</p>
+      <div class="space-y-2">
+        <p class="text-sm font-black text-white">دیشب موبایل کجا شارژ شد؟</p>
+        ${HV_CHARGE.map(([v, l]) => charge(v, l)).join('')}
+      </div>
+      ${m.charge ? `
+        <p class="text-sm font-bold text-slate-300 leading-relaxed">قبل از هر چیز این دو تا:</p>
+        <div class="space-y-3">${item('washedAt', 'صورتم رو شستم', 'droplet')}${item('ateAt', 'یه چیزی خوردم', 'mug-hot')}</div>
+        ${rest}
+        <button type="button" onclick="hvMorningSkip()" class="w-full pt-2 text-[11px] font-bold text-slate-500 hover:text-slate-300 transition-colors">امروز نشد، رد می‌شم</button>` : ''}`);
   },
   card(mob){
     const today = hvMorningDay();
@@ -201,9 +223,11 @@ hooshavarRegister({
     const n = v => fd(done.filter(r => r.phone === v).length);
     const wakes = done.map(r => r.wokeTime).filter(Boolean).map(t => { const [h, m] = t.split(':').map(Number); return h * 60 + m; });
     const avg = wakes.length ? Math.round(wakes.reduce((a, x) => a + x, 0) / wakes.length) : null;
+    const far = days.map(d => hvMorning.rows[d]).filter(r => r && (r.charge === 'outside' || r.charge === 'room'));
     return [
       `لنگر صبح: ${fd(done.length)} روز از ۷ (بدون موبایل: ${n('no')}، یه کم: ${n('little')}، با موبایل: ${n('yes')}، رد شده: ${fd(rows.length - done.length)})`,
       `میانگین ساعت بیداری: ${avg == null ? '—' : fd(`${Math.floor(avg / 60)}:${String(avg % 60).padStart(2, '0')}`)}`,
+      `شب‌هایی که موبایل دور از تخت بود: ${fd(far.length)} از ۷ — لنگر صبح در این روزها: ${fd(far.filter(r => r.doneAt && !r.skipped).length)} بار انجام شد`,
     ];
   },
 });
