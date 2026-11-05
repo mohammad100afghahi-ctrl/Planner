@@ -29,12 +29,14 @@ function jDate(key, withYear){
 const fmtMin = m => `${fd(m || 0)} دقیقه`;
 
 /* ---------- navigation ---------- */
+// مرور هفته is parked, not removed: its page, data and functions all stay. Set true to bring it back.
+const WEEKLY_REVIEW_VISIBLE = false;
 const NAV_GROUPS = [
   { label:'برنامه‌ریزی', items:[['today','امروز','calendar-day'], ['tasks','تسک‌ها','list-check'], ['calendar','تقویم جلالی','calendar-days'], ['english','انگلیسی','language']] },
   { label:'محتوا', items:[['ideas','ایده‌ها','lightbulb'], ['prompts','پرامپت‌ها','terminal']] },
   { label:'مالی', items:[['purchases','خریدها','cart-shopping'], ['subscriptions','اشتراک‌ها','credit-card']] },
   { label:'شخصی', items:[['wins','تونستم','trophy'], ['mother','مادر','heart'], ['repairs','تعمیرات','hammer'], ['hooshavar','هوشاور','seedling']] },
-  { label:'سیستم', items:[['settings','تنظیمات','gear'], ['archive','آرشیو','box-archive'], ['ai-reports','مرور هفته','clipboard-check']] },
+  { label:'سیستم', items:[['settings','تنظیمات','gear'], ['archive','آرشیو','box-archive'], ...(WEEKLY_REVIEW_VISIBLE ? [['ai-reports','مرور هفته','clipboard-check']] : [])] },
 ];
 // the active item's colours and icon tint, exactly as each reference page draws its own entry
 const NAV_ACTIVE = {
@@ -98,7 +100,8 @@ const ALL_TABS = NAV_GROUPS.flatMap(g => g.items);
 const TAB_SHORT = { calendar:'تقویم', 'ai-reports':'مرور' }; // the bar is narrower than the sidebar
 const tabLabel = (id, label) => TAB_SHORT[id] || label;
 const BAR_SIZE = 4;
-const DEFAULT_TAB_ORDER = ['today','tasks','calendar','ai-reports', ...ALL_TABS.map(t => t[0]).filter(id => !['today','tasks','calendar','ai-reports'].includes(id))];
+const DEFAULT_BAR = ['today','tasks','calendar', WEEKLY_REVIEW_VISIBLE ? 'ai-reports' : 'english'];
+const DEFAULT_TAB_ORDER = [...DEFAULT_BAR, ...ALL_TABS.map(t => t[0]).filter(id => !DEFAULT_BAR.includes(id))];
 const TAB_ORDER_KEY = 'medar-tab-order-v1';
 function tabOrder(){
   let saved = [];
@@ -304,7 +307,7 @@ function renderAIHealthBanner({ dismissible = true } = {}){
         <div class="flex-1 min-w-0">
           <h3 class="text-sm font-black text-white mb-1">هوشواره متوقف شده</h3>
           <p class="text-xs text-slate-400 leading-relaxed">${esc(h.errorMessage || '')}</p>
-          <p class="text-[10px] text-slate-500 mt-2">پیش‌نویس مرور هفته و برنامه‌ی انگلیسی تا اون موقع متوقفن.</p>
+          <p class="text-[10px] text-slate-500 mt-2">${WEEKLY_REVIEW_VISIBLE ? 'پیش‌نویس مرور هفته و برنامه‌ی انگلیسی' : 'برنامه‌ی انگلیسی'} تا اون موقع ${WEEKLY_REVIEW_VISIBLE ? 'متوقفن' : 'متوقفه'}.</p>
         </div>
         ${dismissible ? `<button type="button" onclick="dismissAIHealth()" aria-label="بستن" class="text-slate-500 hover:text-white transition-colors">${fa('xmark')}</button>` : ''}
       </div>
