@@ -151,7 +151,7 @@ function todayCallout(mob){
   const r = currentRitual();
   let box = '';
   // مرور هفته is ready and not done yet: one card that opens it
-  if(r){
+  if(r && WEEKLY_REVIEW_VISIBLE){
     const started = r.ritual.step > 0;
     const text = started ? `از قدم ${fd(r.ritual.step + 1)} ادامه بده؛ چند دقیقه بیشتر نمونده.` : '۵ دقیقه: یه نگاه به هفته‌ی قبل، تکلیف کارهای گیرکرده، چیدن هفته و یه تعهد.';
     const label = started ? 'ادامه‌ی مرور' : 'شروع مرور';
