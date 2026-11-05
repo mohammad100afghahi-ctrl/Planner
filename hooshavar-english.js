@@ -231,9 +231,23 @@ hooshavarRegister({
   summary(days){
     const ended = hvEn.sessions.filter(s => s.endedAt && days.includes(s.day));
     const done = new Set(ended.filter(s => s.completed).map(s => s.day)).size;
+    // one line per day with a session: the first start, the day's minutes, «ناقص», the text
+    const daily = days.map(d => {
+      const list = ended.filter(s => s.day === d).sort((a, b) => a.startedAt.localeCompare(b.startedAt));
+      if(!list.length) return null;
+      const notes = list.map(s => (s.note || '').replace(/\s+/g, ' ').trim()).filter(Boolean).join('؛ ');
+      return [
+        WEEKDAYS_FA[new Date(d + 'T12:00:00').getDay()],
+        `شروع ${hvClock(list[0].startedAt)}`,
+        `${fd(list.reduce((a, s) => a + (s.minutes || 0), 0))} دقیقه`,
+        ...(list.some(s => s.completed) ? [] : ['ناقص']),
+        ...(notes ? [notes] : []),
+      ].join(' — ');
+    }).filter(Boolean);
     return [
       HV_EN_TITLE,
       `روزهای انجام‌شده: ${fd(done)} از ۷ — کل دقیقه‌ها: ${fd(ended.reduce((a, s) => a + (s.minutes || 0), 0))}`,
+      ...daily,
     ];
   },
 });
