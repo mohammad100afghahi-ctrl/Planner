@@ -176,3 +176,9 @@ Read current files rather than assuming stored notes remain current. Reconcile u
 - ui.css holds the hard-coded theme colours and the readability rules: larger small text on phone and desktop, no letter-spacing (it breaks Persian joins), weight 700 instead of 900 on small text, lifted opacity-40/50/60/70, a brightness filter on tag text, `.calendar-day.out-month`.
 - JS/meta: `bg-[#020617]` became `bg-slate-950`, purple fallbacks became #e24e50 (new-tag default too; existing tags keep their own colours), theme-color and manifest are #000000. Icons were already grey, unchanged. Service worker v98.
 - Checked on sample data: every page in both layouts, no sideways overflow. Text below 4.5:1 outside tag labels: none on phone; on desktop only the out-of-month calendar days (3.4:1, on purpose).
+
+## 2026-11-14 — هوشاور v4: «یه تمرین انگلیسی» و لنگر بدون سؤال شارژ (Claude)
+- «۱۰ دقیقه انگلیسی» → «یه تمرین انگلیسی» (hooshavar-english.js rewritten). No timer: «انجامش دادم» inserts a row in the new table hooshavar_english_logs (day 07:00→07:00, logged_at, before_phone bool|null, minutes 1–120, note) at once, then asks «قبل از اینستا و یوتیوب انجامش دادی؟» (leaving there keeps the day, answer null), then minutes + text (skippable), then a closing line. Card: text, button, last 7 days tick/empty, «دیروز نشد…» banner, «اعلان روزانه» time. After لنگر (hv-morning-done) the same thing opens as a dialog once, «بعداً» closes it for the day.
+- New table hooshavar_english_prefs (notify_at default 16:30, pushed_day). send-push v21: hooshavar-english.ts now sends one daily reminder at notify_at (Baghdad) unless that day has a log; the timer-closing code is gone. Same every-minute cron hooshavar-english-push. Migration hooshavar_v4_one_english.
+- hooshavar_english_sessions (old timer) kept read-only; its weeks still show the old summary lines.
+- لنگر صبح: «دیشب موبایل کجا شارژ شد؟» and its two summary lines removed; charge_place column and data kept. sw.js v99.
