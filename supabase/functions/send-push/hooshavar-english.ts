@@ -1,46 +1,54 @@
 import { SupabaseClient } from "jsr:@supabase/supabase-js@2";
 
-/* ---------- هوشاور › ۱۰ دقیقه انگلیسی ----------
+/* ---------- هوشاور › یه تمرین انگلیسی ----------
    The every-minute `hooshavar-english-push` cron ({action:"hooshavar-english"}).
-   Closes a timer that has run out, so it counts even if the app isn't opened
-   again, and says so once (both notifications open the هوشاور page):
-     - 10 minutes up: «تموم شد. می‌خوای ادامه بدی؟»
-     - the 20 more up: «۲۰ دقیقه تموم شد.»
+   Once a day, at the time set on the card (hooshavar_english_prefs.notify_at,
+   default 16:30 Baghdad), says «یه تمرین انگلیسی» — unless that day already
+   has a record. The day runs 07:00 → 07:00 as in the app, so a time before
+   07:00 belongs to the night after. pushed_day keeps it to once.
    Remove with the exercise: this file, its import and its `action` line in index.ts. */
 
-const FIRST_MIN = 10;
-const MORE_MIN = 20;
-const QUIET_AFTER_MS = 3600_000; // a timer left open for hours (the app was off) is closed quietly
+const TZ_OFFSET_HOURS = 3;
+const DAY_START_H = 7;
+const DEFAULT_AT = "16:30";
 
 type Send = (sb: SupabaseClient, uid: string, payload: any) => Promise<{ devices: number; sent: number }>;
 
 export async function hooshavarEnglishRun(sb: SupabaseClient, sendTo: Send) {
-  const table = "hooshavar_english_sessions";
   const results: any[] = [];
-  const before = (min: number) => new Date(Date.now() - min * 60_000).toISOString();
-  const ring = async (uid: string, ended: string, title: string) => {
-    if (Date.now() - Date.parse(ended) > QUIET_AFTER_MS) return;
-    results.push(await sendTo(sb, uid, { title, body: "", tag: "medar-hv-english", view: "hooshavar" }));
-  };
-
-  const { data: first, error } = await sb.from(table).select("id, user_id, started_at")
-    .is("ended_at", null).is("extended_at", null).lte("started_at", before(FIRST_MIN));
+  const { data: subs, error } = await sb.from("push_subscriptions").select("user_id");
   if (error) throw error;
-  for (const s of first || []) {
-    const ended = new Date(Date.parse(s.started_at) + FIRST_MIN * 60_000).toISOString();
-    const { data: closed } = await sb.from(table).update({ ended_at: ended, minutes: FIRST_MIN, completed: true })
-      .eq("id", s.id).is("ended_at", null).is("extended_at", null).select("id");
-    if (closed?.length) await ring(s.user_id, ended, "تموم شد. می‌خوای ادامه بدی؟");
-  }
-
-  const { data: more, error: e2 } = await sb.from(table).select("id, user_id, extended_at")
-    .is("ended_at", null).not("extended_at", "is", null).lte("extended_at", before(MORE_MIN));
+  const users = [...new Set((subs || []).map((r: any) => r.user_id as string))];
+  if (!users.length) return { results };
+  const { data: prefs, error: e2 } = await sb.from("hooshavar_english_prefs").select("user_id, notify_at, pushed_day").in("user_id", users);
   if (e2) throw e2;
-  for (const s of more || []) {
-    const ended = new Date(Date.parse(s.extended_at) + MORE_MIN * 60_000).toISOString();
-    const { data: closed } = await sb.from(table).update({ ended_at: ended, minutes: FIRST_MIN + MORE_MIN })
-      .eq("id", s.id).is("ended_at", null).select("id");
-    if (closed?.length) await ring(s.user_id, ended, "۲۰ دقیقه تموم شد.");
+  const byUser = new Map((prefs || []).map((p: any) => [p.user_id, p]));
+
+  // local clock written as UTC, so date maths needs no timezone library
+  const local = Date.now() + TZ_OFFSET_HOURS * 3600_000;
+  const day = new Date(local - DAY_START_H * 3600_000).toISOString().slice(0, 10);
+  for (const uid of users) {
+    try {
+      const p: any = byUser.get(uid);
+      if (p?.pushed_day === day) continue;
+      const [h, m] = String(p?.notify_at || DEFAULT_AT).split(":").map(Number);
+      const due = Date.parse(day + "T00:00:00Z") + ((h < DAY_START_H ? 24 : 0) + h) * 3600_000 + m * 60_000;
+      if (local < due) continue;
+      const { data: done, error: e3 } = await sb.from("hooshavar_english_logs").select("id").eq("user_id", uid).eq("day", day).limit(1);
+      if (e3) throw e3;
+      if (!done?.length) {
+        results.push(await sendTo(sb, uid, {
+          title: "یه تمرین انگلیسی",
+          body: "قبل از اینستا و یوتیوب: فقط یه تمرین انگلیسی. بعدش آزادی.",
+          tag: "medar-hv-english", view: "hooshavar",
+        }));
+      }
+      const { error: e4 } = await sb.from("hooshavar_english_prefs").upsert({ user_id: uid, pushed_day: day }, { onConflict: "user_id" });
+      if (e4) throw e4;
+    } catch (e) {
+      console.error(e);
+      results.push({ error: String((e as any)?.message ?? e) });
+    }
   }
   return { results };
 }

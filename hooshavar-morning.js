@@ -1,15 +1,14 @@
 /* ---------- هوشاور › لنگر صبح ----------
    The first time the app comes to the front each day (the day starts at
-   07:00) the whole app is replaced by «صبح بخیر.» and «دیشب موبایل کجا شارژ
-   شد؟», required, then «قبل از هر چیز این دو تا:» — «صورتم رو شستم» and «یه چیزی
-   خوردم» — then «ساعت چند بیدار شدی؟» (may stay empty) and «قبل از این دو تا سراغ
-   موبایل رفتی؟» (نه / یه کم / آره), and a closing line with «بریم سراغ روز».
-   «امروز نشد، رد می‌شم» opens the app once the first question is answered.
-   The charging answer is saved at once and survives a skip, so the summary can
-   compare those nights with the days the lock was really done; the other answers
-   are kept only when finished: closing the app half-way brings the ticks back
-   from the start. A day with no row is «باز نشد». Finishing fires hv-morning-done
-   for whichever exercise wants to follow on.
+   07:00) the whole app is replaced by «صبح بخیر.» and «قبل از هر چیز این دو
+   تا:» — «صورتم رو شستم» and «یه چیزی خوردم» — then «ساعت چند بیدار شدی؟» (may
+   stay empty) and «قبل از این دو تا سراغ موبایل رفتی؟» (نه / یه کم / آره), and a
+   closing line with «بریم سراغ روز». «امروز نشد، رد می‌شم» opens the app.
+   The answers are kept only when finished: closing the app half-way brings the
+   ticks back from the start. A day with no row is «باز نشد». Finishing fires
+   hv-morning-done for whichever exercise wants to follow on.
+   «دیشب موبایل کجا شارژ شد؟» was asked 2026-11-05 → 11-13 and removed; its
+   answers stay in charge_place, untouched.
    Between 00:00 and 07:00 it is still last night: no lock, nothing saved.
    Table: hooshavar_morning (hooshavar_morning.sql).
 
@@ -19,7 +18,6 @@
 const HV_DAY_START_H = 7;
 const HV_MORNING_KEY = 'medar-hv-morning-v2';
 const HV_PHONE = [['no', 'نه'], ['little', 'یه کم'], ['yes', 'آره']];
-const HV_CHARGE = [['outside', 'بیرون اتاق'], ['room', 'توی اتاق، دور از تخت'], ['bed', 'کنار تخت']];
 const hvMorning = {
   rows:{},       // day → { day, openedAt, charge, washedAt, ateAt, wokeTime, phone, skipped, doneAt }
   loaded:false,
@@ -67,11 +65,6 @@ function hvMorningFlow(day){
 }
 
 /* ---------- the lock's actions ---------- */
-function hvMorningCharge(charge){
-  const day = hvMorningDay();
-  hvMorningSave({ ...hvMorning.rows[day], charge });
-  render();
-}
 function hvMorningTick(key){
   const f = hvMorningFlow(hvMorningDay());
   f[key] = f[key] ? null : new Date().toISOString(); // a second tap unticks
@@ -119,7 +112,6 @@ hooshavarRegister({
       const merged = !srv ? local
         : srv.doneAt || !local.doneAt ? { ...srv, openedAt: local.openedAt < srv.openedAt ? local.openedAt : srv.openedAt }
         : { ...local, openedAt: local.openedAt < srv.openedAt ? local.openedAt : srv.openedAt };
-      merged.charge = merged.charge || local.charge || (srv && srv.charge) || null;
       if(JSON.stringify(merged) !== JSON.stringify(srv)) await hvMorningSave(merged);
       else hvMorningKeep(merged);
     }
@@ -166,10 +158,6 @@ hooshavarRegister({
           ${fa(icon, `text-lg ${on ? 'text-emerald-400' : 'text-slate-600'}`)}
         </button>`;
     };
-    const charge = (v, label) => {
-      const on = m.charge === v;
-      return `<button type="button" onclick="hvMorningCharge('${v}')" aria-pressed="${on}" class="w-full p-4 rounded-2xl border text-sm font-black text-right transition-all active:scale-[0.98] ${on ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300' : 'bg-slate-900 border-slate-800 hover:border-slate-700 text-white'}">${label}</button>`;
-    };
     const rest = fl.washedAt && fl.ateAt ? `
       <div class="space-y-2">
         <p class="text-sm font-black text-white">ساعت چند بیدار شدی؟</p>
@@ -181,15 +169,10 @@ hooshavarRegister({
       </div>` : '';
     return frame(`
       <p class="text-sm font-bold text-slate-300 leading-relaxed">صبح بخیر.</p>
-      <div class="space-y-2">
-        <p class="text-sm font-black text-white">دیشب موبایل کجا شارژ شد؟</p>
-        ${HV_CHARGE.map(([v, l]) => charge(v, l)).join('')}
-      </div>
-      ${m.charge ? `
-        <p class="text-sm font-bold text-slate-300 leading-relaxed">قبل از هر چیز این دو تا:</p>
-        <div class="space-y-3">${item('washedAt', 'صورتم رو شستم', 'droplet')}${item('ateAt', 'یه چیزی خوردم', 'mug-hot')}</div>
-        ${rest}
-        <button type="button" onclick="hvMorningSkip()" class="w-full pt-2 text-[11px] font-bold text-slate-500 hover:text-slate-300 transition-colors">امروز نشد، رد می‌شم</button>` : ''}`);
+      <p class="text-sm font-bold text-slate-300 leading-relaxed">قبل از هر چیز این دو تا:</p>
+      <div class="space-y-3">${item('washedAt', 'صورتم رو شستم', 'droplet')}${item('ateAt', 'یه چیزی خوردم', 'mug-hot')}</div>
+      ${rest}
+      <button type="button" onclick="hvMorningSkip()" class="w-full pt-2 text-[11px] font-bold text-slate-500 hover:text-slate-300 transition-colors">امروز نشد، رد می‌شم</button>`);
   },
   card(mob){
     const today = hvMorningDay();
@@ -223,16 +206,9 @@ hooshavarRegister({
     const n = v => fd(done.filter(r => r.phone === v).length);
     const wakes = done.map(r => r.wokeTime).filter(Boolean).map(t => { const [h, m] = t.split(':').map(Number); return h * 60 + m; });
     const avg = wakes.length ? Math.round(wakes.reduce((a, x) => a + x, 0) / wakes.length) : null;
-    // a day with no charging answer counts in neither line
-    const charged = places => days.map(d => hvMorning.rows[d]).filter(r => r && places.includes(r.charge));
-    const noPhone = list => fd(list.filter(r => r.doneAt && !r.skipped && r.phone === 'no').length);
-    const far = charged(['outside', 'room']);
-    const bed = charged(['bed']);
     return [
       `لنگر صبح: ${fd(done.length)} روز از ۷ (بدون موبایل: ${n('no')}، یه کم: ${n('little')}، با موبایل: ${n('yes')}، رد شده: ${fd(rows.length - done.length)})`,
       `میانگین ساعت بیداری: ${avg == null ? '—' : fd(`${Math.floor(avg / 60)}:${String(avg % 60).padStart(2, '0')}`)}`,
-      `شب‌هایی که موبایل دور از تخت بود: ${fd(far.length)} از ۷ — لنگر بدون موبایل در این روزها: ${noPhone(far)} بار`,
-      `شب‌هایی که موبایل کنار تخت بود: ${fd(bed.length)} از ۷ — لنگر بدون موبایل در این روزها: ${noPhone(bed)} بار`,
     ];
   },
 });

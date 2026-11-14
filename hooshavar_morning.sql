@@ -1,6 +1,6 @@
 -- «هوشاور › لنگر صبح»: the first time the app is opened each day (the day
 -- starts at 07:00; 00:00–07:00 is still last night) it locks behind
--- «دیشب موبایل کجا شارژ شد؟» (required), then two ticks, «ساعت چند بیدار شدی؟»
+-- two ticks, «ساعت چند بیدار شدی؟»
 -- (optional), «قبل از این دو تا سراغ موبایل رفتی؟» — or «امروز نشد، رد می‌شم».
 -- A day without a row is «باز نشد». Client: hooshavar-morning.js.
 --
@@ -15,7 +15,7 @@ create table if not exists public.hooshavar_morning (
   user_id    uuid not null default auth.uid() references auth.users(id) on delete cascade,
   day        date not null,             -- the day it belongs to (07:00 → 07:00)
   opened_at  timestamptz not null,      -- first open of the day (was woke_at until v2)
-  charge_place text check (charge_place is null or charge_place in ('outside','room','bed')), -- «دیشب موبایل کجا شارژ شد؟», kept on a skip too
+  charge_place text check (charge_place is null or charge_place in ('outside','room','bed')), -- «دیشب موبایل کجا شارژ شد؟» (asked 11-05 → 11-13 only)
   washed_at  timestamptz,               -- «صورتم رو شستم» ticked
   ate_at     timestamptz,               -- «یه چیزی خوردم» ticked
   woke_time  text check (woke_time is null or woke_time ~ '^[0-2][0-9]:[0-5][0-9]$'), -- «ساعت چند بیدار شدی؟», if given

@@ -12,7 +12,7 @@ import { hooshavarEnglishRun } from "./hooshavar-english.ts"; // هوشاور ex
      x-cron-secret + {action:"english"}  — the every-10-minutes pg_cron job: «انگلیسی» nudges
                                           that are due right now (see englishFor), and the
                                           21:00 / 23:00 streak warning (see streakFor)
-     x-cron-secret + {action:"hooshavar-english"} — every minute: هوشاور › ۱۰ دقیقه انگلیسی (hooshavar-english.ts)
+     x-cron-secret + {action:"hooshavar-english"} — every minute: هوشاور › یه تمرین انگلیسی, the daily reminder (hooshavar-english.ts)
      user JWT + {action:"publicKey"}     — the app asks for the VAPID public key before subscribing
      user JWT + {action:"test"}          — «ارسال اعلان آزمایشی»: the caller's digest right now
    The morning digest is up to four notifications, each with its own tag so one
