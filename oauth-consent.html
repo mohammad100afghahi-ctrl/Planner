@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>مدار — اجازه به هوش مصنوعی</title>
+<meta name="theme-color" content="#000000">
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/png" sizes="32x32" href="./favicon-32.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@100;300;400;500;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link rel="stylesheet" href="./ui.css">
+<link rel="stylesheet" href="./tailwind.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="text-slate-100 bg-slate-950">
+<div id="app"></div>
+<script>
+/* «اجازه به هوش مصنوعی»: Supabase Auth's OAuth server sends an AI that wants to
+   connect to مدار's MCP (supabase/functions/madar-mcp) here with
+   ?authorization_id=…. Same origin and client as index.html, so a signed-in
+   app means a signed-in page here; otherwise the same login form first. */
+const SUPABASE_URL = 'https://byqowlvyupcusjjyxwaf.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ5cW93bHZ5dXBjdXNqanl4d2FmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc4MzAwMDUsImV4cCI6MjEwMzQwNjAwNX0.T2miyC7NU5u0bkyxA4JKtXML9RSiqeTzk-OAqvx59QM';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const authId = new URLSearchParams(location.search).get('authorization_id');
+const app = document.getElementById('app');
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+const fa = (n, c = '') => `<i class="fa-solid fa-${n} ${c}"></i>`;
+const inputCls = 'w-full bg-slate-900 border border-slate-800 rounded-2xl p-4 text-sm text-slate-200 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500/50 focus:outline-none transition-all placeholder:text-slate-600';
+const label = t => `<label class="text-[10px] font-black text-slate-600 tracking-widest">${t}</label>`;
+
+function shell(inner){
+  app.innerHTML = `
+    <div class="min-h-screen flex items-center justify-center p-4">
+      <div class="w-full max-w-sm bg-slate-950 border border-slate-800 rounded-3xl p-8 space-y-6 shadow-2xl">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-indigo-900/20">${fa('circle-notch', 'text-xl')}</div>
+          <div>
+            <span class="text-2xl font-black text-white tracking-tight">مَدار</span>
+            <p class="text-[10px] text-slate-500 font-medium">وصل کردن هوش مصنوعی</p>
+          </div>
+        </div>
+        ${inner}
+      </div>
+    </div>`;
+}
+function message(text, icon = 'circle-exclamation'){
+  shell(`<div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 text-sm text-slate-300 flex items-center gap-3">${fa(icon, 'text-indigo-400')}<span>${text}</span></div>`);
+}
+
+function renderLogin(){
+  shell(`
+    <form class="space-y-6" onsubmit="submitLogin(event)">
+      <p class="text-[11px] text-slate-500 font-medium">اول با حساب مدار وارد شو.</p>
+      <div class="space-y-1.5">${label('ایمیل')}<input id="loginEmail" type="email" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" required dir="ltr" class="${inputCls}"></div>
+      <div class="space-y-1.5">${label('رمز عبور')}<input id="loginPassword" type="password" autocomplete="current-password" required dir="ltr" class="${inputCls}"></div>
+      <button type="submit" id="loginSubmit" class="w-full py-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl font-black shadow-lg shadow-indigo-900/40 transition-all disabled:opacity-50">ورود</button>
+      <div class="text-[11px] font-bold text-rose-400 min-h-[1em]" id="loginError" role="alert"></div>
+    </form>`);
+}
+async function submitLogin(e){
+  e.preventDefault();
+  const btn = document.getElementById('loginSubmit');
+  const errEl = document.getElementById('loginError');
+  btn.disabled = true; errEl.textContent = '';
+  const { error } = await sb.auth.signInWithPassword({
+    email: document.getElementById('loginEmail').value.replace(/[\s​-‏‪-‮⁦-⁩﻿]/g, '').toLowerCase(),
+    password: document.getElementById('loginPassword').value,
+  });
+  if(error){
+    btn.disabled = false;
+    errEl.textContent = /invalid/i.test(error.message) ? 'ایمیل یا رمز عبور درست نیست.' : 'ورود انجام نشد — اینترنتت رو چک کن و دوباره امتحان کن.';
+    return;
+  }
+  loadRequest();
+}
+
+async function loadRequest(){
+  const { data:{ session } } = await sb.auth.getSession();
+  if(!session) return renderLogin();
+  const { data, error } = await sb.auth.oauth.getAuthorizationDetails(authId);
+  if(error || !data) return message('این درخواست پیدا نشد یا منقضی شده. از خود هوش مصنوعی دوباره «وصل شو» رو بزن.');
+  // already approved before → straight back to the AI
+  if(!data.authorization_id && data.redirect_url){ location.href = data.redirect_url; return; }
+  const name = data.client?.name || data.client?.client_name || 'یه برنامه';
+  let host = '';
+  try{ host = new URL(data.redirect_uri || data.client?.redirect_uris?.[0] || '').host; }catch(_e){}
+  const can = [
+    ['eye', 'کارها، ایده‌ها، خریدها و بقیه‌ی بخش‌ها رو ببینه'],
+    ['pen', 'کار تازه بسازه، برنامه‌ریزی کنه و تیک بزنه'],
+    ['trash-can', 'چیزی رو پاک کنه (تا ۳۰ روز برمی‌گرده)'],
+  ];
+  shell(`
+    <div class="space-y-1.5">
+      ${label('درخواست دسترسی')}
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4">
+        <div class="text-lg font-black text-white" dir="auto">${esc(name)}</div>
+        ${host ? `<div class="text-[11px] text-slate-500 font-medium" dir="ltr">${esc(host)}</div>` : ''}
+      </div>
+    </div>
+    <div class="space-y-1.5">
+      ${label('با حساب ' + esc(session.user.email) + ' می‌تونه')}
+      <div class="space-y-2">
+        ${can.map(([i, t]) => `<div class="flex items-center gap-3 text-sm text-slate-300"><span class="w-8 h-8 bg-indigo-600/10 text-indigo-400 rounded-xl flex items-center justify-center shrink-0">${fa(i, 'text-xs')}</span>${t}</div>`).join('')}
+      </div>
+    </div>
+    <div class="flex gap-3">
+      <button type="button" id="approveBtn" onclick="decide(true)" class="flex-1 py-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl font-black shadow-lg shadow-indigo-900/40 transition-all disabled:opacity-50">اجازه بده</button>
+      <button type="button" id="denyBtn" onclick="decide(false)" class="flex-1 py-4 bg-slate-900 border border-slate-800 hover:bg-slate-800 text-slate-300 rounded-2xl font-black transition-all disabled:opacity-50">نه</button>
+    </div>
+    <div class="text-[11px] font-bold text-rose-400 min-h-[1em]" id="decideError" role="alert"></div>`);
+}
+async function decide(ok){
+  document.getElementById('approveBtn').disabled = true;
+  document.getElementById('denyBtn').disabled = true;
+  const { data, error } = ok
+    ? await sb.auth.oauth.approveAuthorization(authId)
+    : await sb.auth.oauth.denyAuthorization(authId);
+  if(error){
+    document.getElementById('decideError').textContent = 'نشد — دوباره امتحان کن.';
+    document.getElementById('approveBtn').disabled = false;
+    document.getElementById('denyBtn').disabled = false;
+    return;
+  }
+  message(ok ? 'وصل شد. برگرد به هوش مصنوعی…' : 'رد شد.', ok ? 'circle-check' : 'circle-xmark');
+  location.href = data.redirect_url;
+}
+
+if(!authId) message('این صفحه رو خود هوش مصنوعی موقع وصل شدن باز می‌کنه.', 'plug');
+else loadRequest();
+</script>
+</body>
+</html>
