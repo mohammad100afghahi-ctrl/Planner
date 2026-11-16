@@ -87,7 +87,12 @@ async function loadRequest(){
   if(!data.authorization_id && data.redirect_url){ location.href = data.redirect_url; return; }
   const name = data.client?.name || data.client?.client_name || 'یه برنامه';
   // the name is chosen by whoever registered the client; the return address is what really says who gets access
-  const host = data.redirect_uri || data.client?.redirect_uris?.[0] || '';
+  // shown as the parsed host only (no userinfo/path, bidi and zero-width marks stripped) so it can't be dressed up
+  let host = '';
+  try{
+    const u = new URL(data.redirect_uri || data.client?.redirect_uris?.[0] || '');
+    if(u.protocol === 'https:' && !u.username && !u.password) host = u.host.replace(/[​-‏‪-‮⁦-⁩﻿]/g, '');
+  }catch(_e){}
   const can = [
     ['eye', 'کارها، ایده‌ها، خریدها و بقیه‌ی بخش‌ها رو ببینه'],
     ['pen', 'کار تازه بسازه، برنامه‌ریزی کنه و تیک بزنه'],
@@ -98,7 +103,9 @@ async function loadRequest(){
       ${label('درخواست دسترسی')}
       <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4">
         <div class="text-lg font-black text-white" dir="auto">${esc(name)}</div>
-        ${host ? `<div class="text-[11px] text-slate-500 font-medium" dir="ltr">${esc(host)}</div>` : ''}
+        ${host
+          ? `<div class="text-[11px] text-slate-500 font-medium break-all" dir="ltr" title="${esc(host)}">${esc(host)}</div>`
+          : `<div class="text-[11px] font-bold text-rose-400">آدرس برگشتش معتبر نیست — اجازه نده.</div>`}
       </div>
     </div>
     <div class="space-y-1.5">
