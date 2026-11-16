@@ -182,3 +182,10 @@ Read current files rather than assuming stored notes remain current. Reconcile u
 - New table hooshavar_english_prefs (notify_at default 16:30, pushed_day). send-push v21: hooshavar-english.ts now sends one daily reminder at notify_at (Baghdad) unless that day has a log; the timer-closing code is gone. Same every-minute cron hooshavar-english-push. Migration hooshavar_v4_one_english.
 - hooshavar_english_sessions (old timer) kept read-only; its weeks still show the old summary lines.
 - لنگر صبح: «دیشب موبایل کجا شارژ شد؟» and its two summary lines removed; charge_place column and data kept. sw.js v99.
+
+## 2026-11-17 — MCP: وصل کردن مدار به هوش مصنوعی‌های دیگه (Claude)
+- supabase/functions/madar-mcp (deployed, verify_jwt off — it checks the token itself): remote MCP server (streamable HTTP, stateless JSON) at https://byqowlvyupcusjjyxwaf.supabase.co/functions/v1/madar-mcp. Auth = Supabase Auth OAuth 2.1 server: no token → 401 + WWW-Authenticate → /.well-known/oauth-protected-resource → authorization server <project>/auth/v1. Every query runs with the user's own token, so the normal owner-only RLS applies; no service role.
+- Tools: get_today, activity_report, describe_sections, query, create, update, complete_tasks, plan_tasks, delete, list_deleted, restore_deleted. SECTIONS in index.ts lists every table it exposes (all user data except push_subscriptions, backups, ai_health, the old reminders table; ai_reports read-only). Side effects mirror the app: task done → completed_at, subtasks, linked repair/upkeep; date change → task_date_changes; repair done → linked task; purchase bought → bought_at.
+- Delete through MCP = new table mcp_trash (owner-only RLS): the row + its children + rows that pointed at it, kept 30 days, restore_deleted puts them back.
+- oauth-consent.html: the consent page Supabase sends the user to (login form if signed out, «اجازه بده / نه»).
+- RULE (user, 2026-11-17): every feature added to or removed from the site must be added to / removed from SECTIONS (and hooks) in the same change.
