@@ -13,7 +13,8 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <link rel="stylesheet" href="./ui.css">
 <link rel="stylesheet" href="./tailwind.css">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<!-- pinned + integrity: this page hands out access to the whole account, so a changed CDN file must not run here -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.0/dist/umd/supabase.js" integrity="sha384-uteMfOloLDGt042uDz+xHGF3ym63/WQ6rFq7murQRG8Ih7QrXGEGNtWd8688sb4O" crossorigin="anonymous"></script>
 </head>
 <body class="text-slate-100 bg-slate-950">
 <div id="app"></div>
@@ -21,7 +22,8 @@
 /* «اجازه به هوش مصنوعی»: Supabase Auth's OAuth server sends an AI that wants to
    connect to مدار's MCP (supabase/functions/madar-mcp) here with
    ?authorization_id=…. Same origin and client as index.html, so a signed-in
-   app means a signed-in page here; otherwise the same login form first. */
+   app means a signed-in page here; otherwise the same login form first.
+   Opened without authorization_id it lists the connected AIs, each with «قطع کن». */
 const SUPABASE_URL = 'https://byqowlvyupcusjjyxwaf.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ5cW93bHZ5dXBjdXNqanl4d2FmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc4MzAwMDUsImV4cCI6MjEwMzQwNjAwNX0.T2miyC7NU5u0bkyxA4JKtXML9RSiqeTzk-OAqvx59QM';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -75,8 +77,44 @@ async function submitLogin(e){
     errEl.textContent = /invalid/i.test(error.message) ? 'ایمیل یا رمز عبور درست نیست.' : 'ورود انجام نشد — اینترنتت رو چک کن و دوباره امتحان کن.';
     return;
   }
-  loadRequest();
+  start();
 }
+
+// return addresses of the AI services the user actually uses; anything else gets a red warning
+const KNOWN_HOSTS = ['claude.ai', 'claude.com', 'gemini.google.com', 'chatgpt.com', 'chat.openai.com', 'localhost'];
+const knownHost = h => KNOWN_HOSTS.some(k => h === k || h.endsWith('.' + k) || h.startsWith(k + ':'));
+
+async function loadGrants(){
+  const { data:{ session } } = await sb.auth.getSession();
+  if(!session) return renderLogin();
+  const { data, error } = await sb.auth.oauth.listGrants();
+  if(error) return message('فهرست وصل‌ها نیومد — دوباره امتحان کن.');
+  const grants = Array.isArray(data) ? data : (data?.grants || []);
+  shell(`
+    <div class="space-y-1.5">
+      ${label('هوش مصنوعی‌هایی که به مدار وصلن')}
+      ${grants.length ? `<div class="space-y-2">${grants.map(g => {
+        const c = g.client || {};
+        const id = c.client_id || c.id || g.client_id || '';
+        const when = g.granted_at ? new Date(g.granted_at).toLocaleDateString('fa-IR') : '';
+        return `<div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex items-center gap-3">
+          <div class="flex-1"><div class="text-sm font-black text-white" dir="auto">${esc(c.client_name || c.name || 'بی‌نام')}</div>${when ? `<div class="text-[11px] text-slate-500 font-medium">از ${esc(when)}</div>` : ''}</div>
+          <button type="button" data-id="${esc(id)}" onclick="revoke(this.dataset.id, this)" class="py-2 px-3 bg-slate-950 border border-slate-800 hover:bg-slate-800 text-rose-400 rounded-xl text-xs font-black transition-all disabled:opacity-50">قطع کن</button>
+        </div>`;
+      }).join('')}</div>`
+      : `<div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 text-sm text-slate-300">هیچ هوش مصنوعی‌ای وصل نیست.</div>`}
+    </div>
+    <div class="text-[11px] font-bold text-rose-400 min-h-[1em]" id="grantError" role="alert"></div>`);
+}
+async function revoke(clientId, btn){
+  if(!clientId) return;
+  btn.disabled = true;
+  const { error } = await sb.auth.oauth.revokeGrant({ clientId });
+  if(error){ btn.disabled = false; document.getElementById('grantError').textContent = 'نشد — دوباره امتحان کن.'; return; }
+  loadGrants();
+}
+
+function start(){ return authId ? loadRequest() : loadGrants(); }
 
 async function loadRequest(){
   const { data:{ session } } = await sb.auth.getSession();
@@ -104,7 +142,8 @@ async function loadRequest(){
       <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4">
         <div class="text-lg font-black text-white" dir="auto">${esc(name)}</div>
         ${host
-          ? `<div class="text-[11px] text-slate-500 font-medium" style="word-break:break-all" dir="ltr" title="${esc(host)}">${esc(host)}</div>`
+          ? `<div class="text-[11px] text-slate-500 font-medium" style="word-break:break-all" dir="ltr" title="${esc(host)}">${esc(host)}</div>
+             ${knownHost(host) ? '' : `<div class="text-[11px] font-bold text-rose-400 mt-2">این آدرس مال Claude، Gemini یا ChatGPT نیست. اگه خودت الان وصلش نکردی، اجازه نده.</div>`}`
           : `<div class="text-[11px] font-bold text-rose-400">آدرس برگشتش معتبر نیست — اجازه نده.</div>`}
       </div>
     </div>
@@ -138,8 +177,7 @@ async function decide(ok){
 
 // GitHub Pages can't send frame-ancestors / X-Frame-Options, so refuse to run inside a frame (clickjacking)
 if(window.top !== window.self) document.body.innerHTML = '';
-else if(!authId) message('این صفحه رو خود هوش مصنوعی موقع وصل شدن باز می‌کنه.', 'plug');
-else loadRequest();
+else start();
 </script>
 </body>
 </html>
