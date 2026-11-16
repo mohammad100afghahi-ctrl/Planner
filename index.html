@@ -16,7 +16,10 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@100;300;400;500;700;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<!-- pinned + integrity: a changed file on the CDN must never run with the signed-in session. To update: new
+     version here, its sha384 (openssl dgst -sha384 -binary file | openssl base64 -A), the same URL in sw.js
+     SUPABASE_JS, bump CACHE_NAME; oauth-consent.html uses the same file. -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.0/dist/umd/supabase.min.js" integrity="sha384-gnyZit14c5lnGcarmA166QQjjJXpucw25ogZXuwH3HxxY904zHkBqmxVpelsPorb" crossorigin="anonymous"></script>
 <script>
 /* Vendored from jalaali-js v2.0.1 (https://github.com/jalaali/jalaali-js)
    MIT License — Copyright (c) 2020 Behrang Norouzinia

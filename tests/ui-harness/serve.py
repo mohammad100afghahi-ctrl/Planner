@@ -39,8 +39,10 @@ class H(SimpleHTTPRequestHandler):
         if u.path == '/app':
             html = (ROOT / 'index.html').read_text()
             opts = {k: v[0] for k, v in parse_qs(u.query).items()}
-            html = html.replace('<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>',
-                                f'<script>window.__MOCK_OPTS={json.dumps(opts)};</script><script src="./fixture.js"></script><script src="./mock.js"></script>')
+            # whatever version/integrity index.html pins, swap the supabase-js tag for the mock
+            html = re.sub(r'<script src="https://cdn\.jsdelivr\.net/npm/@supabase/supabase-js@[^"]*"[^>]*></script>',
+                          lambda _m: f'<script>window.__MOCK_OPTS={json.dumps(opts)};</script><script src="./fixture.js"></script><script src="./mock.js"></script>',
+                          html, count=1)
             html = html.replace("if('serviceWorker' in navigator){", "if(false){")
             return self.send_bytes(html.encode(), 'text/html; charset=utf-8')
         if u.path in ('/mock.js', '/fixture.js', '/compare.html'):
