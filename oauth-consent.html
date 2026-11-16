@@ -86,8 +86,8 @@ async function loadRequest(){
   // already approved before → straight back to the AI
   if(!data.authorization_id && data.redirect_url){ location.href = data.redirect_url; return; }
   const name = data.client?.name || data.client?.client_name || 'یه برنامه';
-  let host = '';
-  try{ host = new URL(data.redirect_uri || data.client?.redirect_uris?.[0] || '').host; }catch(_e){}
+  // the name is chosen by whoever registered the client; the return address is what really says who gets access
+  const host = data.redirect_uri || data.client?.redirect_uris?.[0] || '';
   const can = [
     ['eye', 'کارها، ایده‌ها، خریدها و بقیه‌ی بخش‌ها رو ببینه'],
     ['pen', 'کار تازه بسازه، برنامه‌ریزی کنه و تیک بزنه'],
@@ -129,7 +129,9 @@ async function decide(ok){
   location.href = data.redirect_url;
 }
 
-if(!authId) message('این صفحه رو خود هوش مصنوعی موقع وصل شدن باز می‌کنه.', 'plug');
+// GitHub Pages can't send frame-ancestors / X-Frame-Options, so refuse to run inside a frame (clickjacking)
+if(window.top !== window.self) document.body.innerHTML = '';
+else if(!authId) message('این صفحه رو خود هوش مصنوعی موقع وصل شدن باز می‌کنه.', 'plug');
 else loadRequest();
 </script>
 </body>
