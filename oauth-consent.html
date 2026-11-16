@@ -81,8 +81,20 @@ async function submitLogin(e){
 }
 
 // return addresses of the AI services the user actually uses; anything else gets a red warning
-const KNOWN_HOSTS = ['claude.ai', 'claude.com', 'gemini.google.com', 'chatgpt.com', 'chat.openai.com', 'localhost'];
-const knownHost = h => KNOWN_HOSTS.some(k => h === k || h.endsWith('.' + k) || h.startsWith(k + ':'));
+const KNOWN_HOSTS = ['claude.ai', 'claude.com', 'gemini.google.com', 'chatgpt.com', 'chat.openai.com'];
+const LOOPBACK = ['localhost', '127.0.0.1', '[::1]'];
+const BIDI = /[​-‏‪-‮⁦-⁩﻿]/g;
+/* the redirect URI → { name: hostname to show, known }. https only, except the
+   loopback callbacks desktop/CLI clients use; userinfo or an unparsable URI → null. */
+function returnHost(uri){
+  let u;
+  try{ u = new URL(uri); }catch(_e){ return null; }
+  if(u.username || u.password) return null;
+  const h = u.hostname.replace(/\.$/, '').toLowerCase();
+  if(LOOPBACK.includes(h)) return (u.protocol === 'http:' || u.protocol === 'https:') ? { name:h, known:true } : null;
+  if(u.protocol !== 'https:') return null;
+  return { name:h.replace(BIDI, ''), known:KNOWN_HOSTS.some(k => h === k || h.endsWith('.' + k)) };
+}
 
 async function loadGrants(){
   const { data:{ session } } = await sb.auth.getSession();
@@ -125,12 +137,9 @@ async function loadRequest(){
   if(!data.authorization_id && data.redirect_url){ location.href = data.redirect_url; return; }
   const name = data.client?.name || data.client?.client_name || 'یه برنامه';
   // the name is chosen by whoever registered the client; the return address is what really says who gets access
-  // shown as the parsed host only (no userinfo/path, bidi and zero-width marks stripped) so it can't be dressed up
-  let host = '';
-  try{
-    const u = new URL(data.redirect_uri || data.client?.redirect_uris?.[0] || '');
-    if(u.protocol === 'https:' && !u.username && !u.password) host = u.host.replace(/[​-‏‪-‮⁦-⁩﻿]/g, '');
-  }catch(_e){}
+  // shown as the parsed hostname only (no userinfo/port/path, bidi and zero-width marks stripped) so it can't be dressed up
+  const ret = returnHost(data.redirect_uri || data.client?.redirect_uris?.[0] || '');
+  const host = ret ? ret.name : '';
   const can = [
     ['eye', 'کارها، ایده‌ها، خریدها و بقیه‌ی بخش‌ها رو ببینه'],
     ['pen', 'کار تازه بسازه، برنامه‌ریزی کنه و تیک بزنه'],
@@ -143,7 +152,7 @@ async function loadRequest(){
         <div class="text-lg font-black text-white" dir="auto">${esc(name)}</div>
         ${host
           ? `<div class="text-[11px] text-slate-500 font-medium" style="word-break:break-all" dir="ltr" title="${esc(host)}">${esc(host)}</div>
-             ${knownHost(host) ? '' : `<div class="text-[11px] font-bold text-rose-400 mt-2">این آدرس مال Claude، Gemini یا ChatGPT نیست. اگه خودت الان وصلش نکردی، اجازه نده.</div>`}`
+             ${ret.known ? '' : `<div class="text-[11px] font-bold text-rose-400 mt-2">این آدرس مال Claude، Gemini یا ChatGPT نیست. اگه خودت الان وصلش نکردی، اجازه نده.</div>`}`
           : `<div class="text-[11px] font-bold text-rose-400">آدرس برگشتش معتبر نیست — اجازه نده.</div>`}
       </div>
     </div>
