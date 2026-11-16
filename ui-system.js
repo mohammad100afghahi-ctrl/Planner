@@ -135,6 +135,15 @@ function renderSettingsDesktop(){
           </div>
         </div>
       </section>
+      <section id="ai-connections" class="space-y-6">
+        <h3 class="text-sm font-black text-white uppercase tracking-widest flex items-center gap-2">${fa('robot', 'text-indigo-500')} هوش مصنوعی‌های وصل</h3>
+        <div class="bg-slate-950 border border-slate-800 rounded-3xl p-6">
+          <div class="flex items-center justify-between gap-6">
+            <div><p class="text-sm font-black text-slate-200">وصل‌ها و تغییرها</p><p class="text-[10px] text-slate-600 leading-relaxed">هر تغییری که هوش مصنوعی داده، با یه دکمه برمی‌گرده.</p></div>
+            <a href="./oauth-consent.html" class="px-4 py-2 bg-slate-800 text-slate-300 rounded-xl text-[10px] font-black shrink-0">باز کن</a>
+          </div>
+        </div>
+      </section>
       <section id="backup" class="space-y-6">
         <h3 class="text-sm font-black text-white uppercase tracking-widest flex items-center gap-2">${fa('shield-halved', 'text-emerald-500')} پشتیبان‌گیری و حساب کاربری</h3>
         <div class="bg-slate-950 border border-slate-800 rounded-3xl p-6 space-y-8">
@@ -229,6 +238,19 @@ function renderSettingsMobile(){
               <div class="flex items-center gap-3">${p.on ? `<button type="button" onclick="sendTestPush()" class="text-[9px] font-black text-indigo-400">اعلان آزمایشی</button>` : ''}<span class="text-[9px] font-black ${p.tone}">${p.status}</span></div>
             </div>
           </div>
+        </section>
+        <section id="ai-settings">
+          <h3 class="text-[10px] font-black text-slate-600 uppercase tracking-widest mb-3 px-1">هوش مصنوعی‌های وصل</h3>
+          <a href="./oauth-consent.html" class="w-full bg-slate-900 border border-slate-800 rounded-2xl p-4 flex items-center justify-between gap-3">
+            <div class="flex items-center gap-3 min-w-0">
+              <div class="w-10 h-10 shrink-0 bg-indigo-600/10 text-indigo-400 rounded-xl flex items-center justify-center">${fa('robot', 'text-sm')}</div>
+              <div class="text-right min-w-0">
+                <p class="text-xs font-black text-slate-200">وصل‌ها و تغییرها</p>
+                <p class="text-[10px] text-slate-500 mt-0.5">هر تغییری که هوش مصنوعی داده، برمی‌گرده</p>
+              </div>
+            </div>
+            ${fa('chevron-left', 'text-[10px] text-slate-500 shrink-0')}
+          </a>
         </section>
         <section id="backup-settings">
           <h3 class="text-[10px] font-black text-slate-600 uppercase tracking-widest mb-3 px-1">پشتیبان‌گیری و بازیابی</h3>

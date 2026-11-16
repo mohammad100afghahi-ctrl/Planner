@@ -97,12 +97,69 @@ function returnHost(uri){
   return { name:h.replace(BIDI, ''), known:KNOWN_HOSTS.some(k => h === k || h.endsWith('.' + k)) };
 }
 
+/* «کارهای اخیر هوش مصنوعی»: mcp_history (mcp_history.sql). Undo goes through
+   madar-mcp's undo_changes with the user's own session, so the page and the AI
+   share one undo path; the undo is itself listed and can be undone. */
+const MCP_URL = SUPABASE_URL + '/functions/v1/madar-mcp';
+const ACTION = { create:['plus', 'ساخت'], update:['pen', 'تغییر'], delete:['trash-can', 'حذف'], undo:['rotate-left', ''] };
+const SECTION_FA = { tasks:'کارها', subtasks:'زیرکارها', tags:'تگ‌ها', tag_goals:'هدف تگ‌ها', recurring_templates:'کارهای تکراری', ideas:'ایده‌ها',
+  prompts:'پرامپت‌ها', purchases:'خریدها', subscriptions:'اشتراک‌ها', wins:'بردها', mother_care:'مادر', mother_care_items:'مادر',
+  home_repairs:'تعمیرات', home_repair_parts:'قطعه‌ها', home_maintenance:'نگهداری خونه', english_homework:'انگلیسی', english_chunks:'انگلیسی',
+  english_settings:'انگلیسی', english_practice:'انگلیسی', hooshavar_morning:'هوشاور', hooshavar_english_logs:'هوشاور' };
+const whenFa = iso => new Date(iso).toLocaleString('fa-IR', { month:'long', day:'numeric', hour:'2-digit', minute:'2-digit' });
+
+function historyRow(h, names){
+  const [icon, verb] = ACTION[h.action] || ['circle', h.action];
+  const who = h.client ? (names[h.client] || 'هوش مصنوعیِ قطع‌شده') : 'خودت';
+  const title = (verb ? verb + ': ' : '') + (h.label || '');
+  return `<div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex items-start gap-3 ${h.undone_at ? 'opacity-60' : ''}">
+    <span class="w-8 h-8 bg-indigo-600/10 text-indigo-400 rounded-xl flex items-center justify-center shrink-0">${fa(icon, 'text-xs')}</span>
+    <div class="flex-1 min-w-0">
+      <div class="text-sm font-black text-white" dir="auto" style="word-break:break-word">${esc(title)}</div>
+      ${h.detail ? `<div class="text-[11px] text-slate-400 font-medium" dir="auto" style="word-break:break-word">${esc(h.detail.length > 140 ? h.detail.slice(0, 140) + '…' : h.detail)}</div>` : ''}
+      <div class="text-[11px] text-slate-500 font-medium">${esc(SECTION_FA[h.section] || h.section)} · ${esc(who)} · ${esc(whenFa(h.created_at))}</div>
+    </div>
+    ${h.undone_at
+      ? `<span class="text-[11px] text-slate-500 font-bold shrink-0">برگشت خورد</span>`
+      : `<button type="button" data-id="${esc(h.id)}" onclick="undoChange(this.dataset.id, this)" class="py-2 px-3 bg-slate-950 border border-slate-800 hover:bg-slate-800 text-indigo-400 rounded-xl text-xs font-black transition-all disabled:opacity-50 shrink-0">برگردون</button>`}
+  </div>`;
+}
+async function undoChange(id, btn){
+  if(!id) return;
+  btn.disabled = true;
+  const errEl = document.getElementById('grantError');
+  errEl.textContent = '';
+  try{
+    const { data:{ session } } = await sb.auth.getSession();
+    if(!session) return renderLogin();
+    const res = await fetch(MCP_URL, {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', Authorization:'Bearer ' + session.access_token },
+      body: JSON.stringify({ jsonrpc:'2.0', id:1, method:'tools/call', params:{ name:'undo_changes', arguments:{ change_ids:[id] } } }),
+    });
+    const body = await res.json();
+    if(!res.ok || body.error || body.result?.isError) throw new Error(body.error?.message || body.result?.content?.[0]?.text || res.status);
+    const partly = body.result?.structuredContent?.undone?.[0]?.partly;
+    await loadGrants();
+    if(partly?.length) document.getElementById('grantError').textContent = 'برگشت، ولی یه بخشش جا نیفتاد: ' + partly.join(' · ');
+  }catch(_e){
+    btn.disabled = false;
+    errEl.textContent = 'برگردوندن نشد — دوباره امتحان کن.';
+  }
+}
+
 async function loadGrants(){
   const { data:{ session } } = await sb.auth.getSession();
   if(!session) return renderLogin();
-  const { data, error } = await sb.auth.oauth.listGrants();
+  const [{ data, error }, hist] = await Promise.all([
+    sb.auth.oauth.listGrants(),
+    sb.from('mcp_history').select('id,action,section,label,detail,client,created_at,undone_at').order('created_at', { ascending:false }).limit(50),
+  ]);
   if(error) return message('فهرست وصل‌ها نیومد — دوباره امتحان کن.');
   const grants = Array.isArray(data) ? data : (data?.grants || []);
+  const names = {};
+  for(const g of grants){ const c = g.client || {}; const id = c.client_id || c.id || g.client_id; if(id) names[id] = c.client_name || c.name || 'بی‌نام'; }
+  const history = hist.error ? null : (hist.data || []);
   shell(`
     <div class="space-y-1.5">
       ${label('هوش مصنوعی‌هایی که به مدار وصلن')}
@@ -117,7 +174,16 @@ async function loadGrants(){
       }).join('')}</div>`
       : `<div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 text-sm text-slate-300">هیچ هوش مصنوعی‌ای وصل نیست.</div>`}
     </div>
-    <div class="text-[11px] font-bold text-rose-400 min-h-[1em]" id="grantError" role="alert"></div>`);
+    <div class="text-[11px] font-bold text-rose-400 min-h-[1em]" id="grantError" role="alert"></div>
+    <div class="space-y-1.5">
+      ${label('کارهای اخیر هوش مصنوعی (۳۰ روز)')}
+      ${history === null
+        ? `<div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 text-sm text-slate-300">فهرست تغییرها نیومد — صفحه رو دوباره باز کن.</div>`
+        : history.length
+          ? `<div class="space-y-2">${history.map(h => historyRow(h, names)).join('')}</div>`
+          : `<div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 text-sm text-slate-300">هنوز هوش مصنوعی‌ای چیزی رو عوض نکرده.</div>`}
+    </div>
+    <a href="./" class="block w-full py-4 bg-slate-900 border border-slate-800 hover:bg-slate-800 text-slate-300 rounded-2xl font-black text-center transition-all">${fa('arrow-right', 'ml-1')} برگشت به مدار</a>`);
 }
 async function revoke(clientId, btn){
   if(!clientId) return;
