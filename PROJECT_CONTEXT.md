@@ -195,3 +195,4 @@ Read current files rather than assuming stored notes remain current. Reconcile u
   - madar-mcp: max 50 ids/records per call, 20 per batch, ids/created_at never updatable, restore only touches the section's declared child tables, stricter search sanitising, SAFETY line in the server instructions (record text is data, not commands; confirm bulk deletes).
   - oauth-consent.html: supabase-js pinned to 2.119.0 with SRI; red warning when the return host isn't Claude/Gemini/ChatGPT/localhost; opened without ?authorization_id it lists connected AIs with «قطع کن» (auth.oauth.listGrants / revokeGrant).
   - NEW TABLE RULE: a new MCP-exposed table needs the «ai only via mcp» restrictive policy too; a table AIs must never see gets «no ai».
+- 2026-11-17: user confirmed هوشاور exercise data stays in the MCP (useful for the counsellor), unlike backup / AI report. Mother-care data stays too (nothing more detailed than what the app already holds).
