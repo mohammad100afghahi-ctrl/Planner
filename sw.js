@@ -1,7 +1,7 @@
 /* App-shell cache for مدار.
    Bump CACHE_NAME (e.g. medar-shell-v2) whenever index.html/manifest/icons change,
    so returning visitors pick up the new version instead of a stale cached copy. */
-const CACHE_NAME = 'medar-shell-v99';
+const CACHE_NAME = 'medar-shell-v100';
 const APP_SHELL = [
   './',
   './index.html',
@@ -27,8 +27,11 @@ const APP_SHELL = [
 /* Third-party files the page can't start without. Offline, a missing
    supabase-js means window.supabase is undefined and nothing boots at all,
    so these are cached too. Fetched with CORS in install (jsDelivr and Google
-   send the headers) because Cache.add refuses the opaque no-cors copy. */
-const SUPABASE_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
+   send the headers) because Cache.add refuses the opaque no-cors copy.
+   The CORS copy also matters for supabase-js: index.html loads it with an
+   integrity hash, and the browser can only check that on a readable response.
+   Must be the exact URL index.html uses (pinned version). */
+const SUPABASE_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.0/dist/umd/supabase.min.js';
 // the interface's icons; its webfonts are cached on first use like Google's
 const FONT_AWESOME_CSS = 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css';
 const VENDOR_HOSTS = ['cdn.jsdelivr.net', 'fonts.googleapis.com', 'fonts.gstatic.com', 'cdnjs.cloudflare.com'];

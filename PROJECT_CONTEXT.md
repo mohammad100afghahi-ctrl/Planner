@@ -196,3 +196,8 @@ Read current files rather than assuming stored notes remain current. Reconcile u
   - oauth-consent.html: supabase-js pinned to 2.119.0 with SRI; red warning when the return host isn't Claude/Gemini/ChatGPT/localhost; opened without ?authorization_id it lists connected AIs with «قطع کن» (auth.oauth.listGrants / revokeGrant).
   - NEW TABLE RULE: a new MCP-exposed table needs the «ai only via mcp» restrictive policy too; a table AIs must never see gets «no ai».
 - 2026-11-17: user confirmed هوشاور exercise data stays in the MCP (useful for the counsellor), unlike backup / AI report. Mother-care data stays too (nothing more detailed than what the app already holds).
+
+## 2026-11-17 — supabase-js قفل شد (Claude)
+- index.html and oauth-consent.html load https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.0/dist/umd/supabase.min.js with integrity sha384 + crossorigin="anonymous" (byte-identical to what @2 served, so no behaviour change). sw.js SUPABASE_JS is the same URL, CACHE_NAME v100; its CORS pre-cache is what lets the integrity check pass offline. tests/ui-harness/serve.py now swaps any supabase-js tag by regex.
+- To update supabase-js: new URL + sha384 in index.html, oauth-consent.html and sw.js, bump CACHE_NAME.
+- Checked: app boots, second load served from the SW cache with the hash verified, a wrong hash is blocked, consent page works.
