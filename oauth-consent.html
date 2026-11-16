@@ -104,7 +104,7 @@ async function loadRequest(){
       <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4">
         <div class="text-lg font-black text-white" dir="auto">${esc(name)}</div>
         ${host
-          ? `<div class="text-[11px] text-slate-500 font-medium break-all" dir="ltr" title="${esc(host)}">${esc(host)}</div>`
+          ? `<div class="text-[11px] text-slate-500 font-medium" style="word-break:break-all" dir="ltr" title="${esc(host)}">${esc(host)}</div>`
           : `<div class="text-[11px] font-bold text-rose-400">آدرس برگشتش معتبر نیست — اجازه نده.</div>`}
       </div>
     </div>
