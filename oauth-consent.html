@@ -91,7 +91,8 @@ function returnHost(uri){
   try{ u = new URL(uri); }catch(_e){ return null; }
   if(u.username || u.password) return null;
   const h = u.hostname.replace(/\.$/, '').toLowerCase();
-  if(LOOPBACK.includes(h)) return (u.protocol === 'http:' || u.protocol === 'https:') ? { name:h, known:true } : null;
+  // a program on this computer (desktop/CLI tools): not one of the known services, so it gets its own notice
+  if(LOOPBACK.includes(h)) return (u.protocol === 'http:' || u.protocol === 'https:') ? { name:h, known:false, local:true } : null;
   if(u.protocol !== 'https:') return null;
   return { name:h.replace(BIDI, ''), known:KNOWN_HOSTS.some(k => h === k || h.endsWith('.' + k)) };
 }
@@ -152,7 +153,9 @@ async function loadRequest(){
         <div class="text-lg font-black text-white" dir="auto">${esc(name)}</div>
         ${host
           ? `<div class="text-[11px] text-slate-500 font-medium" style="word-break:break-all" dir="ltr" title="${esc(host)}">${esc(host)}</div>
-             ${ret.known ? '' : `<div class="text-[11px] font-bold text-rose-400 mt-2">این آدرس مال Claude، Gemini یا ChatGPT نیست. اگه خودت الان وصلش نکردی، اجازه نده.</div>`}`
+             ${ret.known ? ''
+               : ret.local ? `<div class="text-[11px] font-bold text-amber-500 mt-2">این یه برنامه روی همین کامپیوتره (مثل Gemini CLI). فقط اگه خودت همین الان از اون برنامه «وصل شو» رو زدی، اجازه بده.</div>`
+               : `<div class="text-[11px] font-bold text-rose-400 mt-2">این آدرس مال Claude، Gemini یا ChatGPT نیست. اگه خودت الان وصلش نکردی، اجازه نده.</div>`}`
           : `<div class="text-[11px] font-bold text-rose-400">آدرس برگشتش معتبر نیست — اجازه نده.</div>`}
       </div>
     </div>
