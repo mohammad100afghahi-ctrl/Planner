@@ -562,12 +562,15 @@ async function undoChanges(sb: SupabaseClient, changeIds: unknown, client: strin
       const { error } = await sb.from(t).upsert(rows, { onConflict: pkOf(t).join(",") });
       if (error) problems.push(`${t}: ${error.message}`);
     }
-    // 2. what the change created goes away, children first
+    // 2. what the change created goes away, children first — but snapped parents first, so that
+    //    undoing this undo puts a task back before its subtasks and tag links
     const created = recs.filter((r) => !r.b);
-    for (const t of [...new Set(created.map((r) => r.t))].reverse()) {
-      const keys = created.filter((r) => r.t === t).map((r) => r.k);
+    const createdTables = [...new Set(created.map((r) => r.t))];
+    const existingOf: Record<string, any[]> = {};
+    for (const t of createdTables) existingOf[t] = await snapKeys(j, t, created.filter((r) => r.t === t).map((r) => r.k), false);
+    for (const t of [...createdTables].reverse()) {
       const pk = pkOf(t);
-      const existing = await snapKeys(j, t, keys, false);
+      const existing = existingOf[t];
       if (!existing.length) continue;
       const res = pk.length === 1
         ? await sb.from(t).delete().in(pk[0], existing.map((e) => e[pk[0]]))
@@ -575,7 +578,11 @@ async function undoChanges(sb: SupabaseClient, changeIds: unknown, client: strin
       if (res.error) problems.push(`${t}: ${res.error.message}`);
     }
     const isRedo = it.action === "undo";
-    const label = isRedo ? String(it.label || "").replace(/^برگردوندن: /, "دوباره: ") : `برگردوندن: ${it.label || ""}`;
+    // undo ↔ redo labels flip: «برگردوندن: X» → «دوباره: X» → «برگردوندن: X» …
+    const old = String(it.label || "");
+    const label = old.startsWith("برگردوندن: ") ? "دوباره: " + old.slice("برگردوندن: ".length)
+      : old.startsWith("دوباره: ") ? "برگردوندن: " + old.slice("دوباره: ".length)
+      : `برگردوندن: ${old}`;
     const newId = await j.save("undo", it.section, label, problems.join(" · "), client, it.id);
     must(await sb.from("mcp_history").update({ undone_at: new Date().toISOString(), undone_by: newId }).eq("id", it.id), "history");
     // undoing an undo makes the original change live again
