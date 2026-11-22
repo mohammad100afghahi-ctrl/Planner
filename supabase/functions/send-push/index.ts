@@ -15,8 +15,9 @@ import { hooshavarEnglishRun } from "./hooshavar-english.ts"; // هوشاور ex
      x-cron-secret + {action:"hooshavar-english"} — every minute: هوشاور › یه تمرین انگلیسی, the daily reminder (hooshavar-english.ts)
      user JWT + {action:"publicKey"}     — the app asks for the VAPID public key before subscribing
      user JWT + {action:"test"}          — «ارسال اعلان آزمایشی»: the caller's digest right now
-   The morning digest is up to four notifications, each with its own tag so one
-   doesn't bury another: dated items + today's tasks, «مادر», مرور هفته, پشتیبان.
+   The morning digest is several notifications, each with its own tag so one
+   doesn't bury another: dated items + today's tasks, one per subscription on its
+   warning day / day before / day itself, «مادر», مرور هفته, پشتیبان.
    Only the first one makes a sound.
    The VAPID pair is generated here on first use and kept in private.cron_secrets
    (via init_vapid_keys), so the private key never exists anywhere else. */
@@ -82,7 +83,15 @@ function reminderLabel(r: any, n: number): string {
   if (n === 1) return "فرداست";
   return `${fa(n)} روز مونده`;
 }
-function subLabel(n: number): string {
+const GREG_MONTHS_FA = ["ژانویه", "فوریه", "مارس", "آوریل", "مه", "ژوئن", "ژوئیه", "اوت", "سپتامبر", "اکتبر", "نوامبر", "دسامبر"];
+const gregFa = (day: string) => { const [, m, d] = day.split("-").map(Number); return `${fa(d)} ${GREG_MONTHS_FA[m - 1]}`; };
+function subLabel(n: number, once = false): string {
+  if (once) {
+    if (n < 0) return `${fa(-n)} روزه تموم شده`;
+    if (n === 0) return "امروز تموم می‌شه";
+    if (n === 1) return "فردا تموم می‌شه";
+    return `${fa(n)} روز تا پایان`;
+  }
   if (n < 0) return `${fa(-n)} روز از تمدیدش گذشته`;
   if (n === 0) return "امروز تمدید می‌شه";
   if (n === 1) return "فردا تمدید می‌شه";
@@ -333,7 +342,7 @@ async function digestFor(sb: SupabaseClient, uid: string): Promise<Payload[]> {
   const today = localToday();
   const [rem, subs, tasks, backups, review, care, careItems, repairs, maint] = await Promise.all([
     sb.from("reminders").select("title, kind, date, lead_days").eq("user_id", uid).eq("done", false).is("migrated_task_id", null).neq("kind", "always").not("date", "is", null),
-    sb.from("subscriptions").select("name, next_renewal, notify_days_before").eq("user_id", uid).eq("active", true).not("next_renewal", "is", null),
+    sb.from("subscriptions").select("id, name, cycle, next_renewal, notify_days_before").eq("user_id", uid).eq("active", true).not("next_renewal", "is", null),
     sb.from("tasks").select("id", { count: "exact", head: true }).eq("user_id", uid).eq("date", today).eq("done", false).is("shelved_at", null),
     sb.from("backups").select("kind, created_at").eq("user_id", uid).order("created_at", { ascending: true }),
     sb.from("ai_reports").select("id").eq("user_id", uid).not("ritual", "is", null).is("completed_at", null)
@@ -349,9 +358,28 @@ async function digestFor(sb: SupabaseClient, uid: string): Promise<Payload[]> {
     .map((r: any) => ({ r, n: daysUntil(r.date, today) }))
     .filter(({ r, n }) => n <= (r.lead_days || 0))
     .sort((a, b) => a.n - b.n);
+  /* Subscriptions get their own notification — named in the title, so it isn't
+     a hidden fourth line of the digest — on the day the user chose (N days
+     before), the day before (if that's a different day) and the day itself.
+     Other days in the window, and an unrenewed recurring one, stay digest lines.
+     A one-time (cycle "once") subscription that has ended is never mentioned again. */
+  const subNotes: Payload[] = [];
   const renewals = (subs.data || [])
-    .map((s: any) => ({ s, n: daysUntil(s.next_renewal, today) }))
-    .filter(({ s, n }) => n <= (s.notify_days_before ?? 3))
+    .map((s: any) => ({ s, n: daysUntil(s.next_renewal, today), lead: s.notify_days_before ?? 3, once: s.cycle === "once" }))
+    .filter(({ n, lead, once }) => n <= lead && !(once && n < 0))
+    .filter(({ s, n, lead, once }) => {
+      if (n !== lead && n !== 0 && !(n === 1 && lead > 1)) return true;
+      const when = n === 0 ? "" : ` (${gregFa(s.next_renewal)})`;
+      subNotes.push({
+        title: `${once ? "پایان" : "تمدید"} ${clip(s.name, 40)}`,
+        body: once
+          ? `${subLabel(n, true)}${when}.${n === 0 ? " اگه ادامه نمی‌دی، کنارش بذار." : ""}`
+          : `${subLabel(n)}${when}.`,
+        tag: `medar-sub-${s.id}`,
+        view: "subscriptions",
+      });
+      return false;
+    })
     .sort((a, b) => a.n - b.n);
   const taskCount = tasks.count || 0;
 
@@ -388,7 +416,7 @@ async function digestFor(sb: SupabaseClient, uid: string): Promise<Payload[]> {
   /* One short line each, so a line stays a line on the lock screen. */
   const items = [
     ...reminders.map(({ r, n }) => ({ n, line: `• ${clip(r.title, 30)} — ${reminderLabel(r, n)}` })),
-    ...renewals.map(({ s, n }) => ({ n, line: `• ${clip(s.name, 30)} — ${subLabel(n)}` })),
+    ...renewals.map(({ s, n, once }) => ({ n, line: `• ${clip(s.name, 30)} — ${subLabel(n, once)}` })),
     ...(maint.error ? [] : maint.data || []).map((m: any) => {
       const n = daysUntil(m.next_due, today);
       return { n, line: `• ${clip(m.title, 30)} — ${maintLabel(n)}` };
@@ -419,6 +447,7 @@ async function digestFor(sb: SupabaseClient, uid: string): Promise<Payload[]> {
     });
   }
   const mother = care.error || careItems.error ? null : motherNote(care.data, careItems.data || [], today);
+  out.push(...subNotes);
   for (const note of [mother, reviewNote, backupNote]) if (note) out.push(note);
   if (out.length) out[0].silent = false; // whichever comes first is the one that rings
   return out;

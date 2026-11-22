@@ -3368,13 +3368,20 @@ function daysUntil(dateStr){
   const b = new Date(dateStr + 'T00:00:00');
   return Math.round((b - a) / 86400000);
 }
+function addDaysKey(key, n){
+  const d = new Date(key + 'T00:00:00');
+  d.setDate(d.getDate() + n);
+  return dateKey(d);
+}
 const SUB_CYCLES = [
   { id:'monthly',    label:'ماهانه',   months:1 },
   { id:'bimonthly',  label:'دوماهه',   months:2 },
   { id:'quarterly',  label:'سه‌ماهه',  months:3 },
   { id:'semiannual', label:'شش‌ماهه',  months:6 },
   { id:'yearly',     label:'سالانه',   months:12 },
+  { id:'once',       label:'یک‌باره',  months:0 }, // ends on next_renewal; only a warning, no renewal
 ];
+const subIsOnce = sub => sub.cycle === 'once';
 function subCycle(id){ return SUB_CYCLES.find(c => c.id === id) || SUB_CYCLES[0]; }
 function advanceRenewal(dateStr, cycle){
   const d = new Date(dateStr + 'T00:00:00');
@@ -3388,6 +3395,13 @@ function advanceRenewal(dateStr, cycle){
 }
 function subDueLabel(sub){
   const n = daysUntil(sub.nextRenewal);
+  if(subIsOnce(sub)){
+    if(n === null) return { text:'تاریخ پایان ثبت نشده', cls:'' };
+    if(n < 0) return { text:`${toFaDigits(Math.abs(n))} روزه تموم شده`, cls:'late' };
+    if(n === 0) return { text:'امروز تموم می‌شه', cls:'late' };
+    if(n === 1) return { text:'فردا تموم می‌شه', cls:'' };
+    return { text:`${toFaDigits(n)} روز تا پایان`, cls:'' };
+  }
   if(n === null) return { text:'تاریخ تمدید ثبت نشده', cls:'' };
   if(n < 0) return { text:`${toFaDigits(Math.abs(n))} روز از تمدید گذشته`, cls:'late' };
   if(n === 0) return { text:'امروز تمدید می‌شه', cls:'late' };
@@ -3398,7 +3412,7 @@ function subState(sub){
   if(!sub.active) return 'inactive';
   const n = daysUntil(sub.nextRenewal);
   if(n === null) return '';
-  if(n < 0) return 'overdue';
+  if(n < 0) return subIsOnce(sub) ? 'ended' : 'overdue';
   if(n <= (sub.notifyDaysBefore || 0)) return 'due';
   return '';
 }
@@ -3414,7 +3428,40 @@ function closeSubscriptionEditor(){ state.subscriptionEditor = null; render(); }
 function subEditorSet(field, value){
   if(!state.subscriptionEditor) return;
   state.subscriptionEditor[field] = field === 'notifyDaysBefore' ? (parseInt(value,10) || 0) : value;
-  if(field === 'cycle') render();
+  if(field === 'cycle' || field === 'notifyDaysBefore') render();
+}
+/* Gregorian month grid for the renewal date: services bill on Gregorian dates,
+   and the native date input follows the phone's calendar (Jalali on a Persian iPhone). */
+function subCalToggle(){
+  const ed = state.subscriptionEditor;
+  if(!ed) return;
+  ed.calOpen = !ed.calOpen;
+  if(ed.calOpen){
+    const d = ed.nextRenewal ? new Date(ed.nextRenewal + 'T00:00:00') : new Date();
+    ed.calY = d.getFullYear(); ed.calM = d.getMonth();
+  }
+  render();
+}
+function subCalMove(delta){
+  const ed = state.subscriptionEditor;
+  if(!ed) return;
+  const d = new Date(ed.calY, ed.calM + delta, 1);
+  ed.calY = d.getFullYear(); ed.calM = d.getMonth();
+  render();
+}
+const subCalPrev = () => subCalMove(-1), subCalNext = () => subCalMove(1);
+function subCalPick(y, m, d){
+  const ed = state.subscriptionEditor;
+  if(!ed) return;
+  ed.nextRenewal = dateKey(new Date(y, m, d));
+  ed.calOpen = false;
+  render();
+}
+function subCalClear(){
+  const ed = state.subscriptionEditor;
+  if(!ed) return;
+  ed.nextRenewal = ''; ed.calOpen = false;
+  render();
 }
 async function confirmSubscriptionEditor(){
   const ed = state.subscriptionEditor;
@@ -3457,7 +3504,7 @@ async function toggleSubActive(subId){
 }
 async function markSubRenewed(subId){
   const sub = state.subscriptions.find(s => s.id === subId);
-  if(!sub || !sub.nextRenewal) return;
+  if(!sub || !sub.nextRenewal || subIsOnce(sub)) return;
   const before = sub.nextRenewal;
   sub.nextRenewal = advanceRenewal(sub.nextRenewal, sub.cycle);
   render();

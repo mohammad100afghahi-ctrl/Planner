@@ -962,8 +962,17 @@ function subIcon(sub, cls){
   const b = SUB_BRANDS.find(([re]) => re.test(sub.name));
   return b ? `<i class="fa-brands fa-${b[1]} ${cls}"></i>` : fa(/claude|chatgpt|openai|ai/i.test(sub.name) ? 'wand-magic-sparkles' : 'credit-card', cls);
 }
+// subscription dates are Gregorian (that's how services bill); Jalali stays alongside
+const subDate = key => key ? `${gDate(key)} · ${jDate(key)}` : '';
+function subBadge(sub, st){
+  const once = subIsOnce(sub);
+  if(st === 'overdue') return ['منقضی شده', 'rose'];
+  if(st === 'ended') return ['تموم شده', 'slate'];
+  if(st === 'due') return [once ? 'نزدیک پایان' : 'نزدیک تمدید', 'rose'];
+  return [once ? 'یک‌باره' : 'فعال', once ? 'amber' : 'indigo'];
+}
 function subCardDesk(sub){
-  const st = subState(sub), due = subDueLabel(sub);
+  const st = subState(sub), due = subDueLabel(sub), once = subIsOnce(sub);
   const actions = `
     <div class="sub-actions opacity-0 transition-opacity flex items-center gap-1">
       ${sub.active ? `<button type="button" onclick="toggleSubActive('${sub.id}')" class="p-2 text-slate-500 hover:text-white transition-colors" title="غیرفعال کردن" aria-label="غیرفعال کردن">${fa('pause', 'text-[10px]')}</button>` : ''}
@@ -979,21 +988,28 @@ function subCardDesk(sub){
       <button type="button" onclick="toggleSubActive('${sub.id}')" class="w-full py-3 mt-auto border border-slate-700 hover:border-indigo-500 hover:text-indigo-400 rounded-xl text-xs font-black transition-all">فعال‌سازی مجدد</button>
     </div>`;
   const warn = st === 'overdue' || st === 'due';
+  const [badge, tone] = subBadge(sub, st);
+  const badgeCls = { rose:'bg-rose-500 text-white', slate:'bg-slate-800 text-slate-400', amber:'bg-amber-500/10 text-amber-400 border border-amber-500/10', indigo:'bg-indigo-500/20 text-indigo-400 border border-indigo-500/10' }[tone];
+  const n = daysUntil(sub.nextRenewal);
+  const button = once
+    ? `<button type="button" onclick="toggleSubActive('${sub.id}')" title="دیگه لازم نیست — غیرفعالش کن" class="w-full py-3 mt-auto ${warn || st === 'ended' ? 'bg-rose-600 hover:bg-rose-500 text-white shadow-lg shadow-rose-950/20' : 'bg-slate-800 hover:bg-slate-700 text-slate-300'} rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 relative z-10">${fa('box-archive')} ${st === 'ended' ? 'تموم شد، کنارش بذار' : 'کنارش بذار'}</button>`
+    : warn ? `<button type="button" onclick="markSubRenewed('${sub.id}')" ${sub.nextRenewal ? '' : 'disabled'} class="w-full py-3 mt-auto bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 shadow-lg shadow-rose-950/20 relative z-10">${fa('arrows-rotate')} تمدید شد</button>`
+    : `<button type="button" onclick="markSubRenewed('${sub.id}')" ${sub.nextRenewal ? '' : 'disabled'} title="ثبت تمدید زودتر از موعد" class="w-full py-3 mt-auto bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 relative z-10">${fa('check')} وضعیت مطلوب</button>`;
   return `
-    <div class="col-span-4 sub-card ${warn ? 'bg-rose-500/5 border-rose-500/20 hover:border-rose-500/40' : 'bg-slate-900/40 border-slate-800 hover:border-indigo-500/30'} border rounded-3xl p-6 transition-all group flex flex-col relative overflow-hidden">
+    <div class="col-span-4 sub-card ${warn ? 'bg-rose-500/5 border-rose-500/20 hover:border-rose-500/40' : 'bg-slate-900/40 border-slate-800 hover:border-indigo-500/30'} ${st === 'ended' ? 'opacity-70' : ''} border rounded-3xl p-6 transition-all group flex flex-col relative overflow-hidden">
       <div class="flex items-start justify-between mb-6 relative z-10"><div class="w-12 h-12 ${warn ? 'bg-rose-500/20 text-rose-400' : 'bg-indigo-500/10 text-indigo-400'} rounded-2xl flex items-center justify-center">${subIcon(sub, 'text-2xl')}</div>${actions}</div>
       <h3 class="text-lg font-black text-white mb-1 relative z-10" dir="auto">${esc(sub.name)}</h3>
       <div class="flex items-center gap-2 mb-4 relative z-10">
-        ${st === 'overdue' ? `<span class="bg-rose-500 text-white px-2 py-0.5 rounded-lg text-[9px] font-black uppercase">منقضی شده</span>` : st === 'due' ? `<span class="bg-rose-500 text-white px-2 py-0.5 rounded-lg text-[9px] font-black uppercase">نزدیک تمدید</span>` : `<span class="bg-indigo-500/20 text-indigo-400 px-2 py-0.5 rounded-lg text-[9px] font-black uppercase border border-indigo-500/10">فعال</span>`}
-        <span class="text-[10px] text-slate-500 font-bold">سیکل: ${cycle}</span>
+        <span class="${badgeCls} px-2 py-0.5 rounded-lg text-[9px] font-black uppercase">${badge}</span>
+        <span class="text-[10px] text-slate-500 font-bold">${once ? 'تمدید نمی‌شه' : `سیکل: ${cycle}`}</span>
       </div>
-      <div class="p-4 bg-slate-900/50 rounded-2xl border border-slate-800 mb-6 relative z-10">
-        <div class="flex justify-between items-center mb-2"><span class="text-[10px] text-slate-500">تاریخ تمدید بعدی:</span><span class="text-[11px] font-black ${warn ? 'text-rose-400' : 'text-white'}">${sub.nextRenewal ? `${jDate(sub.nextRenewal, !warn)}${warn ? ` (${daysUntil(sub.nextRenewal) < 0 ? `${fd(-daysUntil(sub.nextRenewal))} روز پیش` : due.text})` : ''}` : 'ثبت نشده'}</span></div>
-        <div class="flex justify-between items-center"><span class="text-[10px] text-slate-500">${warn ? 'یادآوری:' : 'زمان باقی‌مانده:'}</span><span class="text-[11px] font-bold ${warn ? 'text-slate-300' : 'text-indigo-400'}">${warn ? `${fd(sub.notifyDaysBefore || 0)} روز قبل` : due.text}</span></div>
+      <div class="p-4 bg-slate-900/50 rounded-2xl border border-slate-800 mb-6 relative z-10 space-y-2">
+        <div class="flex justify-between items-center gap-2"><span class="text-[10px] text-slate-500 shrink-0">${once ? 'تاریخ پایان:' : 'تاریخ تمدید بعدی:'}</span><span class="text-[11px] font-black ${warn ? 'text-rose-400' : 'text-white'} text-left">${sub.nextRenewal ? subDate(sub.nextRenewal) : 'ثبت نشده'}</span></div>
+        <div class="flex justify-between items-center"><span class="text-[10px] text-slate-500">${once ? 'زمان باقی‌مانده:' : warn ? 'وضعیت:' : 'زمان باقی‌مانده:'}</span><span class="text-[11px] font-bold ${warn ? 'text-rose-400' : 'text-indigo-400'}">${n !== null && n < 0 && !once ? `${fd(-n)} روز گذشته` : due.text}</span></div>
+        <div class="flex justify-between items-center"><span class="text-[10px] text-slate-500">هشدار:</span><span class="text-[11px] font-bold text-slate-300">${sub.nextRenewal ? `${sub.notifyDaysBefore ? `${fd(sub.notifyDaysBefore)} روز قبل · ` : 'همون روز · '}${gDate(addDaysKey(sub.nextRenewal, -(sub.notifyDaysBefore || 0)), false)}` : '—'}</span></div>
       </div>
       ${sub.note ? `<p class="text-[10px] text-slate-500 mb-4 line-clamp-2 relative z-10" dir="auto">"یادداشت: ${esc(sub.note)}"</p>` : ''}
-      ${warn ? `<button type="button" onclick="markSubRenewed('${sub.id}')" ${sub.nextRenewal ? '' : 'disabled'} class="w-full py-3 mt-auto bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 shadow-lg shadow-rose-950/20 relative z-10">${fa('arrows-rotate')} تمدید شد</button>`
-        : `<button type="button" onclick="markSubRenewed('${sub.id}')" ${sub.nextRenewal ? '' : 'disabled'} title="ثبت تمدید زودتر از موعد" class="w-full py-3 mt-auto bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 relative z-10">${fa('check')} وضعیت مطلوب</button>`}
+      ${button}
       ${warn ? fa('triangle-exclamation', 'absolute -bottom-4 -left-4 text-6xl text-rose-500/10 -rotate-12') : ''}
     </div>`;
 }
@@ -1029,7 +1045,9 @@ function renderSubscriptionsMobile(){
   const alerts = subs.filter(s => s.active && ['due', 'overdue'].includes(subState(s)));
   const order = s => !s.active ? 3 : ({ overdue:0, due:1 }[subState(s)] ?? 2);
   const card = sub => {
-    const st = subState(sub), warn = st === 'due' || st === 'overdue';
+    const st = subState(sub), warn = st === 'due' || st === 'overdue', once = subIsOnce(sub);
+    const [badge, tone] = subBadge(sub, st);
+    const badgeCls = { rose:'text-rose-400 bg-rose-500/10 border-rose-500/10', slate:'text-slate-400 bg-slate-800 border-slate-700', amber:'text-amber-400 bg-amber-500/10 border-amber-500/10', indigo:'text-emerald-400 bg-emerald-500/10 border-emerald-500/10' }[tone];
     if(!sub.active) return `
       <div class="sub-card bg-slate-900 border border-slate-800 rounded-3xl p-5 opacity-60">
         <div class="flex items-start justify-between mb-6">
@@ -1046,18 +1064,19 @@ function renderSubscriptionsMobile(){
           <div class="flex items-center gap-3 min-w-0">
             <div class="w-12 h-12 bg-slate-950 rounded-2xl flex items-center justify-center text-white border border-slate-800 shrink-0">${subIcon(sub, `text-2xl ${/spotify/i.test(sub.name) ? 'text-[#1DB954]' : warn ? 'text-rose-400' : 'text-indigo-400'}`)}</div>
             <div class="min-w-0"><h3 class="text-sm font-black text-white mb-1" dir="auto">${esc(sub.name)}</h3>
-              ${warn ? `<span class="text-[9px] font-black text-rose-400 uppercase tracking-widest bg-rose-500/10 px-2 py-0.5 rounded border border-rose-500/10">${st === 'overdue' ? 'منقضی شده' : 'نزدیک تمدید'}</span>` : `<span class="text-[9px] font-black text-emerald-400 uppercase tracking-widest bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/10">فعال</span>`}</div>
+              <span class="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded border ${badgeCls}">${badge}</span></div>
           </div>
-          <div class="text-left shrink-0"><p class="text-xs ${warn ? 'text-rose-400' : 'text-indigo-400'}">${subDueLabel(sub).text}</p><p class="text-[8px] font-bold text-slate-500 uppercase tracking-widest">${subCycle(sub.cycle).label}</p></div>
+          <div class="text-left shrink-0"><p class="text-xs ${warn ? 'text-rose-400' : 'text-indigo-400'}">${subDueLabel(sub).text}</p><p class="text-[8px] font-bold text-slate-500 uppercase tracking-widest">${once ? 'تمدید نمی‌شه' : subCycle(sub.cycle).label}</p></div>
         </div>
         <div class="grid grid-cols-2 gap-4 mb-6">
-          <div class="bg-slate-950/50 p-3 rounded-2xl border border-slate-800/50"><p class="text-[8px] font-black text-slate-600 uppercase tracking-widest mb-1">تجدید بعدی</p><p class="text-[10px] font-black text-white uppercase">${sub.nextRenewal ? jDate(sub.nextRenewal) : '—'}</p></div>
-          <div class="bg-slate-950/50 p-3 rounded-2xl border border-slate-800/50"><p class="text-[8px] font-black text-slate-600 uppercase tracking-widest mb-1">مهلت یادآوری</p><p class="text-[10px] font-black text-amber-500 uppercase tracking-widest">${fd(sub.notifyDaysBefore || 0)} روز قبل</p></div>
+          <div class="bg-slate-950/50 p-3 rounded-2xl border border-slate-800/50"><p class="text-[8px] font-black text-slate-600 uppercase tracking-widest mb-1">${once ? 'پایان' : 'تجدید بعدی'}</p><p class="text-[10px] font-black text-white">${sub.nextRenewal ? gDate(sub.nextRenewal) : '—'}</p>${sub.nextRenewal ? `<p class="text-[9px] text-slate-500 font-bold mt-0.5">${jDate(sub.nextRenewal, true)}</p>` : ''}</div>
+          <div class="bg-slate-950/50 p-3 rounded-2xl border border-slate-800/50"><p class="text-[8px] font-black text-slate-600 uppercase tracking-widest mb-1">هشدار</p><p class="text-[10px] font-black text-amber-500">${sub.notifyDaysBefore ? `${fd(sub.notifyDaysBefore)} روز قبل` : 'همون روز'}</p>${sub.nextRenewal ? `<p class="text-[9px] text-slate-500 font-bold mt-0.5">${gDate(addDaysKey(sub.nextRenewal, -(sub.notifyDaysBefore || 0)), false)}</p>` : ''}</div>
         </div>
         ${sub.note ? `<p class="text-[10px] text-slate-500 mb-4" dir="auto">${esc(sub.note)}</p>` : ''}
         <div class="flex items-center gap-2">
-          <button type="button" onclick="markSubRenewed('${sub.id}')" ${sub.nextRenewal ? '' : 'disabled'} class="flex-1 py-3 bg-indigo-600 text-white rounded-xl text-[10px] font-black shadow-lg shadow-indigo-900/20 disabled:opacity-40">ثبت تمدید</button>
-          <button type="button" onclick="toggleSubActive('${sub.id}')" aria-label="غیرفعال کردن" class="w-12 h-12 flex items-center justify-center bg-slate-800 text-slate-400 rounded-xl border border-slate-700">${fa('pause', 'text-xs')}</button>
+          ${once ? `<button type="button" onclick="toggleSubActive('${sub.id}')" class="flex-1 py-3 ${warn || st === 'ended' ? 'bg-rose-600 text-white' : 'bg-slate-800 text-slate-300 border border-slate-700'} rounded-xl text-[10px] font-black">${st === 'ended' ? 'تموم شد، کنارش بذار' : 'کنارش بذار'}</button>`
+          : `<button type="button" onclick="markSubRenewed('${sub.id}')" ${sub.nextRenewal ? '' : 'disabled'} class="flex-1 py-3 bg-indigo-600 text-white rounded-xl text-[10px] font-black shadow-lg shadow-indigo-900/20 disabled:opacity-40">ثبت تمدید</button>
+          <button type="button" onclick="toggleSubActive('${sub.id}')" aria-label="غیرفعال کردن" class="w-12 h-12 flex items-center justify-center bg-slate-800 text-slate-400 rounded-xl border border-slate-700">${fa('pause', 'text-xs')}</button>`}
           <button type="button" onclick="openSubscriptionEditor('${sub.id}')" aria-label="ویرایش" class="w-12 h-12 flex items-center justify-center bg-slate-800 text-slate-400 rounded-xl border border-slate-700 transition-colors hover:text-white">${fa('pen', 'text-xs')}</button>
           <button type="button" onclick="deleteSubscription('${sub.id}')" aria-label="حذف" class="w-12 h-12 flex items-center justify-center bg-slate-800 text-slate-400 rounded-xl border border-slate-700 transition-colors hover:text-rose-500">${fa('trash-can', 'text-xs')}</button>
         </div>
@@ -1069,7 +1088,7 @@ function renderSubscriptionsMobile(){
       <div class="p-4">
         <div class="bg-amber-600/10 border border-amber-500/20 rounded-3xl p-5 flex items-center gap-4">
           <div class="w-10 h-10 bg-amber-500 rounded-xl flex items-center justify-center text-slate-950 shrink-0 shadow-lg shadow-amber-900/20">${fa('bell', 'text-lg')}</div>
-          <div><h3 class="text-xs font-black text-white mb-1">تمدید نزدیک است</h3><p class="text-[10px] text-slate-400 leading-relaxed">${fd(alerts.length)} اشتراک نزدیک تمدید یا گذشته‌ست: ${alerts.map(s => esc(s.name)).join('، ')}</p></div>
+          <div><h3 class="text-xs font-black text-white mb-1">تمدید یا پایان نزدیک است</h3><p class="text-[10px] text-slate-400 leading-relaxed">${fd(alerts.length)} اشتراک نزدیک تمدید/پایان یا گذشته‌ست: ${alerts.map(s => esc(s.name)).join('، ')}</p></div>
         </div>
       </div>` : '<div class="h-4"></div>'}
     <main class="safe-area-bottom px-4">
@@ -1083,11 +1102,18 @@ function renderSubscriptionEditorModal(){
     onDelete: ed.subId ? `const id=state.subscriptionEditor.subId; closeSubscriptionEditor(); deleteSubscription(id)` : '',
     body:`
       ${field('نام اشتراک', `<input type="text" dir="auto" value="${ea(ed.name)}" oninput="subEditorSet('name',this.value)" class="${titleInputCls()}">`)}
-      ${field('دوره', chipBox(SUB_CYCLES.map(c => choiceChip(c.label, ed.cycle === c.id, `subEditorSet('cycle','${c.id}')`)).join('')))}
-      <div class="grid grid-cols-2 gap-6">
-        ${field('تاریخ تمدید بعدی', `<input type="date" value="${ed.nextRenewal || ''}" onchange="subEditorSet('nextRenewal',this.value); render()" class="w-full bg-slate-900 border border-slate-800 rounded-2xl p-3 text-xs font-bold text-slate-300 focus:outline-none focus:border-indigo-500/50">${ed.nextRenewal ? `<p class="text-[10px] text-indigo-400 font-bold px-1">${jDate(ed.nextRenewal, true)}</p>` : ''}`)}
-        ${field('چند روز قبل هشدار بده', `<input type="text" inputmode="numeric" value="${fd(ed.notifyDaysBefore)}" oninput="normalizeNumericInput(this)" onchange="subEditorSet('notifyDaysBefore', Math.min(30, parseInt(toEnDigits(this.value),10) || 0))" class="w-full bg-slate-900 border border-slate-800 rounded-2xl p-3 text-sm font-black text-white focus:outline-none focus:border-indigo-500/50">`)}
-      </div>
+      ${field('دوره', chipBox(SUB_CYCLES.map(c => choiceChip(c.label, ed.cycle === c.id, `subEditorSet('cycle','${c.id}')`)).join('')) + (ed.cycle === 'once' ? `<p class="text-[10px] text-amber-400 font-bold leading-relaxed px-1">تمدید نمی‌شه — فقط روزی که خواستی هشدار می‌ده، و روز پایانش هم یه بار دیگه.</p>` : ''))}
+      ${field(ed.cycle === 'once' ? 'تاریخ پایان (میلادی)' : 'تاریخ تمدید بعدی (میلادی)', `
+        <div class="flex items-center gap-2">
+          <button type="button" onclick="subCalToggle()" aria-expanded="${!!ed.calOpen}" class="flex-1 flex items-center justify-between gap-2 bg-slate-900 border ${ed.calOpen ? 'border-indigo-500/50' : 'border-slate-800'} rounded-2xl p-3 text-right">
+            <span class="text-xs font-black ${ed.nextRenewal ? 'text-white' : 'text-slate-500'}">${ed.nextRenewal ? gDate(ed.nextRenewal) : 'انتخاب تاریخ'}</span>
+            <span class="text-[10px] text-slate-500 font-bold">${ed.nextRenewal ? `<span dir="ltr">${ed.nextRenewal}</span> · ${jDate(ed.nextRenewal, true)}` : fa('calendar', 'text-sm')}</span>
+          </button>
+          ${ed.nextRenewal ? `<button type="button" onclick="subCalClear()" aria-label="پاک کردن تاریخ" class="w-12 h-12 shrink-0 flex items-center justify-center bg-slate-900 border border-slate-800 rounded-2xl text-slate-500 hover:text-rose-400">${fa('xmark', 'text-xs')}</button>` : ''}
+        </div>
+        ${ed.calOpen ? `<div class="mt-2">${renderGregPickCalendar({ y:ed.calY, m:ed.calM, date:ed.nextRenewal, prev:'subCalPrev', next:'subCalNext', pick:'subCalPick' })}</div>` : ''}`)}
+      ${field('چند روز قبل هشدار بده', `<input type="text" inputmode="numeric" value="${fd(ed.notifyDaysBefore)}" oninput="normalizeNumericInput(this)" onchange="subEditorSet('notifyDaysBefore', Math.min(60, parseInt(toEnDigits(this.value),10) || 0))" class="w-full bg-slate-900 border border-slate-800 rounded-2xl p-3 text-sm font-black text-white focus:outline-none focus:border-indigo-500/50">
+        <p class="text-[10px] text-indigo-400 font-bold px-1">${ed.nextRenewal ? `اعلان روز ${gDate(addDaysKey(ed.nextRenewal, -(ed.notifyDaysBefore || 0)))} ساعت ۸ صبح میاد${ed.notifyDaysBefore ? '، روز آخر هم یه بار دیگه' : ''}.` : '۰ یعنی همون روز.'}</p>`)}
       ${field('یادداشت', `<input type="text" dir="auto" value="${ea(ed.note || '')}" oninput="subEditorSet('note',this.value)" class="${inputCls}">`)}`,
   });
 }

@@ -26,6 +26,11 @@ function jDate(key, withYear){
   const j = window.jalaali.toJalaali(d);
   return `${fd(j.jd)} ${MONTHS_JALALI[j.jm - 1]}${withYear ? ' ' + fd(j.jy) : ''}`;
 }
+function gDate(key, withYear = true){
+  if(!key) return '';
+  const d = new Date(String(key).length <= 10 ? key + 'T00:00:00' : key);
+  return `${fd(d.getDate())} ${MONTHS_GREG_FA[d.getMonth()]}${withYear ? ' ' + fd(d.getFullYear()) : ''}`;
+}
 const fmtMin = m => `${fd(m || 0)} دقیقه`;
 
 /* ---------- navigation ---------- */
@@ -389,6 +394,37 @@ function renderPickCalendar({ jy, jm, date, prev, next, pick, dots }){
       <div class="flex items-center justify-between mb-4">
         <button type="button" onclick="${prev}()" aria-label="ماه قبل" class="w-9 h-9 flex items-center justify-center text-slate-400 bg-slate-900 rounded-lg border border-slate-800">${fa('chevron-right', 'text-xs')}</button>
         <span class="text-sm font-black text-white">${MONTHS_JALALI[jm - 1]} ${fd(jy)}</span>
+        <button type="button" onclick="${next}()" aria-label="ماه بعد" class="w-9 h-9 flex items-center justify-center text-slate-400 bg-slate-900 rounded-lg border border-slate-800">${fa('chevron-left', 'text-xs')}</button>
+      </div>
+      <div class="grid grid-cols-7 gap-1 mb-4 text-center">
+        ${['ش','ی','د','س','چ','پ','ج'].map((w, i) => `<span class="text-[9px] font-black ${i === 6 ? 'text-rose-400' : 'text-slate-600'} uppercase tracking-widest">${w}</span>`).join('')}
+      </div>
+      <div class="grid grid-cols-7 gap-1 text-center">${cells.join('')}</div>
+    </div>`;
+}
+
+/* Gregorian month grid (week starts Saturday, like the Jalali one). y/m are the
+   JS year and 0-based month; pick receives (y, m, d). Each day also shows its
+   Jalali date in small type so both calendars stay readable. */
+function renderGregPickCalendar({ y, m, date, prev, next, pick }){
+  const monthLen = new Date(y, m + 1, 0).getDate();
+  const startOffset = (new Date(y, m, 1).getDay() + 1) % 7;
+  const today = dateKey(new Date());
+  const cells = [];
+  for(let i = 0; i < startOffset; i++) cells.push('<span class="aspect-square"></span>');
+  for(let d = 1; d <= monthLen; d++){
+    const key = dateKey(new Date(y, m, d));
+    const isSel = key === date, isToday = key === today;
+    const friday = (startOffset + d - 1) % 7 === 6;
+    cells.push(`<button type="button" onclick="${pick}(${y},${m},${d})" class="aspect-square flex items-center justify-center rounded-xl text-xs ${isSel ? 'font-black bg-indigo-600 text-white shadow-lg shadow-indigo-900/40' : `font-bold ${isToday ? 'bg-slate-800/50 border border-slate-700' : 'hover:bg-slate-800'} ${friday ? 'text-rose-500' : 'text-slate-200'}`}" dir="ltr">${d}</button>`);
+  }
+  const j1 = window.jalaali.toJalaali(y, m + 1, 1), j2 = window.jalaali.toJalaali(y, m + 1, monthLen);
+  const jLabel = j1.jm === j2.jm ? MONTHS_JALALI[j1.jm - 1] : `${MONTHS_JALALI[j1.jm - 1]}–${MONTHS_JALALI[j2.jm - 1]}`;
+  return `
+    <div class="bg-slate-900/50 border border-slate-800 rounded-3xl p-4">
+      <div class="flex items-center justify-between mb-4">
+        <button type="button" onclick="${prev}()" aria-label="ماه قبل" class="w-9 h-9 flex items-center justify-center text-slate-400 bg-slate-900 rounded-lg border border-slate-800">${fa('chevron-right', 'text-xs')}</button>
+        <div class="text-center"><p class="text-sm font-black text-white">${MONTHS_GREG_FA[m]} ${fd(y)}</p><p class="text-[10px] text-slate-500 font-bold" dir="ltr">${new Date(y, m, 1).toLocaleString('en', { month:'long' })} · ${jLabel}</p></div>
         <button type="button" onclick="${next}()" aria-label="ماه بعد" class="w-9 h-9 flex items-center justify-center text-slate-400 bg-slate-900 rounded-lg border border-slate-800">${fa('chevron-left', 'text-xs')}</button>
       </div>
       <div class="grid grid-cols-7 gap-1 mb-4 text-center">

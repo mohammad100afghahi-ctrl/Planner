@@ -35,3 +35,9 @@ alter publication supabase_realtime add table public.subscriptions;
 alter table public.subscriptions drop constraint if exists subscriptions_cycle_check;
 alter table public.subscriptions add constraint subscriptions_cycle_check
   check (cycle in ('monthly', 'bimonthly', 'quarterly', 'semiannual', 'yearly'));
+
+-- 2026-11-22: one-time subscriptions (cycle 'once'): next_renewal is the end date,
+-- nothing renews; send-push warns on the chosen day, the day before and the last day.
+alter table public.subscriptions drop constraint if exists subscriptions_cycle_check;
+alter table public.subscriptions add constraint subscriptions_cycle_check
+  check (cycle in ('monthly', 'bimonthly', 'quarterly', 'semiannual', 'yearly', 'once'));

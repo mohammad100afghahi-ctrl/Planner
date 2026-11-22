@@ -83,6 +83,8 @@
     { id:'s1', name:'Spotify Premium', cycle:'monthly', next_renewal:day(-3), active:true, notify_days_before:2, note:null },
     { id:'s2', name:'Figma Professional', cycle:'yearly', next_renewal:day(21), active:true, notify_days_before:3, note:'برای پروژه‌های شخصی و فریلنسری' },
     { id:'s3', name:'Netflix Premium', cycle:'monthly', next_renewal:day(10), active:false, notify_days_before:3, note:null },
+    { id:'s4', name:'Meshy Pro', cycle:'once', next_renewal:day(2), active:true, notify_days_before:3, note:'فقط یه ماه' },
+    { id:'s5', name:'Mobo movies', cycle:'once', next_renewal:day(-4), active:true, notify_days_before:0, note:null },
   ];
   const prompts = [
     { id:'pr1', title:'طراحی کامپوننت‌های تیره', body:'Create a set of high-fidelity dark mode UI components for a productivity app using Tailwind CSS colors. Focus on slate and indigo tones, with subtle borders and glassmorphism effects, and keep the spacing consistent across every component.', category:'UI Design', note:null, favorite:true, created_at:at(-2, 9) },
