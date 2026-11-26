@@ -190,7 +190,7 @@ function focusCard(mob){
         ${goals.map(g => `
           <div class="p-3 bg-indigo-500/5 ${mob ? 'rounded-xl' : 'rounded-2xl'} border border-indigo-500/10" title="${ea(g.reason)}">
             <p class="${mob ? 'text-[10px]' : 'text-xs'} font-bold text-slate-300 mb-2 leading-relaxed">${esc(g.tag.name)}: ${formatDuration(g.actual)} از ${formatDuration(g.target)}${g.pct >= 100 ? ' ✓' : ''}</p>
-            <div class="w-full bg-slate-900 h-1.5 rounded-full overflow-hidden"><div class="${g.pct >= 100 ? 'bg-emerald-500' : 'bg-indigo-500'} h-full rounded-full ${mob ? '' : 'shadow-[0_0_8px_rgba(226,78,80,0.4)]'}" style="width:${Math.max(3, g.pct)}%"></div></div>
+            <div class="w-full bg-slate-900 h-1.5 rounded-full overflow-hidden"><div class="${g.pct >= 100 ? 'bg-emerald-500' : 'bg-indigo-500'} h-full rounded-full ${mob ? '' : 'shadow-[0_0_8px_rgb(var(--t-indigo-500)/0.4)]'}" style="width:${Math.max(3, g.pct)}%"></div></div>
             ${g.reason && !mob ? `<p class="text-[10px] text-slate-500 mt-2">${esc(g.reason)}</p>` : ''}
           </div>`).join('')}
         ${focus.length ? `<div class="space-y-2"><p class="text-[9px] font-black text-indigo-400 px-1">تعهد این هفته</p>${focus.map(t => `

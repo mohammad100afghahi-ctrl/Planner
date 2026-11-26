@@ -1,16 +1,16 @@
 /* Rules the UX Pilot screens define in their own <style> blocks, plus print and
    touch handling. Everything else comes from tailwind.css (see tailwind-build.html). */
-body { font-family: 'Vazirmatn', sans-serif; background-color: #000; -webkit-tap-highlight-color: transparent; }
+body { font-family: 'Vazirmatn', sans-serif; background-color: rgb(var(--page)); -webkit-tap-highlight-color: transparent; }
 /* real titles can be one long unbroken word (a URL, an English term); let them wrap instead of widening the page */
 #app :is(h1, h2, h3, h4, p) { overflow-wrap: anywhere; }
 .custom-scrollbar::-webkit-scrollbar { width: 4px; }
 .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-.custom-scrollbar::-webkit-scrollbar-thumb { background: #26262a; border-radius: 10px; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: rgb(var(--b-slate-800)); border-radius: 10px; }
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { scrollbar-width: none; }
-.bg-dark-surface { background-color: #0e0e10; }
-.bg-dark-card { background-color: #1c1c1f; }
-.border-dark { border-color: #404046; }
+.bg-dark-surface { background-color: rgb(var(--c-slate-900)); }
+.bg-dark-card { background-color: rgb(var(--c-slate-800)); }
+.border-dark { border-color: rgb(var(--b-slate-700)); }
 input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 
 /* hover-revealed row actions (each reference page names its own pair) */
@@ -27,29 +27,29 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
 }
 
 /* تسک‌ها (desktop) */
-.task-list-item.active { background-color: rgba(142, 16, 28, 0.12); border-right: 4px solid #8e101c; }
+.task-list-item.active { background-color: rgb(var(--c-indigo-600) / 0.12); border-right: 4px solid rgb(var(--c-indigo-600)); }
 /* تقویم (desktop) */
 .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); }
-.calendar-day { min-height: 120px; border-bottom: 1px solid #26262a; border-left: 1px solid #26262a; padding: 12px; transition: all 0.2s; background-color: #000; position: relative; }
+.calendar-day { min-height: 120px; border-bottom: 1px solid rgb(var(--b-slate-800)); border-left: 1px solid rgb(var(--b-slate-800)); padding: 12px; transition: all 0.2s; background-color: rgb(var(--c-slate-950)); position: relative; }
 .calendar-day.out-month { opacity: .55; }
-.calendar-day:hover { background-color: #0e0e10; }
-.calendar-day.active { background-color: rgba(142, 16, 28, 0.12); box-shadow: inset 0 0 0 1px #bc1c28; z-index: 10; }
+.calendar-day:hover { background-color: rgb(var(--c-slate-900)); }
+.calendar-day.active { background-color: rgb(var(--c-indigo-600) / 0.12); box-shadow: inset 0 0 0 1px rgb(var(--c-indigo-500)); z-index: 10; }
 .task-dot { width: 4px; height: 4px; border-radius: 99px; }
 /* switches (settings, mother) */
-.switch-on { background-color: #8e101c; }
-.switch-on-rose { background-color: #f43f5e; }
-.switch-off { background-color: #404046; }
+.switch-on { background-color: rgb(var(--c-indigo-600)); }
+.switch-on-rose { background-color: rgb(var(--c-rose-500)); }
+.switch-off { background-color: rgb(var(--b-slate-700)); }
 /* phone */
-.active-tab { color: #f06868; }
-.pill-active { background-color: rgba(142, 16, 28, 0.25); color: #f06868; border-color: rgba(188, 28, 40, 0.4); }
-.tab-active { color: #f06868; border-bottom: 2px solid #bc1c28; }
+.active-tab { color: rgb(var(--t-indigo-400)); }
+.pill-active { background-color: rgb(var(--c-indigo-600) / 0.25); color: rgb(var(--t-indigo-400)); border-color: rgb(var(--c-indigo-500) / 0.4); }
+.tab-active { color: rgb(var(--t-indigo-400)); border-bottom: 2px solid rgb(var(--c-indigo-500)); }
 /* #app so a page's own p-4 / px-4 (tailwind.css loads after this file) can't
    shrink the room kept under the 80px tab bar and hide the last row behind it */
 #app .safe-area-bottom { padding-bottom: calc(env(safe-area-inset-bottom) + 104px); }
 #app .safe-area-bottom-sm { padding-bottom: calc(env(safe-area-inset-bottom) + 20px); }
 .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
 .prompt-card:active { transform: scale(0.98); }
-.pick-chip.on { color: #f69694; background-color: rgb(188 28 40 / 0.2); border-color: rgb(188 28 40 / 0.2); }
+.pick-chip.on { color: rgb(var(--t-indigo-300)); background-color: rgb(var(--c-indigo-500) / 0.2); border-color: rgb(var(--c-indigo-500) / 0.2); }
 .dragging { opacity: .4; }
 /* «بخش‌ها» sheet: sits just above the tab bar; the list shows two rows (six
    tabs) and scrolls for the rest — taller while rearranging */
@@ -59,7 +59,7 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
 .tab-sheet-list { max-height: calc(76px * 2 + 8px); }
 .tab-sheet-list--edit { max-height: calc(76px * 3 + 16px); }
 @keyframes tab-sheet-in { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
-/* خوانایی (تم سیاه و زرشکی). نوشتهٔ ریز طرح مرجع روی نمایشگر واقعی خونده نمی‌شه،
+/* خوانایی (همهٔ پوسته‌ها). نوشتهٔ ریز طرح مرجع روی نمایشگر واقعی خونده نمی‌شه،
    پس اندازه‌ها یه پله بالاتر میان. #app از tailwind.css که بعد از این فایل لود می‌شه
    جلو می‌زنه. */
 @media (max-width: 1199.98px) {
@@ -91,8 +91,8 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
 #app .opacity-60 { opacity: .92; }
 #app .opacity-50 { opacity: .88; }
 #app .opacity-40 { opacity: .8; }
-/* رنگ تگ‌ها رو کاربر انتخاب کرده؛ تیره‌هاش روی سیاه هم باید دیده بشن */
-#app span[style^="color:"] { filter: brightness(1.25) saturate(1.15); }
+/* رنگ تگ‌ها رو کاربر انتخاب کرده؛ روی پوستهٔ تیره روشن‌تر و روی کاغذی تیره‌تر می‌شن تا خونده بشن (themes.css) */
+#app span[style^="color:"] { filter: var(--tag-text-filter); }
 
 /* the print sheet is invisible on screen; only it is printed */
 .print-sheet { display: none; }

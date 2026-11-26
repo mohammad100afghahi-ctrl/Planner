@@ -256,7 +256,7 @@ function englishPatternCard(mob){
       <div class="space-y-4">
         <div class="flex items-center justify-between px-2"><span class="text-[11px] text-slate-500">میانگین هفتگی</span><span class="text-[11px] font-bold text-slate-300">${fd(avg)} دقیقه/روز</span></div>
         <div class="flex items-end justify-between h-20 px-2 gap-1">
-          ${bars.map(b => `<div class="w-full ${b.minutes ? 'bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.2)]' : enIsClassDay(b.key) ? 'bg-indigo-500/30' : 'bg-slate-900'} rounded-t-lg ${b.key === todayK ? 'ring-1 ring-amber-400/40' : ''}" style="height:${Math.max(12, Math.round(b.minutes / max * 100))}%" title="${ea(enDayLabel(b.key))}: ${fd(b.minutes)} دقیقه"></div>`).join('')}
+          ${bars.map(b => `<div class="w-full ${b.minutes ? 'bg-amber-500 shadow-[0_0_10px_rgb(var(--c-amber-500)/0.2)]' : enIsClassDay(b.key) ? 'bg-indigo-500/30' : 'bg-slate-900'} rounded-t-lg ${b.key === todayK ? 'ring-1 ring-amber-400/40' : ''}" style="height:${Math.max(12, Math.round(b.minutes / max * 100))}%" title="${ea(enDayLabel(b.key))}: ${fd(b.minutes)} دقیقه"></div>`).join('')}
         </div>
         <div class="grid grid-cols-7 gap-1 px-2">${['SAT','SUN','MON','TUE','WED','THU','FRI'].map(d => `<span class="text-[8px] text-center text-slate-600 font-bold uppercase">${d}</span>`).join('')}</div>
       </div>

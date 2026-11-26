@@ -12,6 +12,24 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="مدار">
+<script>
+/* پوسته (themes.css): قبل از هر CSS روی <html> می‌شینه تا صفحه یه لحظه هم با پوستهٔ
+   اشتباه دیده نشه. انتخاب مال همین دستگاهه (مثل ترتیب تب‌ها)، توی localStorage.
+   THEME_BAR رنگ نوار مرورگر/گوشیه؛ کاغذی روی آیفون نوار وضعیت روشن با نوشتهٔ تیره می‌گیره
+   (آیفون این یکی رو موقع باز شدن برنامه می‌خونه). */
+const THEME_KEY = 'medar-theme';
+const THEME_BAR = { madar:'#000000', midnight:'#0e1424', paper:'#fbfaf8' };
+function applyTheme(id){
+  if(!Object.prototype.hasOwnProperty.call(THEME_BAR, id)) id = 'madar';
+  document.documentElement.dataset.theme = id;
+  const bar = document.querySelector('meta[name="theme-color"]');
+  if(bar) bar.setAttribute('content', THEME_BAR[id]);
+  const ios = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
+  if(ios) ios.setAttribute('content', id === 'paper' ? 'default' : 'black-translucent');
+  return id;
+}
+try{ applyTheme(localStorage.getItem(THEME_KEY)); }catch(_e){ applyTheme('madar'); }
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@100;300;400;500;700;900&display=swap" rel="stylesheet">
@@ -366,7 +384,9 @@ global.jalaali = {
 };
 })(window);
 </script>
-<!-- ui.css first, like the reference pages: their own <style> comes before the Tailwind output -->
+<!-- themes.css: the colour variables every theme sets; ui.css and tailwind.css read them.
+     ui.css first, like the reference pages: their own <style> comes before the Tailwind output -->
+<link rel="stylesheet" href="./themes.css">
 <link rel="stylesheet" href="./ui.css">
 <link rel="stylesheet" href="./tailwind.css">
 </head>

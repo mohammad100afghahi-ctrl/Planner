@@ -399,7 +399,7 @@ function calendarMonthCells(jy, jm){
 function calendarTaskDot(t, glow){
   const tag = t.tagIds.map(tagById).find(Boolean);
   const color = t.priority === 'high' ? '#f43f5e' : tag ? tag.color : '#e24e50';
-  return `<div class="task-dot ${glow ? 'shadow-[0_0_8px_rgba(226,78,80,0.5)]' : ''}" style="background-color:${ea(color)}" title="${ea(t.title)}"></div>`;
+  return `<div class="task-dot ${glow ? 'shadow-[0_0_8px_rgb(var(--t-indigo-500)/0.5)]' : ''}" style="background-color:${ea(color)}" title="${ea(t.title)}"></div>`;
 }
 function calendarDayCard(t){
   const pill = t.priority === 'high'

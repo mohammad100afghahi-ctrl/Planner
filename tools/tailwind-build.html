@@ -34,18 +34,19 @@ const SOURCES = ['../index.html', '../task-reminders.js', '../ui-shell.js', '../
   s.src = 'https://cdn.tailwindcss.com';
   // the Play CDN builds on DOM changes, so touch the probe once it has loaded
   s.onload = () => {
-    // تم سیاه و زرشکی: کلاس‌ها همون slate/indigo طرح مرجع‌ان، فقط مقدارشون اینجا عوض شده
-    const neutral = { 50:'#fafafa', 100:'#f4f4f5', 200:'#e4e4e7', 300:'#d4d4d8', 400:'#a1a1aa', 500:'#71717a', 600:'#52525b', 700:'#303034', 800:'#1c1c1f', 900:'#0e0e10', 950:'#000000' };
-    const indigo = { 50:'#fff1f1', 100:'#ffe6e6', 200:'#fbc9c8', 300:'#f69694', 400:'#f06868', 500:'#bc1c28', 600:'#8e101c', 700:'#760d18', 800:'#5c0b14', 900:'#460a10', 950:'#28060a' };
+    // پوسته‌ها: کلاس‌ها همون slate/indigo/… طرح مرجع‌ان، ولی رنگشون از متغیرهای themes.css میاد
+    // (--c-* پس‌زمینه/حاشیه/سایه، --t-* نوشته، --b-slate-* حاشیهٔ خنثی)، پس هر پوسته فقط
+    // مقدار متغیرها رو عوض می‌کنه. indigo یعنی رنگ اصلی پوسته (زرشکی، بنفش، آبی جوهری).
+    const STEPS = [50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950];
+    const v = name => `rgb(var(--${name}) / <alpha-value>)`;
+    const ramp = prefix => Object.fromEntries(STEPS.map(s => [s, v(`${prefix}-${s}`)]));
+    const FAMILIES = ['slate', 'indigo', 'rose', 'amber', 'emerald', 'sky'];
+    const family = kind => Object.fromEntries(FAMILIES.map(f => [f, ramp(`${kind}-${f}`)]));
     tailwind.config = { theme:{ extend:{
-      colors:{ slate:neutral, indigo },
-      textColor:{
-        slate:{ 50:'#fafafa', 100:'#f4f4f5', 200:'#f0f0f3', 300:'#e4e4e8', 400:'#d4d4d8', 500:'#c4c4ca', 600:'#b0b0b6', 700:'#96969c', 800:'#1c1c1f', 900:'#0e0e10', 950:'#000000' },
-        indigo:{ ...indigo, 500:'#e24e50' },
-        rose:{ 500:'#fb7185' },
-      },
-      backgroundColor:{ rose:{ 500:'#e11d48' } }, // نوشتهٔ سفید روی نشان‌های قرمز
-      borderColor:{ slate:{ ...neutral, 700:'#404046', 800:'#26262a', 900:'#1c1c1f', 950:'#0e0e10' } },
+      colors:{ ...family('c'), white:v('c-white'), black:v('c-black') },
+      textColor:{ ...family('t'), white:v('t-white') },
+      backgroundColor:{ rose:{ ...ramp('c-rose'), 500:v('c-rose-600') } }, // نوشتهٔ سفید روی نشان‌های قرمز
+      borderColor:{ slate:ramp('b-slate') },
     }}};
     setTimeout(() => { document.getElementById('probe').classList.add('block'); }, 300);
   };
@@ -57,7 +58,7 @@ const SOURCES = ['../index.html', '../task-reminders.js', '../ui-shell.js', '../
     // done once the generated sheet stops growing
     const len = style ? style.textContent.length : -1;
     // the CDN first builds without the config above; only the themed sheet counts
-    const settled = style && len === lastLen && style.textContent.includes('14 14 16');
+    const settled = style && len === lastLen && style.textContent.includes('var(--c-slate-900)');
     lastLen = len;
     if(!settled && Date.now() - t0 < 20000) return;
     clearInterval(timer);

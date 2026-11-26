@@ -4,6 +4,70 @@
    The old header menus (اعلان‌ها، پشتیبان، خروج) live on the settings page, where the reference puts them. */
 
 /* ================= تنظیمات ================= */
+/* ---------- پوسته ----------
+   Colours live in themes.css; applyTheme/THEME_KEY come from the first script in
+   index.html. The choice is per device (localStorage), like the phone tab order.
+   Each preview carries its own data-theme, so it is drawn with that theme's real
+   colours whatever theme the page itself is in. */
+const THEMES = [
+  { id:'madar',    name:'مدار',    note:'سیاه و زرشکی — پوستهٔ همیشگی' },
+  { id:'midnight', name:'نیمه‌شب', note:'سرمه‌ای عمیق و بنفش — آروم برای شب' },
+  { id:'paper',    name:'کاغذی',   note:'روشن و گرم، با جوهر آبی — برای روز' },
+];
+function currentTheme(){ return document.documentElement.dataset.theme || 'madar'; }
+function setTheme(id){
+  if(id === currentTheme()) return;
+  const swap = () => {
+    const applied = applyTheme(id);
+    try{ localStorage.setItem(THEME_KEY, applied); }catch(_e){}
+    render();
+  };
+  const calm = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if(document.startViewTransition && !calm) document.startViewTransition(swap); else swap();
+}
+// a tiny window of the app: sidebar, a heading, a task card (one open, one done) and the main button
+function themeMini(id, mob){
+  const line = (w, tone) => `<span class="block h-1.5 ${w} rounded-full bg-current ${tone}"></span>`;
+  return `
+    <div data-theme="${id}" class="theme-mini ${mob ? 'h-20' : 'h-28'} flex overflow-hidden" aria-hidden="true">
+      <div class="${mob ? 'w-6 p-1.5' : 'w-1/4 p-2.5'} bg-slate-950 border-l border-slate-800 flex flex-col gap-1.5 shrink-0">
+        <span class="block ${mob ? 'w-3 h-3' : 'w-4 h-4'} rounded-md bg-indigo-600 mb-0.5"></span>
+        ${mob ? '' : `<span class="block h-1.5 rounded-full bg-indigo-500/30"></span>`}
+        ${line(mob ? 'w-full' : 'w-3/4', 'text-slate-700')}${line(mob ? 'w-full' : 'w-2/3', 'text-slate-700')}
+      </div>
+      <div class="flex-1 min-w-0 ${mob ? 'p-1.5 gap-1.5' : 'p-2.5 gap-2'} flex flex-col bg-slate-900/30">
+        ${line('w-1/2', 'text-white')}
+        <div class="bg-slate-950 border border-slate-800 ${mob ? 'rounded-md p-1.5 gap-1' : 'rounded-lg p-2 gap-1.5'} flex flex-col">
+          <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded border border-slate-700 shrink-0"></span>${line('flex-1', 'text-slate-400')}</div>
+          <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded bg-emerald-500 shrink-0"></span>${line('w-2/3', 'text-slate-700')}</div>
+        </div>
+        <div class="flex items-center gap-1.5 mt-auto">
+          <span class="h-3 ${mob ? 'w-7' : 'w-12'} rounded-md bg-indigo-600"></span>
+          <span class="h-3 ${mob ? 'w-4' : 'w-7'} rounded-md bg-indigo-500/15 border border-indigo-500/20"></span>
+          ${mob ? '' : `<span class="mr-auto w-2 h-2 rounded-full bg-rose-500"></span>`}
+        </div>
+      </div>
+    </div>`;
+}
+function themePicker(mob){
+  const cur = currentTheme();
+  return `
+    <div class="grid grid-cols-3 ${mob ? 'gap-2.5' : 'gap-4'}" role="radiogroup" aria-label="پوسته">
+      ${THEMES.map(t => {
+        const on = t.id === cur;
+        return `
+          <button type="button" role="radio" aria-checked="${on}" onclick="setTheme('${t.id}')" class="group text-right min-w-0">
+            <div class="relative ${mob ? 'rounded-xl' : 'rounded-2xl'} overflow-hidden border transition-all ${on ? 'border-indigo-500 ring-2 ring-indigo-500/40' : 'border-slate-800 group-hover:border-slate-700'}">
+              ${themeMini(t.id, mob)}
+              ${on ? `<span class="absolute top-1.5 left-1.5 w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center shadow-lg">${fa('check', 'text-[9px]')}</span>` : ''}
+            </div>
+            <p class="${mob ? 'text-[11px] mt-2 text-center' : 'text-sm mt-3'} font-black ${on ? 'text-white' : 'text-slate-400'}">${t.name}</p>
+            ${mob ? '' : `<p class="text-[10px] text-slate-600 mt-0.5 leading-relaxed">${t.note}</p>`}
+          </button>`;
+      }).join('')}
+    </div>
+    ${mob ? `<p class="text-[10px] text-slate-500 mt-3 text-center">${THEMES.find(t => t.id === cur)?.note || ''}</p>` : ''}`;
+}
 function toggleTagEdit(id){ state.tagEditOpen = state.tagEditOpen === id ? null : id; render(); }
 function tagGoalLine(tag){
   const g = state.tagGoals.find(x => x.tagId === tag.id);
@@ -103,6 +167,13 @@ function renderSettingsDesktop(){
   const header = deskHeader({ icon:'gear', iconBox:'bg-slate-900 text-slate-400', title:'تنظیمات سیستم', sub:'شخصی‌سازی، مدیریت تگ‌ها و پشتیبان‌گیری', profile:'حساب کاربری فعال' });
   const body = `
     <div class="max-w-4xl mx-auto space-y-10">
+      <section id="appearance" class="space-y-6">
+        <h3 class="text-sm font-black text-white uppercase tracking-widest flex items-center gap-2">${fa('palette', 'text-indigo-500')} پوسته</h3>
+        <div class="bg-slate-950 border border-slate-800 rounded-3xl p-6">
+          ${themePicker(false)}
+          <p class="text-[10px] text-slate-500 mt-6 pt-5 border-t border-slate-800/50 leading-relaxed">پوسته مال همین دستگاهه؛ روی گوشی می‌تونی یکی دیگه داشته باشی. داده‌هات هیچ تغییری نمی‌کنن.</p>
+        </div>
+      </section>
       <section id="tags-goals" class="space-y-6">
         <h3 class="text-sm font-black text-white uppercase tracking-widest flex items-center gap-2">${fa('tags', 'text-indigo-500')} تگ‌ها و اهداف هفتگی</h3>
         <div class="bg-slate-950 border border-slate-800 rounded-3xl p-6">
@@ -202,6 +273,10 @@ function renderSettingsMobile(){
         <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5 flex items-center justify-between">
           <div class="min-w-0"><h3 class="text-sm font-black text-white mb-1 truncate" dir="ltr">${esc(state.userEmail || 'حساب شما')}</h3><p class="text-[10px] text-slate-500">حساب شخصی</p></div>
         </div>
+        <section id="appearance-settings">
+          <h3 class="text-[10px] font-black text-slate-600 uppercase tracking-widest mb-3 px-1">پوسته</h3>
+          <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4">${themePicker(true)}</div>
+        </section>
         <section id="tags-settings">
           <h3 class="text-[10px] font-black text-slate-600 uppercase tracking-widest mb-3 px-1">مدیریت تگ‌ها و اهداف</h3>
           ${tagManagerSummary()}
