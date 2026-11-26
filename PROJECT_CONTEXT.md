@@ -9,7 +9,7 @@
 - GitHub and Supabase connectors are available in the current chat. Future sessions should verify connector availability.
 - Claude checkout: /Users/m.b.a/Documents/Planner, branch main.
 - Codex checkout: /Users/m.b.a/Documents/Codex/2026-10-14/ld-o/Planner, initial branch codex/planner-workspace.
-- This is an independent local clone, not a Git worktree. The origin remote points to GitHub. It started at commit 172ed06 from Claude's committed checkout; remote freshness has not been checked.
+- This is an independent local clone, not a Git worktree. The origin remote points to GitHub. It started at commit fee6fc0 from Claude's committed checkout; remote freshness has not been checked.
 - Claude's untracked .claude/ and auth.sql were not copied. No tracked files in the original checkout were modified.
 
 ## Source map
@@ -54,13 +54,13 @@ Read current files rather than assuming stored notes remain current. Reconcile u
 
 ## Redesign reverted — 2026-10-15
 
-- Claude's redesign (3ed5a17: new theme, four-tab nav, «بخش‌ها» hub, week view) was reverted at the user's request; the previous look and grouped navigation are back.
+- Claude's redesign (2ea4ef1: new theme, four-tab nav, «بخش‌ها» hub, week view) was reverted at the user's request; the previous look and grouped navigation are back.
 - Kept: the service worker stays cache-first for instant launch, and the page reloads into a new release once it installs (or when the app goes to background mid-edit). Install bypasses the HTTP cache.
 
 ## Redesign rollback — 2026-10-16
 
 - User explicitly requested undoing the redesign work from this conversation and restoring the previous interface, including the published site.
-- Reverted Living release 5b844c0 (PR #3), restoring the exact application files from f8bd496: original dark theme, grouped navigation, Today layout and complete existing pages. Removed the redesign presentation assets, design documents and regression fixtures added by that release.
+- Reverted Living release 429990b (PR #3), restoring the exact application files from 4342ac7: original dark theme, grouped navigation, Today layout and complete existing pages. Removed the redesign presentation assets, design documents and regression fixtures added by that release.
 - Service worker cache is v55 so installed apps update to the restored UI instead of continuing to show cached v54. All prior update guards remain. No database, user data, schema or backend service changes. Earlier task-reminder/settings features are part of the pre-redesign baseline and remain.
 
 ## UX Pilot faithful implementation — 2026-10-20 (Claude, branch claude/uxpilot-faithful, not published)
@@ -214,3 +214,9 @@ Read current files rather than assuming stored notes remain current. Reconcile u
 - An inline script at the top of index.html sets `<html data-theme>` before any CSS (no flash), plus theme-color and, for کاغذی, the iOS status bar style `default` (dark clock on a light bar; iOS reads it at launch — not checked on a real iPhone).
 - کاغذی specifics in themes.css: `text-white` means the darkest ink, restored to white on solid accent fills; translucent scrims are a warm dim; tag label filter darkens instead of brightening; out-of-month calendar days dimmed to the same contrast as مدار.
 - Checked on sample data (harness): every page in both layouts and all three themes, no sideways overflow; automated contrast pass found no text under 4.5:1 except what مدار already had (out-of-month days on purpose, one rose button). sw.js v103 caches themes.css. oauth-consent.html keeps its own fixed look.
+
+## 2026-11-27 — تاریخچهٔ گیت بازنویسی شد (Claude)
+- At the user's request, every branch (main, the five codex/* on GitHub, two local-only) was rewritten with git filter-branch to take a private detail about a family member out of all files and commit messages; the wording in the «مادر» page code (comments, the default list, the empty-state and footnote texts) is now neutral. User data in the database is untouched.
+- Every commit hash changed (filter-branch also drops GitHub's web signatures, so even unchanged commits got new hashes); the hashes above were updated. Hashes quoted inside old commit messages still name the old commits.
+- The deployed madar-mcp still has a more detailed description of the «مادر» tables than the repository; redeploying madar-mcp from the repository replaces it with the neutral text.
+- Rule from now on (CLAUDE.md): nothing personal goes to GitHub; personal notes live in CLAUDE.local.md, which is never committed.
