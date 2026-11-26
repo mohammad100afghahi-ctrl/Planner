@@ -55,3 +55,9 @@ create table if not exists public.hooshavar_english_sessions (
   note        text,
   note_done   boolean not null default false
 );
+-- Applied in the v3 migration (checked live 2026-11-27: RLS on, owner policy, no anon access;
+-- the «no ai» policy from mcp_security.sql also applies).
+alter table public.hooshavar_english_sessions enable row level security;
+create policy "owner hooshavar_english_sessions" on public.hooshavar_english_sessions for all to authenticated
+  using (user_id = (select auth.uid())) with check (user_id = (select auth.uid()));
+grant select, insert, update, delete on public.hooshavar_english_sessions to authenticated, service_role;
