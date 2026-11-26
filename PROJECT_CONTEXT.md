@@ -1,33 +1,105 @@
-# Planner project context
+# مدار — نقشه و راهنمای پروژه
 
-## Confirmed setup — 2026-10-14
+قانون‌ها توی CLAUDE.md هستن؛ این فایل «کجا چیه» و «چطور انجامش بدم» رو نگه می‌داره، و
+پایینش تاریخچهٔ تغییرهاست. بدون هیچ اطلاعات شخصی (مخزن عمومیه).
 
-- Repository: https://github.com/mohammad100afghahi-ctrl/Planner
-- Published frontend: https://mohammad100afghahi-ctrl.github.io/Planner/
-- Frontend title: مدار
-- Supabase project: Planner, ref byqowlvyupcusjjyxwaf. The frontend URL matches this project; project listing reported ACTIVE_HEALTHY.
-- GitHub and Supabase connectors are available in the current chat. Future sessions should verify connector availability.
-- Claude checkout: /Users/m.b.a/Documents/Planner, branch main.
-- Codex checkout: /Users/m.b.a/Documents/Codex/2026-10-14/ld-o/Planner, initial branch codex/planner-workspace.
-- This is an independent local clone, not a Git worktree. The origin remote points to GitHub. It started at commit fee6fc0 from Claude's committed checkout; remote freshness has not been checked.
-- Claude's untracked .claude/ and auth.sql were not copied. No tracked files in the original checkout were modified.
+## پروژه (به‌روز ۲۰۲۶-۱۱-۲۷)
 
-## Source map
+- مخزن: https://github.com/mohammad100afghahi-ctrl/Planner — شاخهٔ main، سایت از main
+  با GitHub Pages منتشر می‌شه: https://mohammad100afghahi-ctrl.github.io/Planner/
+- پوشهٔ محلی: `/Users/m.b.a/Projects/Planner` (قبلاً `~/Documents/Planner`؛ یادداشت‌های
+  تاریخچه هنوز مسیر قدیمی رو دارن).
+- Supabase: پروژهٔ «Planner»، ref `byqowlvyupcusjjyxwaf`، از طریق Supabase MCP.
+- فقط Claude روی پروژه کار می‌کنه (Codex از ۲۰۲۶-۱۱ دیگه نه؛ یادداشت‌های قدیمی Codex توی
+  تاریخچه مونده‌ن).
+- روی این Mac: Supabase CLI و deno نیست، node هست. edge functionها با
+  `deploy_edge_function` در Supabase MCP و با کل محتوای فایل deploy می‌شن؛ بعدش با
+  `get_edge_function` با مخزن مقایسه کن.
 
-- index.html: main frontend HTML, styles, and JavaScript; approximately 495 KB.
-- sw.js: service worker.
-- manifest.json and PNG icons: web app installation assets.
-- Root SQL files: feature-specific schema scripts; their presence does not establish that they have been applied to the live database.
-- supabase/functions/: generate-ai-report, send-push, daily-encouragement.
-- No package.json, README.md, AGENTS.md, or CLAUDE.md was found in the source checkout during initial inspection. Build and test procedures have not yet been established.
+## نقشهٔ پوشه‌ها
 
-## Current scope
+| کجا | چی |
+|---|---|
+| `index.html` | state، داده، Supabase، realtime، یادآورها، پشتیبان، push؛ اسکریپت پوسته اول `<head>` |
+| `ui-shell.js` | کمک‌ها، ناوبری، قاب‌ها، render، ورود |
+| `ui-today.js` / `ui-tasks.js` | امروز / تسک‌ها، ویرایشگر، تقویم |
+| `ui-pages.js` | انگلیسی، تعمیرات، خریدها، اشتراک‌ها، ایده‌ها، پرامپت‌ها، تونستم، مادر |
+| `ui-system.js` | تنظیمات، آرشیو، مرور هفته (پنهان) |
+| `ui.css` / `themes.css` / `tailwind.css` | قانون‌های خوانایی / متغیرهای رنگ سه پوسته / Tailwind ساخته‌شده (دستی ویرایش نشه) |
+| `hooshavar.js`، `hooshavar-*.js` | تب «هوشاور» و هر تمرینش |
+| `task-reminders.js` | یادآورهای تسک |
+| `sw.js`، `manifest.json`، آیکون‌ها | PWA و کش |
+| `oauth-consent.html` | صفحهٔ اجازهٔ هوش مصنوعی‌ها + فهرست وصل‌شده‌ها و «برگردون» |
+| `sql/` | یه فایل برای هر بخش، شِمای دیتابیس. **مستنده، نه دستور اجرا** — اعمال‌شده‌ها رو دوباره کورکورانه اجرا نکن |
+| `supabase/functions/` | `send-push` (اعلان‌ها و cronها)، `generate-ai-report` (مرور هفته)، `madar-mcp` (سرور MCP) |
+| `tools/` | `tailwind-build.html` (ساخت tailwind.css، توی مرورگر)، `themes.py` (پالت پوسته‌ها → بالای themes.css) |
+| `tests/ui-harness/` | اپ روی دادهٔ نمونه بدون Supabase (`serve.py`، `mock.js`، `fixture.js`) |
+| `hooshavar-prompt-guide.md` | راهنمای نوشتن درخواست تمرین هوشاور |
+| `counsellor-reviews/` | فقط محلی (exclude)، هیچ‌وقت commit نشه |
+| `.claude/launch.json` | فقط محلی؛ `planner-harness` برای پیش‌نمایش |
 
-The user wants a stable folder-based workflow with durable project context, alongside Claude. The user requested a simple graphical map explaining app sections, capabilities, connections, and assistant work visibility. Initialization has made no live database or production changes.
+## راهنمای کار («چطور»ِ قانون‌های CLAUDE.md)
 
-## Collaboration
+**پیش‌نمایش و تست.** `preview_start` با `planner-harness` (پورت ۸۷۷۱) اپ واقعی رو روی
+دادهٔ نمونه باز می‌کنه: `/app?view=<view>`؛ نوشتن‌ها فقط توی `window.__writes` جمع می‌شن.
+گوشی ۳۷۵×۸۱۲، دسکتاپ از ۱۲۰۰ پیکسل به بالا. هر سه پوسته رو ببین. هیچ‌وقت با حساب کاربر وارد
+نشو و توی سایت واقعی تابع ذخیره صدا نزن.
 
-Read current files rather than assuming stored notes remain current. Reconcile upstream changes before each implementation. Maintain these notes for future chats. Sharing these documents with Claude or publishing them to GitHub has not yet occurred.
+**جدول تازه.**
+1. ستون `user_id uuid default auth.uid()` + `enable row level security` + policy
+   «owner only»: `user_id = (select auth.uid())` برای `authenticated`.
+2. `grant select, insert, update, delete` به `authenticated` (نه anon) و به `service_role`
+   (edge functionها). جای خالی grant = خطای 42501 بی‌صدا.
+3. `alter publication supabase_realtime add table …` + یه `registerRealtimeSync` در index.html.
+4. policy محدودکنندهٔ «ai only via mcp» (یا «no ai» اگه هوش مصنوعی‌ها نباید ببینن) طبق
+   `sql/mcp_security.sql`.
+5. پشتیبان: جدول توی `private.backup_tables()` (بعد از والدهاش) با `create or replace`،
+   + برچسب در `BACKUP_TABLE_LABELS` و شمارش در `currentBackupCounts`. اگه پشتیبان‌های
+   قدیمی می‌شکنن، `version` در `private.backup_payload` بالا بره.
+6. MCP: بخش در `SECTIONS` (و hooks) در `madar-mcp/index.ts`؛ کلید غیر `id` → `PK`.
+7. شِما در `sql/<بخش>.sql`؛ اعمال با `apply_migration`.
+
+**نوشتن داده.** نوشتن‌ها خوش‌بینانه‌ن (اول state و render). شکست: `persist(promise,
+{message, rollback})` برای یه نوشتن ساده، وگرنه `writeFailed(label, error)` که
+`scheduleReconcile()` رو صدا می‌زنه. هیچ مسیر شکستی مستقیم `loadAll()` صدا نزنه (حلقه).
+
+**حذف با واگرد.** از state بردار، جاش و وابسته‌هاش رو نگه دار، `showUndoToast(msg, undoFn)`،
+و حذف واقعی رو توی یه `setTimeout` پنج‌ثانیه‌ای که واگرد پاکش می‌کنه. نمونه:
+`deletePurchase`، `deleteSubscription`، `deleteTag`.
+
+**ظاهر.** کارت: `bg-slate-900 border-slate-800 rounded-2xl`؛ برچسب بخش: `text-[10px]
+font-black text-slate-600`؛ حالت فعال: `bg-indigo-500/10 text-indigo-400
+border-indigo-500/20`. `indigo` = رنگ تأکید پوسته (زرشکی در «مدار»)، `slate` = خنثی.
+رنگ‌ها: `tools/themes.py` → `themes.css`؛ نگاشت کلاس‌ها در `tools/tailwind-build.html`.
+آیکون Font Awesome 6.4، فونت وزیرمتن، متن فارسی خودمونی. letter-spacing روی فارسی نه.
+
+**اعلان‌ها (send-push).** cron `daily-push-digest` ساعت ۸ بغداد → `digestFor()`؛ actionهای
+جدا برای انگلیسی و هوشاور. شاخهٔ cron باید action ناشناخته رو رد کنه، وگرنه هر تیک خلاصهٔ
+صبح می‌فرسته. کلیدهای VAPID توی دیتابیس‌ان؛ هیچ‌وقت محلی نخونشون.
+
+**هوش مصنوعی (Anthropic).** بلوک کمکی `AIError` / `aiErrorFrom(res)` /
+`recordAIHealth(sb, uid, err|null)` رو کپی کن؛ مسیر cron برای هر کاربر جدا catch کنه.
+
+**هوشاور.** تمرین تازه = `hooshavar-<اسم>.js` با `hooshavarRegister({id, order, load,
+gate?, card, overlay?, summary?})` + `sql/hooshavar_<اسم>.sql` (خط‌های «حذف تمرین» بالاش)
++ یه `<script>` در index.html + فهرست کش sw.js + SOURCES در tools/tailwind-build.html.
+اعلانش در `send-push/hooshavar-<اسم>.ts` با یه import و یه خط action. تمرین‌ها با
+رویدادهای document به هم وصل می‌شن (مثل `hv-morning-done`).
+
+**جاهایی که منطق دو جا تکرار شده (هر دو رو با هم عوض کن).**
+- انتخاب مورد روز «مادر»: `motherItemForDay` در index.html و در send-push.
+- روزهای کلاس انگلیسی: اپ و send-push.
+- ظرفیت روزانه: `dailyCapacity()` در index.html و `proposeWeek` در generate-ai-report.
+- تمام شدن تسک → `syncHomeJobsFromTask` (تعمیر/نگهداری وصل‌شده).
+
+**مرور هفته (پنهان از ۲۰۲۶-۱۱-۰۵).** برگردوندن: `WEEKLY_REVIEW_VISIBLE = true` در
+ui-shell.js و `cron.alter_job(2, active := true)`. پرس‌وجوهای تازهٔ سرور روی تسک‌های باز
+باید `.is("shelved_at", null)` داشته باشن.
+
+**نسخهٔ supabase-js** قفل‌شده با SRI در index.html، oauth-consent.html و sw.js؛ برای
+به‌روزرسانی هر سه + `CACHE_NAME`.
+
+# تاریخچه
 
 ## App map — 2026-10-14
 
@@ -220,3 +292,9 @@ Read current files rather than assuming stored notes remain current. Reconcile u
 - Every commit hash changed (filter-branch also drops GitHub's web signatures, so even unchanged commits got new hashes); the hashes above were updated. Hashes quoted inside old commit messages still name the old commits.
 - The deployed madar-mcp still has a more detailed description of the «مادر» tables than the repository; redeploying madar-mcp from the repository replaces it with the neutral text.
 - Rule from now on (CLAUDE.md): nothing personal goes to GitHub; personal notes live in CLAUDE.local.md, which is never committed.
+
+## 2026-11-27 — قانون‌ها و پوشه‌ها یک‌جا (Claude)
+- حافظهٔ Claude به آدرس پوشه بسته بود و با رفتن پروژه از ~/Documents به ~/Projects دیگه خونده نمی‌شد. همهٔ قانون‌هاش به CLAUDE.md (عمومی) و CLAUDE.local.md (محلی) منتقل شد و «چطور»ها به بالای همین فایل؛ از این به بعد حافظهٔ Claude استفاده نمی‌شه.
+- بالای این فایل بازنویسی شد (پروژه، نقشهٔ پوشه‌ها، راهنمای کار)؛ بخش‌های کهنهٔ راه‌اندازی و Codex برداشته شد.
+- همهٔ فایل‌های SQL از ریشه رفتن `sql/` (سایت هیچ‌کدوم رو بارگذاری نمی‌کنه؛ اسم فایل‌ها توی کامنت‌های کد عوض نشد)، و `sql/auth.sql` که قبلاً محلی بود اضافه شد (رمزی توش نیست؛ کلید cron رو خود دیتابیس می‌سازه). هیچ فایل سایت عوض نشد، پس sw.js دست نخورد.
+
