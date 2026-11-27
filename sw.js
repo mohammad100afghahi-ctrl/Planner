@@ -1,7 +1,7 @@
 /* App-shell cache for مدار.
    Bump CACHE_NAME (e.g. medar-shell-v2) whenever index.html/manifest/icons change,
    so returning visitors pick up the new version instead of a stale cached copy. */
-const CACHE_NAME = 'medar-shell-v103';
+const CACHE_NAME = 'medar-shell-v104';
 const APP_SHELL = [
   './',
   './index.html',
@@ -9,6 +9,7 @@ const APP_SHELL = [
   './themes.css',
   './ui.css',
   './tailwind.css',
+  './skins.css',
   './ui-shell.js',
   './ui-today.js',
   './ui-tasks.js',

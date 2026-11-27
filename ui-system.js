@@ -5,68 +5,72 @@
 
 /* ================= تنظیمات ================= */
 /* ---------- پوسته ----------
-   Colours live in themes.css; applyTheme/THEME_KEY come from the first script in
-   index.html. The choice is per device (localStorage), like the phone tab order.
-   Each preview carries its own data-theme, so it is drawn with that theme's real
-   colours whatever theme the page itself is in. */
-const THEMES = [
-  { id:'madar',    name:'مدار',    note:'سیاه و زرشکی — پوستهٔ همیشگی' },
-  { id:'midnight', name:'نیمه‌شب', note:'سرمه‌ای عمیق و بنفش — آروم برای شب' },
-  { id:'paper',    name:'کاغذی',   note:'روشن و گرم، با جوهر آبی — برای روز' },
+   Skins change only shapes, surfaces and depth (skins.css); the colours are always the
+   black & crimson of themes.css and the layout never moves. applySkin/SKIN_KEY come from
+   the first script in index.html; the choice is per device (localStorage), like the
+   phone tab order. The previews are drawn with inline styles on purpose: they carry no
+   classes, so the current skin's rules (#app .rounded-2xl…) can't restyle them. */
+const SKINS = [
+  { id:'classic', name:'کلاسیک', note:'همون ظاهر همیشگی' },
+  { id:'glass',   name:'شیشه‌ای', note:'نیمه‌شفاف، گوشه‌های گرد، نور زرشکی پشت صفحه' },
+  { id:'bold',    name:'برجسته', note:'کارت‌های توپر با سایه، نوار زرشکی کنار هر ردیف' },
 ];
-function currentTheme(){ return document.documentElement.dataset.theme || 'madar'; }
-function setTheme(id){
-  if(id === currentTheme()) return;
+function currentSkin(){ return document.documentElement.dataset.skin || 'classic'; }
+function setSkin(id){
+  if(id === currentSkin()) return;
   const swap = () => {
-    const applied = applyTheme(id);
-    try{ localStorage.setItem(THEME_KEY, applied); }catch(_e){}
+    const applied = applySkin(id);
+    try{ localStorage.setItem(SKIN_KEY, applied); }catch(_e){}
     render();
   };
   const calm = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
   if(document.startViewTransition && !calm) document.startViewTransition(swap); else swap();
 }
-// a tiny window of the app: sidebar, a heading, a task card (one open, one done) and the main button
-function themeMini(id, mob){
-  const line = (w, tone) => `<span class="block h-1.5 ${w} rounded-full bg-current ${tone}"></span>`;
+// a tiny phone screen in that skin: heading, two task rows, one picked row, the main button
+function skinMini(id, mob){
+  const c = (v, a = 1) => `rgb(var(--${v}) / ${a})`;
+  const S = {
+    classic:{ page:c('page'), card:`background:${c('c-slate-900')};border:1px solid ${c('b-slate-800')};border-radius:${mob ? 7 : 9}px`,
+      on:`background:${c('c-indigo-500', .12)};border:1px solid ${c('c-indigo-500', .25)};border-radius:${mob ? 7 : 9}px`,
+      btn:`background:${c('c-indigo-600')};border-radius:${mob ? 5 : 7}px` },
+    glass:{ page:`radial-gradient(120% 70% at 90% -10%, ${c('c-indigo-600', .55)}, transparent 65%), ${c('page')}`,
+      card:`background:rgb(255 255 255 / .06);border:1px solid rgb(255 255 255 / .11);border-radius:${mob ? 10 : 13}px;box-shadow:inset 0 1px 0 rgb(255 255 255 / .07)`,
+      on:`background:${c('c-indigo-600', .28)};border:1px solid ${c('c-indigo-400', .32)};border-radius:${mob ? 10 : 13}px`,
+      btn:`background:linear-gradient(180deg, rgb(255 255 255 / .18), transparent 60%), ${c('c-indigo-600')};border-radius:999px;box-shadow:0 4px 12px -4px ${c('c-indigo-500', .8)}` },
+    bold:{ page:c('page'), card:`background:${c('c-slate-900')};border:1px solid ${c('b-slate-900')};border-right:${mob ? 3 : 4}px solid ${c('c-indigo-600')};border-radius:${mob ? 5 : 7}px;box-shadow:0 2px 0 rgb(0 0 0 / .45)`,
+      on:`background:${c('c-slate-800')};border:1px solid ${c('b-slate-800')};border-right:${mob ? 3 : 4}px solid ${c('c-indigo-500')};border-radius:${mob ? 5 : 7}px;box-shadow:0 2px 0 rgb(0 0 0 / .45)`,
+      btn:`background:${c('c-indigo-600')};border-radius:${mob ? 5 : 7}px;box-shadow:0 3px 0 ${c('c-indigo-800')}` },
+  }[id];
+  const line = (w, tone) => `<span style="display:block;height:${mob ? 4 : 5}px;width:${w};border-radius:3px;background:${c(tone)}"></span>`;
+  const row = (box, w, tone) => `<div style="${box};padding:${mob ? '5px 6px' : '7px 8px'};display:flex;align-items:center;gap:6px">
+      <span style="width:${mob ? 7 : 9}px;height:${mob ? 7 : 9}px;flex-shrink:0;border-radius:${id === 'glass' ? '50%' : '2px'};border:1.5px solid ${c(tone === 't-indigo-300' ? 'c-indigo-400' : 'b-slate-700')}"></span>${line(w, tone)}</div>`;
   return `
-    <div data-theme="${id}" class="theme-mini ${mob ? 'h-20' : 'h-28'} flex overflow-hidden" aria-hidden="true">
-      <div class="${mob ? 'w-6 p-1.5' : 'w-1/4 p-2.5'} bg-slate-950 border-l border-slate-800 flex flex-col gap-1.5 shrink-0">
-        <span class="block ${mob ? 'w-3 h-3' : 'w-4 h-4'} rounded-md bg-indigo-600 mb-0.5"></span>
-        ${mob ? '' : `<span class="block h-1.5 rounded-full bg-indigo-500/30"></span>`}
-        ${line(mob ? 'w-full' : 'w-3/4', 'text-slate-700')}${line(mob ? 'w-full' : 'w-2/3', 'text-slate-700')}
-      </div>
-      <div class="flex-1 min-w-0 ${mob ? 'p-1.5 gap-1.5' : 'p-2.5 gap-2'} flex flex-col bg-slate-900/30">
-        ${line('w-1/2', 'text-white')}
-        <div class="bg-slate-950 border border-slate-800 ${mob ? 'rounded-md p-1.5 gap-1' : 'rounded-lg p-2 gap-1.5'} flex flex-col">
-          <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded border border-slate-700 shrink-0"></span>${line('flex-1', 'text-slate-400')}</div>
-          <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded bg-emerald-500 shrink-0"></span>${line('w-2/3', 'text-slate-700')}</div>
-        </div>
-        <div class="flex items-center gap-1.5 mt-auto">
-          <span class="h-3 ${mob ? 'w-7' : 'w-12'} rounded-md bg-indigo-600"></span>
-          <span class="h-3 ${mob ? 'w-4' : 'w-7'} rounded-md bg-indigo-500/15 border border-indigo-500/20"></span>
-          ${mob ? '' : `<span class="mr-auto w-2 h-2 rounded-full bg-rose-500"></span>`}
-        </div>
-      </div>
+    <div aria-hidden="true" style="background:${S.page};height:${mob ? 96 : 156}px;padding:${mob ? '8px 7px' : '11px 10px'};display:flex;flex-direction:column;gap:${mob ? 5 : 7}px">
+      ${line('50%', 't-white')}
+      ${row(S.card, '100%', 't-slate-500')}
+      ${row(S.on, '55%', 't-indigo-300')}
+      ${mob ? '' : row(S.card, '70%', 't-slate-500')}
+      <span style="margin-top:auto;align-self:flex-start;height:${mob ? 11 : 15}px;width:${mob ? 34 : 52}px;${S.btn}"></span>
     </div>`;
 }
-function themePicker(mob){
-  const cur = currentTheme();
+function skinPicker(mob){
+  const cur = currentSkin();
   return `
     <div class="grid grid-cols-3 ${mob ? 'gap-2.5' : 'gap-4'}" role="radiogroup" aria-label="پوسته">
-      ${THEMES.map(t => {
+      ${SKINS.map(t => {
         const on = t.id === cur;
         return `
-          <button type="button" role="radio" aria-checked="${on}" onclick="setTheme('${t.id}')" class="group text-right min-w-0">
-            <div class="relative ${mob ? 'rounded-xl' : 'rounded-2xl'} overflow-hidden border transition-all ${on ? 'border-indigo-500 ring-2 ring-indigo-500/40' : 'border-slate-800 group-hover:border-slate-700'}">
-              ${themeMini(t.id, mob)}
-              ${on ? `<span class="absolute top-1.5 left-1.5 w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center shadow-lg">${fa('check', 'text-[9px]')}</span>` : ''}
+          <button type="button" role="radio" aria-checked="${on}" onclick="setSkin('${t.id}')" class="group text-right min-w-0">
+            <div style="position:relative;overflow:hidden;border-radius:${mob ? 12 : 16}px;border:${on ? '2px solid rgb(var(--c-indigo-500))' : '1px solid rgb(var(--b-slate-800))'};box-shadow:${on ? '0 0 0 3px rgb(var(--c-indigo-500) / .25)' : 'none'}">
+              ${skinMini(t.id, mob)}
+              ${on ? `<span style="position:absolute;top:6px;left:6px;width:20px;height:20px;border-radius:50%;background:rgb(var(--c-indigo-600));color:#fff;display:flex;align-items:center;justify-content:center">${fa('check', 'text-[9px]')}</span>` : ''}
             </div>
             <p class="${mob ? 'text-[11px] mt-2 text-center' : 'text-sm mt-3'} font-black ${on ? 'text-white' : 'text-slate-400'}">${t.name}</p>
             ${mob ? '' : `<p class="text-[10px] text-slate-600 mt-0.5 leading-relaxed">${t.note}</p>`}
           </button>`;
       }).join('')}
     </div>
-    ${mob ? `<p class="text-[10px] text-slate-500 mt-3 text-center">${THEMES.find(t => t.id === cur)?.note || ''}</p>` : ''}`;
+    ${mob ? `<p class="text-[10px] text-slate-500 mt-3 text-center">${SKINS.find(t => t.id === cur)?.note || ''}</p>` : ''}`;
 }
 function toggleTagEdit(id){ state.tagEditOpen = state.tagEditOpen === id ? null : id; render(); }
 function tagGoalLine(tag){
@@ -170,8 +174,8 @@ function renderSettingsDesktop(){
       <section id="appearance" class="space-y-6">
         <h3 class="text-sm font-black text-white uppercase tracking-widest flex items-center gap-2">${fa('palette', 'text-indigo-500')} پوسته</h3>
         <div class="bg-slate-950 border border-slate-800 rounded-3xl p-6">
-          ${themePicker(false)}
-          <p class="text-[10px] text-slate-500 mt-6 pt-5 border-t border-slate-800/50 leading-relaxed">پوسته مال همین دستگاهه؛ روی گوشی می‌تونی یکی دیگه داشته باشی. داده‌هات هیچ تغییری نمی‌کنن.</p>
+          ${skinPicker(false)}
+          <p class="text-[10px] text-slate-500 mt-6 pt-5 border-t border-slate-800/50 leading-relaxed">پوسته فقط شکل کارت‌ها و دکمه‌هاست؛ رنگ‌ها و چیدمان همون می‌مونن. مال همین دستگاهه، روی گوشی می‌تونی یکی دیگه داشته باشی.</p>
         </div>
       </section>
       <section id="tags-goals" class="space-y-6">
@@ -275,7 +279,7 @@ function renderSettingsMobile(){
         </div>
         <section id="appearance-settings">
           <h3 class="text-[10px] font-black text-slate-600 uppercase tracking-widest mb-3 px-1">پوسته</h3>
-          <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4">${themePicker(true)}</div>
+          <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4">${skinPicker(true)}</div>
         </section>
         <section id="tags-settings">
           <h3 class="text-[10px] font-black text-slate-600 uppercase tracking-widest mb-3 px-1">مدیریت تگ‌ها و اهداف</h3>

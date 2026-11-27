@@ -91,7 +91,7 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
 #app .opacity-60 { opacity: .92; }
 #app .opacity-50 { opacity: .88; }
 #app .opacity-40 { opacity: .8; }
-/* رنگ تگ‌ها رو کاربر انتخاب کرده؛ روی پوستهٔ تیره روشن‌تر و روی کاغذی تیره‌تر می‌شن تا خونده بشن (themes.css) */
+/* رنگ تگ‌ها رو کاربر انتخاب کرده؛ تیره‌هاش روی پس‌زمینهٔ تیره هم باید دیده بشن (--tag-text-filter در themes.css) */
 #app span[style^="color:"] { filter: var(--tag-text-filter); }
 
 /* the print sheet is invisible on screen; only it is printed */

@@ -34,9 +34,9 @@ const SOURCES = ['../index.html', '../task-reminders.js', '../ui-shell.js', '../
   s.src = 'https://cdn.tailwindcss.com';
   // the Play CDN builds on DOM changes, so touch the probe once it has loaded
   s.onload = () => {
-    // پوسته‌ها: کلاس‌ها همون slate/indigo/… طرح مرجع‌ان، ولی رنگشون از متغیرهای themes.css میاد
-    // (--c-* پس‌زمینه/حاشیه/سایه، --t-* نوشته، --b-slate-* حاشیهٔ خنثی)، پس هر پوسته فقط
-    // مقدار متغیرها رو عوض می‌کنه. indigo یعنی رنگ اصلی پوسته (زرشکی، بنفش، آبی جوهری).
+    // رنگ‌ها: کلاس‌ها همون slate/indigo/… طرح مرجع‌ان، ولی رنگشون از متغیرهای themes.css میاد
+    // (--c-* پس‌زمینه/حاشیه/سایه، --t-* نوشته، --b-slate-* حاشیهٔ خنثی)؛ رنگ‌ها رو
+    // tools/themes.py عوض می‌کنه. indigo یعنی زرشکی. پوسته‌ها (شکل) توی skins.css‌ان.
     const STEPS = [50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950];
     const v = name => `rgb(var(--${name}) / <alpha-value>)`;
     const ramp = prefix => Object.fromEntries(STEPS.map(s => [s, v(`${prefix}-${s}`)]));

@@ -25,14 +25,14 @@
 | `ui-today.js` / `ui-tasks.js` | امروز / تسک‌ها، ویرایشگر، تقویم |
 | `ui-pages.js` | انگلیسی، تعمیرات، خریدها، اشتراک‌ها، ایده‌ها، پرامپت‌ها، تونستم، مادر |
 | `ui-system.js` | تنظیمات، آرشیو، مرور هفته (پنهان) |
-| `ui.css` / `themes.css` / `tailwind.css` | قانون‌های خوانایی / متغیرهای رنگ سه پوسته / Tailwind ساخته‌شده (دستی ویرایش نشه) |
+| `ui.css` / `themes.css` / `tailwind.css` / `skins.css` | قانون‌های خوانایی / متغیرهای رنگ (یه پالت) / Tailwind ساخته‌شده (دستی ویرایش نشه) / پوسته‌ها: شیشه‌ای و برجسته (فقط شکل و عمق) |
 | `hooshavar.js`، `hooshavar-*.js` | تب «هوشاور» و هر تمرینش |
 | `task-reminders.js` | یادآورهای تسک |
 | `sw.js`، `manifest.json`، آیکون‌ها | PWA و کش |
 | `oauth-consent.html` | صفحهٔ اجازهٔ هوش مصنوعی‌ها + فهرست وصل‌شده‌ها و «برگردون» |
 | `sql/` | یه فایل برای هر بخش، شِمای دیتابیس. **مستنده، نه دستور اجرا** — اعمال‌شده‌ها رو دوباره کورکورانه اجرا نکن |
 | `supabase/functions/` | `send-push` (اعلان‌ها و cronها)، `generate-ai-report` (مرور هفته)، `madar-mcp` (سرور MCP) |
-| `tools/` | `tailwind-build.html` (ساخت tailwind.css، توی مرورگر)، `themes.py` (پالت پوسته‌ها → بالای themes.css) |
+| `tools/` | `tailwind-build.html` (ساخت tailwind.css، توی مرورگر)، `themes.py` (پالت رنگ → بالای themes.css) |
 | `tests/ui-harness/` | اپ روی دادهٔ نمونه بدون Supabase (`serve.py`، `mock.js`، `fixture.js`) |
 | `hooshavar-prompt-guide.md` | راهنمای نوشتن درخواست تمرین هوشاور |
 | `counsellor-reviews/` | فقط محلی (exclude)، هیچ‌وقت commit نشه |
@@ -71,6 +71,9 @@
 font-black text-slate-600`؛ حالت فعال: `bg-indigo-500/10 text-indigo-400
 border-indigo-500/20`. `indigo` = رنگ تأکید پوسته (زرشکی در «مدار»)، `slate` = خنثی.
 رنگ‌ها: `tools/themes.py` → `themes.css`؛ نگاشت کلاس‌ها در `tools/tailwind-build.html`.
+پوسته‌ها (`<html data-skin>`، `skins.css`): فقط سطح، گوشه، سایه و دکمه — هیچ padding/width/margin/حاشیهٔ
+ضخیم‌تر، تا چیدمان یک پیکسل هم تکون نخوره (نوار «برجسته» سایهٔ داخلیه، نه حاشیه). بعد از
+تغییر، جای همهٔ عنصرها رو توی سه پوسته مقایسه کن (روش در تاریخچهٔ ۲۰۲۶-۱۱-۲۷).
 آیکون Font Awesome 6.4، فونت وزیرمتن، متن فارسی خودمونی. letter-spacing روی فارسی نه.
 
 **اعلان‌ها (send-push).** cron `daily-push-digest` ساعت ۸ بغداد → `digestFor()`؛ actionهای
@@ -307,3 +310,9 @@ ui-shell.js و `cron.alter_job(2, active := true)`. پرس‌وجوهای تاز
 - بالای این فایل بازنویسی شد (پروژه، نقشهٔ پوشه‌ها، راهنمای کار)؛ بخش‌های کهنهٔ راه‌اندازی و Codex برداشته شد.
 - همهٔ فایل‌های SQL از ریشه رفتن `sql/` (سایت هیچ‌کدوم رو بارگذاری نمی‌کنه؛ اسم فایل‌ها توی کامنت‌های کد عوض نشد)، و `sql/auth.sql` که قبلاً محلی بود اضافه شد (رمزی توش نیست؛ کلید cron رو خود دیتابیس می‌سازه). هیچ فایل سایت عوض نشد، پس sw.js دست نخورد.
 
+
+## 2026-11-27 — پوسته‌ها از نو: «شیشه‌ای» و «برجسته»؛ پس‌زمینهٔ روشن‌تر (Claude)
+- The user meant skins, not colour themes: same black & crimson, different look of the parts, same layout. The colour themes «نیمه‌شب» and «کاغذی» were removed (their blocks in themes.css, tools/themes.py, the head script and the settings picker); `medar-theme` in localStorage is cleared on load.
+- Background: pure black was too harsh to read on. The palette (tools/themes.py) lifts every surface one step: page/950 `#131316` (was `#000`), 900 `#1b1b1f`, 800 `#26262b`, 700 `#36363c`, neutral borders the same way; text colours unchanged. theme-color and manifest are `#131316`.
+- skins.css, on `<html data-skin>` (set by the first script in index.html, key `medar-skin`, per device): **کلاسیک** = no extra rules. **شیشه‌ای** = a soft crimson glow behind the page, see-through cards with a light edge, rounder corners, frosted sidebar/header/tab bar/editor, capsule main buttons with a crimson glow. **برجسته** = solid raised cards with a drop shadow (card in card one step lighter), tighter corners, a crimson bar on the start side of every item row (inset shadow, grey when done), solid crimson active menu item, main buttons with a darker bottom edge that presses down. Settings «پوسته» (both layouts) shows a preview of each, drawn with inline styles so the current skin can't restyle it.
+- Checked in the harness on sample data, desktop 1440×900 and phone 375×812: the position and size of every element on every page is identical in all three skins (0 differences), no sideways overflow, no console errors. Contrast pass: same results as classic (out-of-month days on purpose, one rose button) plus one subscriptions label at 4.35–4.39:1 in glass/bold. Not checked on the user's real phone. sw.js v104 caches skins.css.

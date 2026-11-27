@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>مدار</title>
 <link rel="manifest" href="./manifest.json">
-<meta name="theme-color" content="#000000">
+<meta name="theme-color" content="#131316">
 <link rel="icon" type="image/png" sizes="32x32" href="./favicon-32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="./favicon-16.png">
 <link rel="apple-touch-icon" href="./apple-touch-icon.png">
@@ -13,22 +13,18 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="مدار">
 <script>
-/* پوسته (themes.css): قبل از هر CSS روی <html> می‌شینه تا صفحه یه لحظه هم با پوستهٔ
-   اشتباه دیده نشه. انتخاب مال همین دستگاهه (مثل ترتیب تب‌ها)، توی localStorage.
-   THEME_BAR رنگ نوار مرورگر/گوشیه؛ کاغذی روی آیفون نوار وضعیت روشن با نوشتهٔ تیره می‌گیره
-   (آیفون این یکی رو موقع باز شدن برنامه می‌خونه). */
-const THEME_KEY = 'medar-theme';
-const THEME_BAR = { madar:'#000000', midnight:'#0e1424', paper:'#fbfaf8' };
-function applyTheme(id){
-  if(!Object.prototype.hasOwnProperty.call(THEME_BAR, id)) id = 'madar';
-  document.documentElement.dataset.theme = id;
-  const bar = document.querySelector('meta[name="theme-color"]');
-  if(bar) bar.setAttribute('content', THEME_BAR[id]);
-  const ios = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
-  if(ios) ios.setAttribute('content', id === 'paper' ? 'default' : 'black-translucent');
+/* پوسته (skins.css): قبل از هر CSS روی <html data-skin> می‌شینه تا صفحه یه لحظه هم با پوستهٔ
+   اشتباه دیده نشه. پوسته فقط شکل و عمق اجزاست، رنگ‌ها همیشه همون سیاه و زرشکی‌ان.
+   انتخاب مال همین دستگاهه (مثل ترتیب تب‌ها)، توی localStorage. medar-theme کلید پوسته‌های
+   رنگی حذف‌شده‌ست (نیمه‌شب/کاغذی، ۲۰۲۶-۱۱-۲۷) و پاک می‌شه. */
+const SKIN_KEY = 'medar-skin';
+const SKIN_IDS = ['classic', 'glass', 'bold'];
+function applySkin(id){
+  if(!SKIN_IDS.includes(id)) id = 'classic';
+  document.documentElement.dataset.skin = id;
   return id;
 }
-try{ applyTheme(localStorage.getItem(THEME_KEY)); }catch(_e){ applyTheme('madar'); }
+try{ localStorage.removeItem('medar-theme'); applySkin(localStorage.getItem(SKIN_KEY)); }catch(_e){ applySkin('classic'); }
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -384,11 +380,12 @@ global.jalaali = {
 };
 })(window);
 </script>
-<!-- themes.css: the colour variables every theme sets; ui.css and tailwind.css read them.
+<!-- themes.css: the colour variables ui.css and tailwind.css read; skins.css: the skins (shape and depth only).
      ui.css first, like the reference pages: their own <style> comes before the Tailwind output -->
 <link rel="stylesheet" href="./themes.css">
 <link rel="stylesheet" href="./ui.css">
 <link rel="stylesheet" href="./tailwind.css">
+<link rel="stylesheet" href="./skins.css">
 </head>
 <body class="text-slate-100">
 <div id="app">
