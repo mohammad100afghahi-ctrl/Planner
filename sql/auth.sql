@@ -43,6 +43,10 @@ begin
     execute format('update public.%I set user_id = %L where user_id is null', t, owner);
     execute format('alter table public.%I alter column user_id set not null', t);
 
+    -- RLS was already on (the old allow-all policies needed it); stated here so the
+    -- script is safe on its own. Checked live 2026-11-27: on for all 16 tables, no anon access.
+    execute format('alter table public.%I enable row level security', t);
+
     -- drop the old allow-all policy, whatever it was named
     execute (select coalesce(string_agg(format('drop policy %I on public.%I;', polname, t), ' '), '')
              from pg_policy where polrelid = format('public.%I', t)::regclass);
