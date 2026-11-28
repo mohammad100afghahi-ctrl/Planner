@@ -37,7 +37,7 @@ const fmtMin = m => `${fd(m || 0)} دقیقه`;
 // مرور هفته is parked, not removed: its page, data and functions all stay. Set true to bring it back.
 const WEEKLY_REVIEW_VISIBLE = false;
 const NAV_GROUPS = [
-  { label:'برنامه‌ریزی', items:[['today','امروز','calendar-day'], ['tasks','تسک‌ها','list-check'], ['calendar','تقویم جلالی','calendar-days'], ['english','انگلیسی','language']] },
+  { label:'برنامه‌ریزی', items:[['today','امروز','calendar-day'], ['brief','بریف','sun'], ['tasks','تسک‌ها','list-check'], ['calendar','تقویم جلالی','calendar-days'], ['english','انگلیسی','language']] },
   { label:'محتوا', items:[['ideas','ایده‌ها','lightbulb'], ['prompts','پرامپت‌ها','terminal']] },
   { label:'مالی', items:[['purchases','خریدها','cart-shopping'], ['subscriptions','اشتراک‌ها','credit-card']] },
   { label:'شخصی', items:[['wins','تونستم','trophy'], ['mother','مادر','heart'], ['repairs','تعمیرات','hammer'], ['hooshavar','هوشاور','seedling']] },
@@ -49,7 +49,7 @@ const NAV_ACTIVE = {
   mother:['bg-rose-500/10 text-rose-400 border-rose-500/20', 'text-rose-500'],
   hooshavar:['bg-emerald-500/10 text-emerald-400 border-emerald-500/20', 'text-emerald-500'],
 };
-const NAV_ICON_TINT = new Set(['tasks','calendar','ideas','prompts','subscriptions','wins','archive','ai-reports']);
+const NAV_ICON_TINT = new Set(['brief','tasks','calendar','ideas','prompts','subscriptions','wins','archive','ai-reports']);
 let resetScrollOnRender = false;
 function navigateTo(view){
   if(state.view !== view) resetScrollOnRender = true;
@@ -63,6 +63,7 @@ function navBadge(id){
   if(id === 'ai-reports'){
     if(currentRitual()) return `<span class="mr-auto w-2 h-2 bg-indigo-500 rounded-full" title="مرور هفته منتظرته"></span>`;
   }
+  if(id === 'brief' && state.view !== 'brief' && briefHasNews()) return `<span class="mr-auto w-2 h-2 bg-indigo-500 rounded-full" title="بریف امروز رو هنوز ندیدی"></span>`;
   if(id === 'settings' && backupOverdue()) return `<span class="mr-auto w-2 h-2 bg-rose-500 rounded-full" title="مدتیه پشتیبان دانلود نکردی"></span>`;
   return '';
 }
@@ -534,14 +535,14 @@ function renderInfoToast(){
 
 /* ---------- render ---------- */
 const DESKTOP_VIEWS = {
-  today:() => renderTodayDesktop(), tasks:() => renderTasksDesktop(), calendar:() => renderCalendarDesktop(),
+  today:() => renderTodayDesktop(), brief:() => renderBriefDesktop(), tasks:() => renderTasksDesktop(), calendar:() => renderCalendarDesktop(),
   english:() => renderEnglishDesktop(), ideas:() => renderIdeasDesktop(), prompts:() => renderPromptsDesktop(),
   purchases:() => renderPurchasesDesktop(), subscriptions:() => renderSubscriptionsDesktop(), wins:() => renderWinsDesktop(),
   mother:() => renderMotherDesktop(), repairs:() => renderRepairsDesktop(), settings:() => renderSettingsDesktop(),
   archive:() => renderArchiveDesktop(), 'ai-reports':() => renderAIReportsDesktop(), hooshavar:() => renderHooshavarDesktop(),
 };
 const MOBILE_VIEWS = {
-  today:() => renderTodayMobile(), tasks:() => renderTasksMobile(), calendar:() => renderCalendarMobile(),
+  today:() => renderTodayMobile(), brief:() => renderBriefMobile(), tasks:() => renderTasksMobile(), calendar:() => renderCalendarMobile(),
   english:() => renderEnglishMobile(), ideas:() => renderIdeasMobile(), prompts:() => renderPromptsMobile(),
   purchases:() => renderPurchasesMobile(), subscriptions:() => renderSubscriptionsMobile(), wins:() => renderWinsMobile(),
   mother:() => renderMotherMobile(), repairs:() => renderRepairsMobile(), settings:() => renderSettingsMobile(),

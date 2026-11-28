@@ -10,15 +10,16 @@ import jalaali from "npm:jalaali-js@1.2.8";
                                         — generate-ai-report: the weekly review is ready
      x-cron-secret + {action:"english"}  — the every-10-minutes pg_cron job: «انگلیسی» nudges
                                           that are due right now (see englishFor), and the
-                                          21:00 / 23:00 streak warning (see streakFor)
+                                          21:00 streak warning (see streakFor)
      x-cron-secret + {action:"tasks"}    — the every-minute pg_cron job: task reminders, and
                                           English practice timers that ran out (englishTimerRun)
      user JWT + {action:"publicKey"}     — the app asks for the VAPID public key before subscribing
      user JWT + {action:"test"}          — «ارسال اعلان آزمایشی»: the caller's digest right now
-   The morning digest is several notifications, each with its own tag so one
-   doesn't bury another: dated items + today's tasks, one per subscription on its
-   warning day / day before / day itself, «مادر», مرور هفته, پشتیبان.
-   Only the first one makes a sound.
+   The morning digest is one notification for «بریف» (the app's brief page,
+   which a tap opens): the most urgent row, «مادر» on its days, and how many
+   more are waiting. Only what's important rings on its own: a subscription on
+   the warning day its user picked, and مرور هفته when it's back. Only the
+   first one makes a sound.
    The VAPID pair is generated here on first use and kept in private.cron_secrets
    (via init_vapid_keys), so the private key never exists anywhere else. */
 
@@ -102,21 +103,15 @@ type Payload = { title: string; body: string; tag: string; silent?: boolean; vie
 
 /* «مادر»: on the chosen weekdays, one consideration for Mom. Same count
    as the app's motherItemForDay — reminder days since 1970-01-01, walking the
-   list in order — so the push and the امروز card show the same one. */
-function motherNote(care: any, items: any[], today: string): Payload | null {
-  if (!care?.push || !items.length) return null;
-  const days: number[] = (care.remind_days || []).map(Number);
+   list in order — so the push and the app show the same one. */
+function motherItem(care: any, items: any[], today: string): any | null {
+  if (!items.length) return null;
+  const days: number[] = (care?.remind_days || []).map(Number);
   const e = Math.round(Date.parse(today + "T00:00:00Z") / 86400_000);
   if (!days.includes((e + 4) % 7)) return null;
   let n = Math.floor(e / 7) * days.length;
   for (let x = e - (e % 7); x <= e; x++) if (days.includes((x + 4) % 7)) n++;
-  const it = items[(n - 1) % items.length];
-  return {
-    title: it.kind === "dont" ? "مادر — این کار رو نکن" : "مادر — یادت باشه",
-    body: clip(it.body, 140),
-    tag: "medar-mother",
-    silent: true,
-  };
+  return items[(n - 1) % items.length];
 }
 
 /* «تعمیرات خونه»: urgent repairs nag every morning until they're fixed; upkeep
@@ -272,12 +267,13 @@ async function englishFor(sb: SupabaseClient, uid: string): Promise<Payload[]> {
    day counts when a task, an English ریز کار, a practice session or the
    minimum version (both ticks) was done on it, every STREAK_FREEZE_EVERY active days earn a freeze (at most
    STREAK_FREEZE_MAX), a missed day spends one.
-   streakFor() rides the every-10-minutes `english-push` cron and warns at
-   21:00 and 23:00 while today is still empty. Nothing is stored: each time is
-   a 10-minute window, and the cron lands in it exactly once. */
+   streakFor() rides the every-10-minutes `english-push` cron and warns once,
+   at 21:00, while today is still empty (the 23:00 one went with «بریف»).
+   Nothing is stored: the time is a 10-minute window, and the cron lands in it
+   exactly once. */
 const STREAK_FREEZE_EVERY = 7;
 const STREAK_FREEZE_MAX = 2;
-const STREAK_NUDGES_MIN = [21 * 60, 23 * 60];
+const STREAK_NUDGES_MIN = [21 * 60];
 const STREAK_CRON_MIN = 10;
 
 async function streakState(sb: SupabaseClient, uid: string, today: string) {
@@ -334,9 +330,7 @@ async function streakFor(sb: SupabaseClient, uid: string): Promise<Payload[]> {
   if (!streak || doneToday) return [];
   const cost = freezes ? "وگرنه یه فریز خرج می‌شه" : "فریز هم نداری، وگرنه صفر می‌شه";
   return [{
-    title: slot === STREAK_NUDGES_MIN.length - 1
-      ? `یه ساعت تا نیمه‌شب — استریک ${fa(streak)} روزه`
-      : `استریک ${fa(streak)} روزه‌ت در خطره`,
+    title: `استریک ${fa(streak)} روزه‌ت در خطره`,
     body: `امروز هنوز کاری تموم نکردی. یه کار کوچیک هم کافیه — ${cost}.`,
     tag: "medar-streak",
   }];
@@ -381,11 +375,11 @@ async function timedFor(sb: SupabaseClient, uid: string): Promise<Payload[]> {
 
 async function digestFor(sb: SupabaseClient, uid: string): Promise<Payload[]> {
   const today = localToday();
-  const [rem, subs, tasks, backups, review, care, careItems, repairs, maint] = await Promise.all([
+  const [rem, subs, tasks, overdue, review, care, careItems, repairs, maint] = await Promise.all([
     sb.from("reminders").select("title, kind, date, lead_days").eq("user_id", uid).eq("done", false).is("migrated_task_id", null).neq("kind", "always").not("date", "is", null),
     sb.from("subscriptions").select("id, name, cycle, next_renewal, notify_days_before").eq("user_id", uid).eq("active", true).not("next_renewal", "is", null),
     sb.from("tasks").select("id", { count: "exact", head: true }).eq("user_id", uid).eq("date", today).eq("done", false).is("shelved_at", null),
-    sb.from("backups").select("kind, created_at").eq("user_id", uid).order("created_at", { ascending: true }),
+    sb.from("tasks").select("id", { count: "exact", head: true }).eq("user_id", uid).lt("date", today).eq("done", false).is("shelved_at", null),
     sb.from("ai_reports").select("id").eq("user_id", uid).not("ritual", "is", null).is("completed_at", null)
       .gt("created_at", new Date(Date.now() - REVIEW_NUDGE_DAYS * 86400_000).toISOString()).limit(1),
     sb.from("mother_care").select("remind_days, push").eq("user_id", uid).maybeSingle(),
@@ -395,21 +389,17 @@ async function digestFor(sb: SupabaseClient, uid: string): Promise<Payload[]> {
   ]);
   for (const r of [rem, subs, tasks]) if (r.error) throw r.error;
 
-  const reminders = (rem.data || [])
-    .map((r: any) => ({ r, n: daysUntil(r.date, today) }))
-    .filter(({ r, n }) => n <= (r.lead_days || 0))
-    .sort((a, b) => a.n - b.n);
-  /* Subscriptions get their own notification — named in the title, so it isn't
-     a hidden fourth line of the digest — on the day the user chose (N days
-     before), the day before (if that's a different day) and the day itself.
-     Other days in the window, and an unrenewed recurring one, stay digest lines.
-     A one-time (cycle "once") subscription that has ended is never mentioned again. */
+  /* A subscription rings on its own once — named in the title — on the day
+     its user chose (N days before). Every other day of its window, and an
+     unrenewed recurring one, it is a row of «بریف». A one-time (cycle "once")
+     subscription that has ended is never mentioned again. */
   const subNotes: Payload[] = [];
   const renewals = (subs.data || [])
     .map((s: any) => ({ s, n: daysUntil(s.next_renewal, today), lead: s.notify_days_before ?? 3, once: s.cycle === "once" }))
     .filter(({ n, lead, once }) => n <= lead && !(once && n < 0))
-    .filter(({ s, n, lead, once }) => {
-      if (n !== lead && n !== 0 && !(n === 1 && lead > 1)) return true;
+    .map((x) => {
+      const { s, n, lead, once } = x;
+      if (n !== lead) return { ...x, pushed: false };
       const when = n === 0 ? "" : ` (${gregFa(s.next_renewal)})`;
       subNotes.push({
         title: `${once ? "پایان" : "تمدید"} ${clip(s.name, 40)}`,
@@ -419,77 +409,52 @@ async function digestFor(sb: SupabaseClient, uid: string): Promise<Payload[]> {
         tag: `medar-sub-${s.id}`,
         view: "subscriptions",
       });
-      return false;
-    })
-    .sort((a, b) => a.n - b.n);
-  const taskCount = tasks.count || 0;
+      return { ...x, pushed: true };
+    });
 
-  /* The server's own copies don't survive losing the project, only a downloaded
-     file does. 30 days after the last download (or after backups began, if
-     there's never been one) say so — then once a week, not every morning. */
-  let backupNote: Payload | null = null;
-  if (!backups.error && backups.data?.length) {
-    const downloads = backups.data.filter((b: any) => b.kind === "download");
-    const since = (downloads.length ? downloads[downloads.length - 1] : backups.data[0]).created_at;
-    const gap = daysUntil(today, since.slice(0, 10));
-    if (gap >= 30 && (gap - 30) % 7 === 0) {
-      backupNote = {
-        title: downloads.length ? `مدار — ${fa(gap)} روزه پشتیبان نگرفتی` : "مدار — هنوز پشتیبان نگرفتی",
-        body: "از منوی «پشتیبان» یه نسخه دانلود کن.",
-        tag: "medar-backup",
-        silent: true,
-      };
-    }
-  }
-
-  // مرور هفته was prepared but not done yet — one quiet line the next mornings
-  let reviewNote: Payload | null = null;
-  if (!review.error && review.data?.length) {
-    // same tag as generate-ai-report's «مرور هفته آماده‌ست», so this takes its place
-    reviewNote = {
-      title: "مدار — مرور هفته‌ت مونده",
-      body: "۵ دقیقه: هفته رو بچین و یه تعهد انتخاب کن.",
-      tag: "medar-review",
-      silent: true,
-    };
-  }
-
-  /* One short line each, so a line stays a line on the lock screen. */
-  const items = [
-    ...reminders.map(({ r, n }) => ({ n, line: `• ${clip(r.title, 30)} — ${reminderLabel(r, n)}` })),
-    ...renewals.map(({ s, n, once }) => ({ n, line: `• ${clip(s.name, 30)} — ${subLabel(n, once)}` })),
-    ...(maint.error ? [] : maint.data || []).map((m: any) => {
-      const n = daysUntil(m.next_due, today);
-      return { n, line: `• ${clip(m.title, 30)} — ${maintLabel(n)}` };
-    }),
-  ].sort((a, b) => a.n - b.n);
-  const repairLine = repairs.error ? "" : urgentRepairsLine(repairs.data || []);
+  /* The rows of «بریف» (the app's briefSections, without the quiet streak and
+     backup rows): the notification names the most urgent and counts the rest. */
+  type Row = { line: string; rank: number; n?: number; pushed?: boolean };
+  const rows: Row[] = [];
+  const taskCount = tasks.count || 0, lateCount = overdue.error ? 0 : overdue.count || 0;
+  if (taskCount) rows.push({ line: `${fa(taskCount)} کار برای امروز داری`, rank: 2 });
+  if (lateCount) rows.push({ line: `${fa(lateCount)} کار عقب‌افتاده داری`, rank: 3 });
   let englishLine = "";
   try { englishLine = await englishDigestLine(sb, uid, today); } catch (e) { console.error("english digest", e); }
-  let streakLine = "";
-  try {
-    const { streak } = await streakState(sb, uid, today);
-    if (streak) streakLine = `استریک: ${fa(streak)} روز — امروز هم یه کار تموم کن`;
-  } catch (e) { console.error("streak digest", e); }
+  if (englishLine) rows.push({ line: englishLine, rank: 4 });
+  const dated = [
+    ...(rem.data || []).map((r: any) => ({ r, n: daysUntil(r.date, today) })).filter(({ r, n }) => n <= (r.lead_days || 0))
+      .map(({ r, n }) => ({ n, line: `${clip(r.title, 40)} — ${reminderLabel(r, n)}` })),
+    ...renewals.map(({ s, n, once, pushed }) => ({ n, pushed, line: `${clip(s.name, 40)} — ${subLabel(n, once)}` })),
+    ...(maint.error ? [] : maint.data || []).map((m: any) => {
+      const n = daysUntil(m.next_due, today);
+      return { n, line: `${clip(m.title, 40)} — ${maintLabel(n)}` };
+    }),
+  ];
+  // due today or late goes first; what's still coming waits behind the day's own rows
+  for (const d of dated) rows.push({ ...d, rank: d.n <= 0 ? 0 : 5 });
+  const repairLine = repairs.error ? "" : urgentRepairsLine(repairs.data || []);
+  if (repairLine) rows.push({ line: repairLine, rank: 1 });
+  const item = care.error || careItems.error ? null : motherItem(care.data, careItems.data || [], today);
+  const motherLine = item && care.data?.push
+    ? `مادر — ${item.kind === "dont" ? "نکن: " : ""}${clip(item.body, 70)}`
+    : "";
 
+  const top = rows.filter((r) => !r.pushed).sort((a, b) => a.rank - b.rank || (a.n ?? 0) - (b.n ?? 0))[0];
   const out: Payload[] = [];
-  if (items.length || taskCount || repairLine || englishLine) {
-    const lines: string[] = [];
-    if (taskCount) lines.push(`${fa(taskCount)} کار برای امروز داری`);
-    lines.push(...items.slice(0, 3).map((i) => i.line));
-    if (items.length > 3) lines.push(`و ${fa(items.length - 3)} مورد دیگه`);
-    if (repairLine) lines.push(repairLine);
-    if (englishLine) lines.push(englishLine);
-    if (streakLine) lines.push(streakLine);
-    out.push({
-      title: items.some((i) => i.n <= 0) ? "مدار — امروز یادت نره" : "مدار — صبح بخیر",
-      body: lines.join("\n"),
-      tag: "medar-digest",
-    });
+  if (top || motherLine) {
+    const lines = [top?.line, motherLine].filter(Boolean) as string[];
+    const rest = rows.length + (item ? 1 : 0) - lines.length;
+    if (rest > 0) lines.push(`و ${fa(rest)} مورد دیگه توی بریف`);
+    out.push({ title: "مدار — بریف امروز", body: lines.join("\n"), tag: "medar-digest", view: "brief" });
   }
-  const mother = care.error || careItems.error ? null : motherNote(care.data, careItems.data || [], today);
   out.push(...subNotes);
-  for (const note of [mother, reviewNote, backupNote]) if (note) out.push(note);
+
+  // مرور هفته (parked) was prepared but not done yet — one quiet line the next mornings
+  if (!review.error && review.data?.length) {
+    // same tag as generate-ai-report's «مرور هفته آماده‌ست», so this takes its place
+    out.push({ title: "مدار — مرور هفته‌ت مونده", body: "۵ دقیقه: هفته رو بچین و یه تعهد انتخاب کن.", tag: "medar-review", silent: true });
+  }
   if (out.length) out[0].silent = false; // whichever comes first is the one that rings
   return out;
 }
@@ -640,7 +605,7 @@ Deno.serve(async (req: Request) => {
     if (action === "test") {
       const d = await digestFor(sb, user.id);
       if (d.length) return json(await sendAll(sb, user.id, d));
-      return json(await sendTo(sb, user.id, { title: "مدار", body: "اعلان‌ها روشنه ✓ هر روز ساعت ۸ صبح یادآوری‌ها و کارهای امروزت رو اینجا می‌بینی.", tag: "medar-test" }));
+      return json(await sendTo(sb, user.id, { title: "مدار", body: "اعلان‌ها روشنه ✓ هر روز ساعت ۸ صبح بریف امروز اینجا میاد.", tag: "medar-test" }));
     }
     return json({ error: "unknown action" }, 400);
   } catch (e) {

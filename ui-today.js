@@ -662,3 +662,121 @@ function renderTaskCompletionModal(){
     footer: dlgPrimary('ثبت', 'confirmTaskCompletion()') + dlgSecondary('رد کردن', 'skipTaskCompletion()'),
   });
 }
+
+/* ---------- بریف ----------
+   What the 08:00 notification used to carry, on its own page, so only the
+   important things ring (2026-11-28). Built from what's already in state —
+   nothing of its own to store, back up or expose over MCP. The morning push
+   (send-push digestFor) names the most urgent row and counts the rest of these
+   same rows (streak and backup aside) — keep the two in step. */
+const BRIEF_MAINT_DAYS = 7; // upkeep shows from a week before it's due (send-push MAINT_LEAD_DAYS)
+const BRIEF_SEEN_KEY = 'medar-brief-seen';
+function briefSeenToday(){
+  try{ return localStorage.getItem(BRIEF_SEEN_KEY) === dateKey(new Date()); }catch(_e){ return false; }
+}
+function markBriefSeen(){
+  try{ localStorage.setItem(BRIEF_SEEN_KEY, dateKey(new Date())); }catch(_e){}
+}
+// the one English line, the same three cases as send-push englishDigestLine
+function briefEnglishRow(today){
+  if(!state.englishSettings && !(state.englishChunks || []).length) return null;
+  const shelved = enShelvedIds();
+  const open = (state.englishChunks || []).filter(c => !c.done && !shelved.has(c.homeworkId));
+  const due = open.filter(c => c.day <= today);
+  const classToday = !!state.englishSettings && enIsClassDay(today);
+  const at = classToday ? fd(enClassTime(enWeekday(today))) : '';
+  let text = '';
+  if(classToday && open.length) text = `امروز ساعت ${at} کلاس داری و ${fd(open.length)} ریز کار از تکلیف مونده`;
+  else if(due.length) text = `${fd(due.length)} ریز کار از تکلیف مونده (${fmtMin(due.reduce((n, c) => n + (c.minutes || 0), 0))})`;
+  else if(classToday) text = `امروز ساعت ${at} کلاس داری`;
+  if(!text) return null;
+  const habit = enHabitNow(), appDay = enAppDay(), st = enDayStatus(appDay, habit.goal);
+  const sub = st === 'done' || st === 'min' ? 'جلسهٔ امروز انجام شد' : st === 'rest' ? 'امروز روز استراحته'
+    : `جلسهٔ امروز: ${fd(enDayMinutes(appDay))} از ${fd(habit.goal)} دقیقه`;
+  return { icon:'language', tone:'text-amber-500', text, sub, go:"navigateTo('english')" };
+}
+/* quiet rows (streak, backup) stay on the page but don't light the nav dot:
+   the streak is there nearly every day and the backup has its own dot on تنظیمات */
+function briefSections({ quiet = true } = {}){
+  const now = new Date(), today = dateKey(now);
+  const raw = todayData().raw;
+
+  const day = [];
+  const open = raw.filter(t => !t.done && t.date >= today);
+  const late = raw.filter(t => !t.done && t.date < today);
+  if(open.length){
+    const planned = open.reduce((s, t) => s + (t.durationMin || 0), 0);
+    day.push({ icon:'list-check', tone:'text-indigo-400', text:`${fd(open.length)} کار برای امروز`, sub: planned ? `${formatDuration(planned)} برنامه‌ریزی شده` : '', go:"navigateTo('today')" });
+  }
+  if(late.length) day.push({ icon:'clock', tone:'text-rose-400', text:`${fd(late.length)} کار عقب‌افتاده`, sub:overdueHeading(late), go:"state.todayOverdueOpen=true; navigateTo('today')" });
+  const en = briefEnglishRow(today);
+  if(en) day.push(en);
+
+  // dated things, the most urgent first (send-push: reminders, renewals, upkeep)
+  const dated = [
+    ...(state.reminders || []).filter(r => reminderVisible(r) && r.kind !== 'always' && r.date)
+      .map(r => ({ n:daysUntil(r.date), icon:'bell', text:esc(r.title), sub:reminderDueLabel(r), go:"navigateTo('tasks')" })),
+    ...(state.subscriptions || []).filter(s => ['due', 'overdue'].includes(subState(s)))
+      .map(s => ({ n:daysUntil(s.nextRenewal), icon:'credit-card', text:esc(s.name), sub:subDueLabel(s).text, go:"navigateTo('subscriptions')" })),
+    ...(state.homeMaint || []).filter(m => m.nextDue && daysUntil(m.nextDue) <= BRIEF_MAINT_DAYS)
+      .map(m => ({ n:daysUntil(m.nextDue), icon:'screwdriver-wrench', text:esc(m.title), sub:maintDueLabel(m), go:"navigateTo('repairs')" })),
+  ].sort((a, b) => a.n - b.n).map(x => ({ ...x, tone: x.n <= 0 ? 'text-rose-400' : 'text-indigo-400', subTone: x.n <= 0 ? 'text-rose-400' : '' }));
+  const urgent = (state.homeRepairs || []).filter(r => r.urgency === 'urgent' && r.status !== 'done');
+  if(urgent.length) dated.push({
+    icon:'hammer', tone:'text-rose-400', go:"navigateTo('repairs')",
+    text: urgent.length === 1 ? `تعمیر فوری: ${esc(urgent[0].title)}` : `${fd(urgent.length)} تعمیر فوری مونده`,
+    sub: urgent.length === 1 ? '' : urgent.slice(0, 3).map(r => esc(r.title)).join('، ') + (urgent.length > 3 ? ' و…' : ''),
+  });
+
+  const mind = [];
+  const care = motherItemForDay(now);
+  if(care) mind.push({ icon:'heart', tone:'text-rose-400', text:esc(care.body), clamp:true, sub: care.kind === 'dont' ? 'مادر — این کار رو نکن' : 'مادر — یادت باشه', go:"navigateTo('mother')" });
+  if(quiet){
+    const sk = computeStreak();
+    if(sk.streak) mind.push({ icon:'fire', tone:'text-amber-500', text:`زنجیره ${fd(sk.streak)} روزه`, sub: sk.atRisk ? 'امروز هنوز کاری تموم نکردی' : 'امروز ثبت شد', subTone: sk.atRisk ? 'text-amber-400' : '', go:'openStreakPanel()' });
+    if(backupOverdue()){
+      const last = lastBackupDownload();
+      mind.push({ icon:'cloud-arrow-down', tone:'text-rose-400', text: last ? `${fd(backupDaysAgo(last.createdAt))} روزه پشتیبان دانلود نکردی` : 'هنوز پشتیبان دانلود نکردی', sub:'تنظیمات ← پشتیبان', go:"navigateTo('settings')" });
+    }
+  }
+  return [['امروز', day], ['سررسیدها', dated], ['یادت باشه', mind]].filter(([, rows]) => rows.length).map(([label, rows]) => ({ label, rows }));
+}
+const briefHasNews = () => !briefSeenToday() && briefSections({ quiet:false }).length > 0;
+function briefRow(r, i, mob){
+  return `
+    <button type="button" onclick="${r.go}" class="w-full flex items-center gap-3 ${i ? 'border-t border-slate-800' : ''} ${mob ? 'p-4' : 'px-5 py-4 hover:bg-slate-800/60 transition-colors'} text-right">
+      <span class="${mob ? 'w-8 h-8 rounded-lg' : 'w-9 h-9 rounded-xl'} bg-slate-950 border border-slate-800 flex items-center justify-center shrink-0">${fa(r.icon, `text-xs ${r.tone}`)}</span>
+      <span class="flex-1 min-w-0">
+        <span class="block ${mob ? 'text-xs' : 'text-sm'} font-bold text-slate-200 leading-relaxed ${r.clamp ? 'line-clamp-2' : ''}" dir="auto">${r.text}</span>
+        ${r.sub ? `<span class="block ${mob ? 'text-[10px]' : 'text-[11px]'} font-bold ${r.subTone || 'text-slate-500'} mt-0.5">${r.sub}</span>` : ''}
+      </span>
+      ${fa('chevron-left', 'text-[10px] text-slate-600 shrink-0')}
+    </button>`;
+}
+function briefBody(mob){
+  const sections = briefSections();
+  if(!sections.length) return `<div class="py-16 flex flex-col items-center justify-center text-slate-600">${fa('mug-hot', 'text-4xl mb-3 opacity-40')}<p class="${mob ? 'text-[11px]' : 'text-xs'} font-bold">امروز چیز خاصی نیست</p></div>`;
+  return sections.map(s => `
+    <section>
+      <p class="text-[10px] font-black text-slate-600 mb-2 px-1">${s.label}</p>
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">${s.rows.map((r, i) => briefRow(r, i, mob)).join('')}</div>
+    </section>`).join('');
+}
+function renderBriefDesktop(){
+  markBriefSeen();
+  const { wd, jalali } = fmtHeaderDate(state.today);
+  const header = deskHeader({ icon:'sun', title:`بریف، ${wd}`, sub:jalali });
+  return deskMain({ header, body:`<div class="max-w-3xl mx-auto space-y-8">${briefBody(false)}</div>` });
+}
+function renderBriefMobile(){
+  markBriefSeen();
+  const { wd, jalali } = fmtHeaderDate(state.today);
+  return `
+    ${mobHeader(`<div><h1 class="text-sm font-black text-white leading-none mb-1">بریف، ${wd}</h1><p class="text-[10px] text-slate-500 font-medium">${jalali}</p></div>`, '', 'px-4 py-4 flex items-center justify-between')}
+    <main class="safe-area-bottom">
+      <div class="p-4 space-y-6">
+        ${renderStatusBars()}
+        ${briefBody(true)}
+      </div>
+    </main>`;
+}

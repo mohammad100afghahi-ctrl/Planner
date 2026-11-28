@@ -910,7 +910,7 @@ function renderMaintEditorModal(){
       ${field('هر چند وقت یه بار؟', chipBox(MAINT_EVERY_CHOICES.map(([k, label]) => choiceChip(label, ed.everyMonths === k, `state.maintEditor.everyMonths=${k}; render()`)).join('') + `<span class="flex items-center gap-1 text-[10px] font-bold text-slate-500">هر <input type="text" inputmode="numeric" value="${custom ? fd(ed.everyMonths) : ''}" oninput="normalizeNumericInput(this)" onchange="const v=parseInt(this.value,10); if(v>=1 && v<=60){ state.maintEditor.everyMonths=v; render(); }" class="w-10 bg-slate-950 border border-slate-800 rounded-lg px-1 py-0.5 text-center text-slate-200"> ماه</span>`))}
       ${field(ed.maintId ? 'موعد بعدی' : 'اولین موعد', `<button type="button" onclick="toggleMaintCalendar()" class="w-full bg-slate-900 border border-slate-800 p-3 rounded-2xl text-xs font-bold text-slate-300 flex items-center justify-between hover:border-indigo-500/50 transition-colors"><span>${jDate(ed.nextDue, true)}</span>${fa('calendar-day', 'text-indigo-500')}</button>
         ${ed.calendarOpen ? renderPickCalendar({ jy:ed.calJY, jm:ed.calJM, date:ed.nextDue, prev:'maintCalPrevMonth', next:'maintCalNextMonth', pick:'maintCalPick' }) : ''}
-        <p class="text-[10px] text-slate-500 leading-relaxed px-1">از یه هفته قبلِ موعد توی اعلان صبح میاد؛ وقتی بزنی «انجامش دادم»، موعد بعدی خودش جلو می‌ره.</p>`)}
+        <p class="text-[10px] text-slate-500 leading-relaxed px-1">از یه هفته قبلِ موعد توی بریف میاد؛ وقتی بزنی «انجامش دادم»، موعد بعدی خودش جلو می‌ره.</p>`)}
       ${field('کجای خونه؟', chipBox(rooms.map(r => choiceChip(esc(r), ed.room === r, "maintEditorPick('room', this.dataset.v)", `data-v="${ea(r)}"`)).join('')))}
       ${field('کی انجامش می‌ده؟', segmented([['self','خودم'], ['pro','استادکار']], ed.who, v => `maintEditorPick('who', '${v}')`) + (ed.who === 'pro' ? chipBox(trades.map(t => choiceChip(esc(t), ed.trade === t, "maintEditorPick('trade', this.dataset.v)", `data-v="${ea(t)}"`)).join('')) : ''))}
       ${field('یادداشت', `<textarea dir="auto" placeholder="مدل فیلتر، شماره‌ی سرویس‌کار…" oninput="state.maintEditor.note=this.value" class="${textareaCls()}">${esc(ed.note)}</textarea>`)}`,
@@ -1250,7 +1250,7 @@ function renderSubscriptionEditorModal(){
         </div>
         ${ed.calOpen ? `<div class="mt-2">${renderGregPickCalendar({ y:ed.calY, m:ed.calM, date:ed.nextRenewal, prev:'subCalPrev', next:'subCalNext', pick:'subCalPick' })}</div>` : ''}`)}
       ${field('چند روز قبل هشدار بده', `<input type="text" inputmode="numeric" value="${fd(ed.notifyDaysBefore)}" oninput="normalizeNumericInput(this)" onchange="subEditorSet('notifyDaysBefore', Math.min(60, parseInt(toEnDigits(this.value),10) || 0))" class="w-full bg-slate-900 border border-slate-800 rounded-2xl p-3 text-sm font-black text-white focus:outline-none focus:border-indigo-500/50">
-        <p class="text-[10px] text-indigo-400 font-bold px-1">${ed.nextRenewal ? `اعلان روز ${gDate(addDaysKey(ed.nextRenewal, -(ed.notifyDaysBefore || 0)))} ساعت ۸ صبح میاد${ed.notifyDaysBefore ? '، روز آخر هم یه بار دیگه' : ''}.` : '۰ یعنی همون روز.'}</p>`)}
+        <p class="text-[10px] text-indigo-400 font-bold px-1">${ed.nextRenewal ? `اعلان روز ${gDate(addDaysKey(ed.nextRenewal, -(ed.notifyDaysBefore || 0)))} ساعت ۸ صبح میاد${ed.notifyDaysBefore ? '؛ تا روز آخر توی بریف می‌مونه' : ''}.` : '۰ یعنی همون روز.'}</p>`)}
       ${field('یادداشت', `<input type="text" dir="auto" value="${ea(ed.note || '')}" oninput="subEditorSet('note',this.value)" class="${inputCls}">`)}`,
   });
 }
@@ -1748,7 +1748,7 @@ function renderMotherDesktop(){
               <div class="flex gap-1 justify-between">${weekdayBtns(s.remindDays, d => `toggleMotherDay(${d})`, 'rose', 'w-8 h-8')}</div>
             </div>
             <div class="flex items-center justify-between border-t border-slate-800 pt-6">
-              <div><p class="text-xs font-bold text-slate-300">اعلان صبحگاهی</p><p class="text-[10px] text-slate-600">ارسال اعلان در ساعت ۸:۰۰</p></div>
+              <div><p class="text-xs font-bold text-slate-300">اعلان صبحگاهی</p><p class="text-[10px] text-slate-600">یه خط توی اعلان ۸ صبح</p></div>
               ${switchBtn(s.push, `setMotherFlag('push', ${!s.push})`, 'اعلان صبحگاهی', 'rose')}
             </div>
             <div class="flex items-center justify-between border-t border-slate-800 pt-6">
