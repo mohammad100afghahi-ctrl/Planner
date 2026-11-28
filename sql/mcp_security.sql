@@ -67,7 +67,7 @@ begin
   foreach t in array array['tasks','subtasks','tags','task_tags','tag_goals','recurring_templates','recurring_template_tags',
     'ideas','idea_tags','idea_images','prompts','purchases','subscriptions','wins','mother_care','mother_care_items',
     'home_repairs','home_repair_parts','home_maintenance','english_homework','english_chunks','english_settings',
-    'english_practice','ai_reports','task_date_changes','mcp_history']
+    'english_practice','english_sessions','english_misses','ai_reports','task_date_changes','mcp_history']
   loop
     execute format('drop policy if exists "ai only via mcp" on public.%I', t);
     execute format('create policy "ai only via mcp" on public.%I as restrictive for all to authenticated

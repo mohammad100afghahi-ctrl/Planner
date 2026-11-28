@@ -39,7 +39,8 @@ returns text[] language sql immutable as $$
     'purchases','subscriptions','reminders','prompts','wins',
     'mother_care','mother_care_items',
     'home_repairs','home_repair_parts','home_maintenance',
-    'english_settings','english_homework','english_chunks','english_practice'];
+    'english_settings','english_homework','english_chunks','english_practice',
+    'english_sessions','english_misses'];
 $$;
 
 create or replace function private.backup_payload(uid uuid)

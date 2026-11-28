@@ -500,6 +500,20 @@ function renderDialog({ title, body, footer = '', onClose, wide }){
 const dlgPrimary = (label, onclick, attrs = '') => `<button type="button" onclick="${onclick}" ${attrs} class="flex-1 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-black transition-all disabled:opacity-50">${label}</button>`;
 const dlgSecondary = (label, onclick, attrs = '') => `<button type="button" onclick="${onclick}" ${attrs} class="px-6 py-3 bg-slate-900 hover:bg-slate-800 text-slate-400 rounded-xl text-xs font-black transition-all">${label}</button>`;
 
+// copy a text for pasting elsewhere (خلاصهٔ هفته); older Android WebViews copy through a selected textarea
+async function copyText(text, toast){
+  try{
+    await navigator.clipboard.writeText(text);
+  }catch(_e){
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    try{ document.execCommand('copy'); }catch(_e2){}
+    ta.remove();
+  }
+  if(toast) showInfoToast(toast);
+}
+
 /* ---------- toasts ---------- */
 function toastFrame(inner, tone = ''){
   return `<div class="fixed z-[80] ${isDesk() ? 'bottom-10 left-1/2 -translate-x-1/2' : 'bottom-24 inset-x-4'} ${tone === 'error' ? 'bg-rose-950/90 border-rose-500/30 text-rose-200' : 'bg-slate-900/95 border-slate-700 text-slate-200'} border backdrop-blur-xl rounded-2xl px-4 py-3 shadow-2xl flex items-center gap-3 text-xs font-bold" role="status">${inner}</div>`;
@@ -550,6 +564,7 @@ function renderOverlays(){
     state.newRepairOpen ? renderNewRepairModal() : '',
     state.maintEditor ? renderMaintEditorModal() : '',
     state.enHwEditor ? renderEnglishHwEditorModal() : '',
+    state.enSplitAsk ? renderEnglishSplitAsk() : '',
     state.repairDoneModal ? renderRepairDoneModal() : '',
     state.moveTaskPicker ? renderMoveTaskPicker() : '',
     state.restorePreview && !(state.view === 'settings') ? renderRestoreModal() : '',

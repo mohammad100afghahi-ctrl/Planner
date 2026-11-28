@@ -11,6 +11,8 @@ import jalaali from "npm:jalaali-js@1.2.8";
      x-cron-secret + {action:"english"}  — the every-10-minutes pg_cron job: «انگلیسی» nudges
                                           that are due right now (see englishFor), and the
                                           21:00 / 23:00 streak warning (see streakFor)
+     x-cron-secret + {action:"tasks"}    — the every-minute pg_cron job: task reminders, and
+                                          English practice timers that ran out (englishTimerRun)
      user JWT + {action:"publicKey"}     — the app asks for the VAPID public key before subscribing
      user JWT + {action:"test"}          — «ارسال اعلان آزمایشی»: the caller's digest right now
    The morning digest is several notifications, each with its own tag so one
@@ -156,17 +158,25 @@ const localDayOf = (iso: string) => new Date(Date.parse(iso) + TZ_OFFSET_HOURS *
 const classTimeOn = (s: any, day: string) => (s.class_times || {})[weekdayOf(day)] || s.class_time;
 
 async function englishData(sb: SupabaseClient, uid: string, today: string) {
-  const [chunks, practice] = await Promise.all([
+  const [chunks, practice, sessions, shelved] = await Promise.all([
     sb.from("english_chunks").select("title, minutes, day, done, done_at, homework_id, position").eq("user_id", uid)
       .or(`done.eq.false,done_at.gte.${new Date(Date.parse(addDaysKey(today, -3) + "T00:00:00Z")).toISOString()}`)
       .order("day", { ascending: true }).order("position", { ascending: true }),
-    sb.from("english_practice").select("day").eq("user_id", uid).gte("day", addDaysKey(today, -2)),
+    // the minimum version counts only with both ticks
+    sb.from("english_practice").select("day").eq("user_id", uid).eq("spoke", true).eq("listened", true).gte("day", addDaysKey(today, -2)),
+    sb.from("english_sessions").select("day").eq("user_id", uid).gt("minutes", 0).gte("day", addDaysKey(today, -2)),
+    // a shelved homework («کنار بذار») is off every list, its ریز کارها too
+    sb.from("english_homework").select("id").eq("user_id", uid).not("shelved_at", "is", null),
   ]);
   if (chunks.error) throw chunks.error;
   if (practice.error) throw practice.error;
+  if (sessions.error) throw sessions.error;
+  if (shelved.error) throw shelved.error;
   const practiced = new Set<string>((practice.data || []).map((p: any) => p.day));
+  for (const x of sessions.data || []) practiced.add(x.day);
   for (const c of chunks.data || []) if (c.done && c.done_at) practiced.add(localDayOf(c.done_at));
-  const open = (chunks.data || []).filter((c: any) => !c.done);
+  const off = new Set((shelved.data || []).map((h: any) => h.id));
+  const open = (chunks.data || []).filter((c: any) => !c.done && !off.has(c.homework_id));
   return { open, practiced };
 }
 
@@ -200,7 +210,9 @@ async function englishFor(sb: SupabaseClient, uid: string): Promise<Payload[]> {
 
   const wantAfter = classToday && inWindow(classEnd) && pushed.after !== today;
   const inClass = classToday && nowMin >= classStart && nowMin < classEnd;
-  const wantPractice = inWindow(practiceAt) && !inClass && pushed.practice !== today;
+  // the habit table's rest day («جدول عادت», rest_day) is left alone
+  const restToday = !!s.habit_start && s.habit_start <= today && Number(s.rest_day ?? 5) === weekdayOf(today);
+  const wantPractice = inWindow(practiceAt) && !inClass && !restToday && pushed.practice !== today;
   const wantEve = days.includes(weekdayOf(addDaysKey(today, 1))) && nowMin >= ENGLISH_EVE_MIN && pushed.eve !== today;
   if (!wantAfter && !wantPractice && !wantEve) return [];
 
@@ -243,9 +255,9 @@ async function englishFor(sb: SupabaseClient, uid: string): Promise<Payload[]> {
           tag: "medar-english",
         }
         : {
-          title: "انگلیسی — ۵ دقیقه‌ی امروز",
-          body: `ریز کار بازی نداری؛ ۵ دقیقه مرور کن تا استریکت نشکنه.`,
-          tag: "medar-english",
+          title: "انگلیسی — وقت جلسهٔ امروزه",
+          body: "«شروع جلسه» رو بزن. روز سختیه؟ نسخهٔ حداقل هم حسابه.",
+          tag: "medar-english", view: "english",
         });
     }
   }
@@ -257,8 +269,8 @@ async function englishFor(sb: SupabaseClient, uid: string): Promise<Payload[]> {
 
 /* ---------- استریک ----------
    The same replay as computeStreak() in index.html — keep the two in step: a
-   day counts when a task, an English ریز کار or the 5-minute minimum was done
-   on it, every STREAK_FREEZE_EVERY active days earn a freeze (at most
+   day counts when a task, an English ریز کار, a practice session or the
+   minimum version (both ticks) was done on it, every STREAK_FREEZE_EVERY active days earn a freeze (at most
    STREAK_FREEZE_MAX), a missed day spends one.
    streakFor() rides the every-10-minutes `english-push` cron and warns at
    21:00 and 23:00 while today is still empty. Nothing is stored: each time is
@@ -280,14 +292,17 @@ async function streakState(sb: SupabaseClient, uid: string, today: string) {
     }
     if (!data || data.length < 1000) break;
   }
-  const [chunks, practice] = await Promise.all([
+  const [chunks, practice, sessions] = await Promise.all([
     sb.from("english_chunks").select("done_at").eq("user_id", uid).eq("done", true).not("done_at", "is", null),
-    sb.from("english_practice").select("day").eq("user_id", uid),
+    sb.from("english_practice").select("day").eq("user_id", uid).eq("spoke", true).eq("listened", true),
+    sb.from("english_sessions").select("day").eq("user_id", uid).gt("minutes", 0),
   ]);
   if (chunks.error) throw chunks.error;
   if (practice.error) throw practice.error;
+  if (sessions.error) throw sessions.error;
   for (const c of chunks.data || []) days.add(localDayOf(c.done_at));
   for (const p of practice.data || []) days.add(p.day);
+  for (const x of sessions.data || []) days.add(x.day);
   let streak = 0, freezes = 0, towardFreeze = 0;
   const first = [...days].sort()[0];
   if (first && first <= today) {
@@ -325,6 +340,34 @@ async function streakFor(sb: SupabaseClient, uid: string): Promise<Payload[]> {
     body: `امروز هنوز کاری تموم نکردی. یه کار کوچیک هم کافیه — ${cost}.`,
     tag: "medar-streak",
   }];
+}
+
+/* ---------- انگلیسی › تایمر «جلسهٔ امروز» ----------
+   Rides the every-minute `task-reminders` cron ({action:"tasks"}). Closes a
+   practice timer whose time is up — so it counts even if the app is never
+   opened again — and says «جلسه تموم شد.» once. The app closes it itself when
+   it's open at that moment; whichever update finds ended_at still empty rings. */
+const TIMER_QUIET_AFTER_MS = 3600_000; // a timer closed hours late (cron was down) is closed quietly
+async function englishTimerRun(sb: SupabaseClient) {
+  const results: any[] = [];
+  const { data, error } = await sb.from("english_sessions").select("id, user_id, started_at, target_min")
+    .eq("source", "timer").is("ended_at", null).not("started_at", "is", null);
+  if (error) throw error;
+  for (const x of data || []) {
+    const end = Date.parse(x.started_at) + (x.target_min || 0) * 60_000;
+    if (Date.now() < end) continue;
+    const ended = new Date(end).toISOString();
+    const { data: closed, error: e2 } = await sb.from("english_sessions")
+      .update({ ended_at: ended, minutes: x.target_min, completed: true }).eq("id", x.id).is("ended_at", null).select("id");
+    if (e2) { results.push({ error: e2.message }); continue; }
+    if (!closed?.length || Date.now() - end > TIMER_QUIET_AFTER_MS) continue;
+    try {
+      results.push(await sendTo(sb, x.user_id, {
+        title: "جلسه تموم شد.", body: `${fa(x.target_min)} دقیقه انگلیسی ثبت شد.`, tag: "medar-english-timer", view: "english",
+      }));
+    } catch (e) { results.push({ error: String((e as any)?.message ?? e) }); }
+  }
+  return results;
 }
 
 // what the every-10-minutes cron sends; one part failing must not silence the other
@@ -568,7 +611,12 @@ Deno.serve(async (req: Request) => {
       }
       const { data: rows, error } = await sb.from("push_subscriptions").select("user_id");
       if (error) throw error;
-      if (action === "tasks") return json(await taskReminderRun(sb));
+      if (action === "tasks") {
+        const tasks = await taskReminderRun(sb);
+        let englishTimers: any;
+        try { englishTimers = await englishTimerRun(sb); } catch (e) { console.error(e); englishTimers = { error: String((e as any)?.message ?? e) }; }
+        return json({ ...tasks, englishTimers });
+      }
       if (action !== "digest" && action !== "english") return json({ error: "unknown action" }, 400);
       const results: any[] = [];
       // one account's failure must not stop the cron from reaching the others

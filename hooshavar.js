@@ -48,19 +48,8 @@ function hvSummaryText(days){
   });
   return lines.join('\n');
 }
-async function hvCopySummary(){
-  const text = hvSummaryText(hvWeekDays(hvState.weekOffset));
-  try{
-    await navigator.clipboard.writeText(text);
-  }catch(_e){
-    // older Android WebViews: copy through a selected textarea
-    const ta = document.createElement('textarea');
-    ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
-    document.body.appendChild(ta); ta.select();
-    try{ document.execCommand('copy'); }catch(_e2){}
-    ta.remove();
-  }
-  showInfoToast('خلاصه کپی شد');
+function hvCopySummary(){
+  copyText(hvSummaryText(hvWeekDays(hvState.weekOffset)), 'خلاصه کپی شد');
 }
 function hvShiftWeek(n){ hvState.weekOffset = Math.min(0, hvState.weekOffset + n); render(); }
 function hvSummaryCard(mob){

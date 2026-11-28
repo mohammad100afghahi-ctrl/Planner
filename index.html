@@ -589,7 +589,7 @@ window.addEventListener('offline', () => { lastSyncNetworkFailed = true; renderS
 setInterval(() => { if(outbox.length && navigator.onLine) goOnline(); }, 30000);
 
 /* ---------- offline snapshot of loaded data ---------- */
-const SNAPSHOT_KEYS = ['tags','tasks','recurringTemplates','tagGoals','aiReports','purchases','ideas','subscriptions','reminders','prompts','wins','motherItems','motherSettings','homeRepairs','homeParts','homeMaint','englishSettings','englishHomework','englishChunks','englishPractice','aiHealth'];
+const SNAPSHOT_KEYS = ['tags','tasks','recurringTemplates','tagGoals','aiReports','purchases','ideas','subscriptions','reminders','prompts','wins','motherItems','motherSettings','homeRepairs','homeParts','homeMaint','englishSettings','englishHomework','englishChunks','englishPractice','englishSessions','englishMisses','aiHealth'];
 let dataLoaded = false; // state holds real data (server or snapshot), safe to snapshot
 let snapshotTimer = null;
 function scheduleSnapshot(){
@@ -785,7 +785,9 @@ let state = {
   englishSettings: null, // { classDays:[getDay()…], classTime, classTimes:{getDay():'HH:MM'}, classMinutes, practiceTime, push } — null until saved once (defaults apply)
   englishHomework: [], // [{ id, title, unit, assignedOn, dueOn, createdAt }]
   englishChunks: [], // [{ id, homeworkId, title, minutes, day, position, done, doneAt, skips:[{ day, reason }], createdAt }]
-  englishPractice: [], // [{ day, createdAt }] — days the 5-minute minimum was ticked
+  englishPractice: [], // [{ day, createdAt, spoke, listened }] — «روز بد: نسخهٔ حداقل»; both ticks = the day counts
+  englishSessions: [], // [{ id, day, source:'timer'|'manual', startedAt, targetMin, endedAt, minutes, completed, recalled }]
+  englishMisses: [], // [{ day, reason, note }] — «دیروز کجا گیر کرد؟»
   englishTab: 'hw', // 'hw' | 'done' | 'stats' | 'settings'
   newHomework: { title:'', unit:'', dueOn:'', minutes:'', subs:[] }, // subs: the ریز کارها typed into the form ({title, minutes}), not saved yet; minutes: the homework's own time while it has none
   enHwEditor: null, // { hwId, title, unit, dueOn, chunks:[{ id, title, minutes, done }] } while editing a homework
@@ -890,7 +892,9 @@ async function loadAll(attempt){
       sb.from('english_settings').select('*').maybeSingle(),
       sb.from('english_homework').select('*').order('created_at', { ascending:true }),
       sb.from('english_chunks').select('*').order('created_at', { ascending:true }),
-      sb.from('english_practice').select('day, created_at').order('day', { ascending:true }),
+      sb.from('english_practice').select('day, created_at, spoke, listened').order('day', { ascending:true }),
+      sb.from('english_sessions').select('*').order('created_at', { ascending:true }),
+      sb.from('english_misses').select('*').order('day', { ascending:true }),
     ].map(ask)),
   ]);
   if(restWriteSeq !== writesBefore && (attempt || 0) < 2) return loadAll((attempt || 0) + 1);
@@ -1011,17 +1015,22 @@ async function loadAll(attempt){
   }
   try{
     for(const r of englishRes) if(r.error) throw r.error;
-    const [settings, homework, chunks, practice] = englishRes;
+    const [settings, homework, chunks, practice, sessions, misses] = englishRes;
     state.englishSettings = settings.data ? englishSettingsFromRow(settings.data) : null;
     state.englishHomework = homework.data.map(englishHomeworkFromRow);
     state.englishChunks = chunks.data.map(englishChunkFromRow);
-    state.englishPractice = practice.data.map(p => ({ day:p.day, createdAt:p.created_at }));
+    state.englishPractice = practice.data.map(englishPracticeFromRow);
+    state.englishSessions = sessions.data.map(englishSessionFromRow);
+    state.englishMisses = misses.data.map(r => ({ day:r.day, reason:r.reason || null, note:r.note || '' }));
     englishTableReady = true;
+    enTimerSync();
   } catch(e){
     console.error('load english failed', e);
     if(!state.englishHomework) state.englishHomework = [];
     if(!state.englishChunks) state.englishChunks = [];
     if(!state.englishPractice) state.englishPractice = [];
+    if(!state.englishSessions) state.englishSessions = [];
+    if(!state.englishMisses) state.englishMisses = [];
   }
   if(fromServer){
     dataLoaded = true;
@@ -1499,14 +1508,31 @@ function startRealtimeSync(){
     });
     enSync('english_homework', 'englishHomework', englishHomeworkFromRow);
     enSync('english_chunks', 'englishChunks', englishChunkFromRow);
+    registerRealtimeSync(channel, 'english_sessions', {
+      onInsert(row){ if(state.englishSessions.some(x => x.id === row.id)) return; state.englishSessions.push(englishSessionFromRow(row)); enTimerSync(); render(); },
+      onUpdate(row){ const x = state.englishSessions.find(y => y.id === row.id); if(!x) return; Object.assign(x, englishSessionFromRow(row)); enTimerSync(); render(); },
+      onDelete(old){ state.englishSessions = state.englishSessions.filter(x => x.id !== old.id); enTimerSync(); render(); },
+    });
+    // while this device's own settings writes are on the way, an echo of an older one must not undo the newer (the lost Saturday class time)
     registerRealtimeSync(channel, 'english_settings', {
-      onInsert(row){ state.englishSettings = englishSettingsFromRow(row); render(); },
-      onUpdate(row){ state.englishSettings = englishSettingsFromRow(row); render(); },
+      onInsert(row){ if(enSettingsPending) return; state.englishSettings = englishSettingsFromRow(row); render(); },
+      onUpdate(row){ if(enSettingsPending) return; state.englishSettings = englishSettingsFromRow(row); render(); },
+    });
+    registerRealtimeSync(channel, 'english_misses', {
+      onInsert(row){ if(state.englishMisses.some(m => m.day === row.day)) return; state.englishMisses.push({ day:row.day, reason:row.reason || null, note:row.note || '' }); render(); },
+      onUpdate(row){ const m = state.englishMisses.find(x => x.day === row.day); if(m){ m.reason = row.reason || null; m.note = row.note || ''; render(); } },
+      onDelete(old){ state.englishMisses = state.englishMisses.filter(m => m.day !== old.day); render(); },
     });
     registerRealtimeSync(channel, 'english_practice', {
       onInsert(row){
         if(state.englishPractice.some(p => p.day === row.day)) return;
-        state.englishPractice.push({ day:row.day, createdAt:row.created_at });
+        state.englishPractice.push(englishPracticeFromRow(row));
+        render();
+      },
+      onUpdate(row){
+        const p = state.englishPractice.find(x => x.day === row.day);
+        if(!p) return;
+        Object.assign(p, englishPracticeFromRow(row));
         render();
       },
       onDelete(old){
@@ -4670,22 +4696,30 @@ async function confirmMaintEditor(){
    ریز کارها it breaks into typed by hand — the same way a task gets its
    subtasks (english_chunks are those ریز کارها; a homework written without any
    gets one, itself). The open ones sit in a card on امروز until they're done.
-   A day with a ریز کار done or the 5-minute minimum (english_practice)
-   counts toward the main streak (computeStreak). The timed pushes (after
-   class, daily practice time, the night before a class) are in send-push's
+   Homework over a week late folds into «عقب‌افتاده‌ها», where it can be
+   finished in one go or shelved (shelved_at — kept, shown with the done ones).
+
+   Practice (since 2026-11-28, from the English teacher): a «جدول عادت» —
+   the day «شروع جدول عادت» is tapped is day 1, weeks turn on Saturday, and
+   the daily goal climbs EN_HABIT_GOALS a step a week while the week before had
+   EN_HABIT_PASS done days out of 6 (else the user picks «برو بالا» or «همین
+   بمونه», kept in habit_steps). One rest day a week (rest_day) never counts as
+   a miss. A day is done when its sessions (english_sessions: a timer, which
+   send-push closes when it runs out, or a manual entry) reach the goal, or by
+   the minimum version (english_practice with both ticks). Days run 07:00 →
+   07:00 (enAppDay). Sessions, the minimum and ticked ریز کارها all count
+   toward the main streak (computeStreak). The timed pushes (after class,
+   daily practice time, the night before a class) are in send-push's
    englishFor — keep the class-day rules there in step with the ones here. */
-const DEFAULT_ENGLISH_SETTINGS = { classDays:[], classTime:'18:00', classTimes:{}, classMinutes:90, practiceTime:'20:00', push:true, weeklyGoalMin:null };
+const DEFAULT_ENGLISH_SETTINGS = { classDays:[], classTime:'18:00', classTimes:{}, classMinutes:90, practiceTime:'20:00', push:true, weeklyGoalMin:null,
+  habitStart:null, restDay:5, habitSteps:{} };
 const EN_WEEKDAY_SHORT = ['ی','د','س','چ','پ','ج','ش']; // getDay() order
-// what the 5-minute minimum can be, one per weekday so it isn't the same line every day
-const EN_MIN_IDEAS = [
-  'واژه‌های درس آخر رو یه بار بلند بخون.',
-  'مکالمه‌ی درس آخر رو با صدای بلند بخون.',
-  'سه جمله درباره‌ی امروزت به انگلیسی بنویس.',
-  'فایل صوتی درس آخر رو یه بار گوش بده.',
-  'گرامر درس آخر رو نگاه کن و دو تا مثال بساز.',
-  'یه صفحه از درس آخر رو مرور کن.',
-  'واژه‌هایی که سر کلاس یاد گرفتی رو مرور کن.',
-];
+const EN_DAY_START_H = 7;                       // a session at 01:00 belongs to the day before
+const EN_HABIT_GOALS = [30, 30, 35, 45, 60, 60, 60, 60]; // minutes a day by level: 0 = هفتهٔ آشنایی, 1–6 the table, 7 = done
+const EN_HABIT_LAST = 6;
+const EN_HABIT_PASS = 4;                        // done days of 6 that move the next week up on their own
+const EN_MANUAL_MAX = 180;
+const EN_MISS_REASONS = [['forgot','یادم رفت'], ['tired','حال نداشتم'], ['time','وقت نشد'], ['unsure','نمی‌دونستم چی بخونم'], ['other','چیز دیگه']];
 const EN_NOHW_KEY = 'medar-english-nohw'; // the class date «تکلیف نداشتیم» was tapped for
 
 function englishSettingsFromRow(r){
@@ -4694,10 +4728,19 @@ function englishSettingsFromRow(r){
     classTimes:(r.class_times && typeof r.class_times === 'object') ? r.class_times : {},
     classMinutes:Number(r.class_minutes) || 90, practiceTime:r.practice_time || '20:00', push:r.push !== false,
     weeklyGoalMin:Number(r.weekly_goal_min) || null,
+    habitStart:r.habit_start || null, restDay:r.rest_day == null ? 5 : Number(r.rest_day),
+    habitSteps:(r.habit_steps && typeof r.habit_steps === 'object') ? r.habit_steps : {},
   };
 }
 function englishHomeworkFromRow(r){
-  return { id:r.id, title:r.title || '', unit:r.unit || '', assignedOn:r.assigned_on, dueOn:r.due_on, createdAt:r.created_at };
+  return { id:r.id, title:r.title || '', unit:r.unit || '', assignedOn:r.assigned_on, dueOn:r.due_on, shelvedAt:r.shelved_at || null, createdAt:r.created_at };
+}
+function englishPracticeFromRow(r){
+  return { day:r.day, createdAt:r.created_at, spoke:r.spoke !== false, listened:r.listened !== false };
+}
+function englishSessionFromRow(r){
+  return { id:r.id, day:r.day, source:r.source || 'timer', startedAt:r.started_at || null, targetMin:Number(r.target_min) || null,
+    endedAt:r.ended_at || null, minutes:r.minutes == null ? null : Number(r.minutes), completed:!!r.completed, recalled:!!r.recalled, createdAt:r.created_at };
 }
 function englishChunkFromRow(r){
   return {
@@ -4752,21 +4795,25 @@ function enDueLabel(h){
   if(n > 1) return `کلاس ${WEEKDAYS_FA[enWeekday(h.dueOn)]} — ${toFaDigits(n)} روز مونده`;
   if(n === 1) return 'کلاس فرداست';
   if(n === 0) return 'کلاس امروزه';
-  return `کلاسش ${toFaDigits(-n)} روز پیش بود`;
+  return `مهلت: ${WEEKDAYS_FA[enWeekday(h.dueOn)]} ${formatDateShort(h.dueOn + 'T00:00:00')}`;
 }
 const enChunksOf = id => (state.englishChunks || []).filter(c => c.homeworkId === id)
   .sort((a, b) => a.position - b.position || a.createdAt.localeCompare(b.createdAt));
 
-/* Days that count: a chunk ticked off that day, or the 5-minute minimum. */
+/* Days that count for the streak: a chunk ticked off, a session, or the minimum version. */
 function enPracticedDays(){
-  const days = new Set((state.englishPractice || []).map(p => p.day));
+  const days = new Set((state.englishPractice || []).filter(p => p.spoke && p.listened).map(p => p.day));
   (state.englishChunks || []).forEach(c => { if(c.done && c.doneAt) days.add(dateKey(new Date(c.doneAt))); });
+  (state.englishSessions || []).forEach(x => { if(x.endedAt && x.minutes > 0) days.add(x.day); });
   return days;
 }
-// chunks to show today: everything open whose day has come, plus what was ticked off today
+const enShelvedIds = () => new Set((state.englishHomework || []).filter(h => h.shelvedAt).map(h => h.id));
+// chunks to show today: everything open whose day has come, plus what was ticked off today (not a shelved homework's)
 function enTodayChunks(){
   const today = dateKey(new Date());
+  const shelved = enShelvedIds();
   return (state.englishChunks || [])
+    .filter(c => !shelved.has(c.homeworkId))
     .filter(c => c.done ? (c.doneAt && dateKey(new Date(c.doneAt)) === today) : c.day <= today)
     .sort((a, b) => (a.done - b.done) || a.day.localeCompare(b.day) || a.position - b.position);
 }
@@ -4785,22 +4832,37 @@ function enNoHomework(){
 // today's part, shared by the card on امروز and the top of the page
 
 
-/* ---------- انگلیسی: writes ---------- */
-async function saveEnglishSettings(patch){
+/* ---------- انگلیسی: writes ----------
+   Settings writes go out one after another (enSettingsQueue): two upserts in
+   flight could land in the wrong order and the older one would win — that,
+   or a realtime echo of the older one, is how a class day's time got lost.
+   Every class day also keeps its own time in class_times, so none silently
+   falls back to the general class_time. */
+let enSettingsQueue = Promise.resolve(), enSettingsPending = 0;
+async function saveEnglishSettings(patch, { quiet } = {}){
   const before = state.englishSettings;
   const next = { ...englishSettings(), ...patch };
+  next.classTimes = { ...(next.classTimes || {}) };
+  next.classDays.forEach(d => { if(!next.classTimes[d]) next.classTimes[d] = next.classTime; });
   state.englishSettings = next;
-  render();
-  await persist(sb.from('english_settings').upsert({
-    class_days: next.classDays, class_time: next.classTime, class_times: next.classTimes || {}, class_minutes: next.classMinutes,
-    practice_time: next.practiceTime, push: next.push, weekly_goal_min: next.weeklyGoalMin || null, updated_at: new Date().toISOString(),
-  }, { onConflict:'user_id' }), {
+  if(!quiet) render();
+  const row = {
+    class_days: next.classDays, class_time: next.classTime, class_times: next.classTimes, class_minutes: next.classMinutes,
+    practice_time: next.practiceTime, push: next.push, weekly_goal_min: next.weeklyGoalMin || null,
+    habit_start: next.habitStart || null, rest_day: next.restDay, habit_steps: next.habitSteps || {}, updated_at: new Date().toISOString(),
+  };
+  enSettingsPending++;
+  const run = enSettingsQueue.then(() => persist(sb.from('english_settings').upsert(row, { onConflict:'user_id' }), {
     message: 'تنظیمات انگلیسی ذخیره نشد — اینترنتت رو چک کن و دوباره امتحان کن.',
     rollback: () => { state.englishSettings = before; },
-  });
+  }));
+  enSettingsQueue = run.catch(() => {});
+  try{ await run; } finally { enSettingsPending--; }
 }
+// the time field keeps its focus while it's typed in: no repaint, the value is already on screen
 function setEnglishClassTime(d, time){
-  saveEnglishSettings({ classTimes: { ...(englishSettings().classTimes || {}), [d]: time } });
+  if(!/^\d{2}:\d{2}$/.test(time)) return;
+  saveEnglishSettings({ classTimes: { ...(englishSettings().classTimes || {}), [d]: time } }, { quiet:true });
 }
 function toggleEnglishClassDay(d){
   const days = englishSettings().classDays;
@@ -4821,18 +4883,34 @@ function enAddNewSub(){
   focusEl('new-hw-sub');
 }
 function enRemoveNewSub(i){ state.newHomework.subs.splice(i, 1); render(); }
-async function addEnglishHomework(){
+/* «ثبت تکلیف». Only the text is needed. Several lines (and no ریز کار typed)
+   → «هر خط یه تکلیف جدا ثبت بشه؟» first (state.enSplitAsk); split = the answer. */
+async function addEnglishHomework(split, oneLine){
   const nh = state.newHomework;
   const quick = document.getElementById('en-quick-title'), full = document.getElementById('new-hw-title');
-  const title = ((quick && quick.value) || (full && full.value) || nh.title || '').trim();
+  const title = (oneLine || (quick && quick.value) || (full && full.value) || nh.title || '').trim();
   if(!title) return;
   // a ریز کار still sitting in the input counts too
   const pendingSub = ((document.getElementById('new-hw-sub') || {}).value || '').trim();
   const subs = [...(nh.subs || []), ...(pendingSub ? [{ title:pendingSub, minutes:String(EN_SUB_MINUTES) }] : [])]
     .map(s => ({ title:s.title.trim(), minutes:s.minutes })).filter(s => s.title);
+  const lines = title.split(/\n+/).map(l => l.trim()).filter(Boolean);
+  if(split === undefined && lines.length > 1 && !subs.length){
+    nh.title = title;
+    state.enSplitAsk = true;
+    render();
+    return;
+  }
+  state.enSplitAsk = false;
+  if(split && lines.length > 1){
+    // each line is its own homework with the same deadline and unit; every call puts its row on screen before it waits
+    const draft = { ...nh, subs:[], minutes:'' };
+    lines.forEach(line => { state.newHomework = { ...draft, title:line }; addEnglishHomework(false, line); });
+    return;
+  }
   const mins = v => Math.min(120, Math.max(1, parseInt(v, 10) || EN_SUB_MINUTES));
   const today = dateKey(new Date());
-  const upcoming = enUpcomingClass();
+  const upcoming = enNextClass(today);
   const dueOn = nh.dueOn && nh.dueOn >= today ? nh.dueOn : (upcoming || enAddDays(today, 7));
   const last = enLastClass();
   const hw = {
@@ -4899,24 +4977,290 @@ async function confirmEnglishCompletion(m){
     rollback: () => { Object.assign(c, before); },
   });
 }
-async function toggleEnglishMin(){
-  const today = dateKey(new Date());
-  const had = state.englishPractice.find(p => p.day === today);
-  if(had){
-    state.englishPractice = state.englishPractice.filter(p => p.day !== today);
-    render();
-    await persist(sb.from('english_practice').delete().eq('day', today), {
-      rollback: () => { state.englishPractice.push(had); },
-    });
-  } else {
-    const row = { day:today, createdAt:new Date().toISOString() };
-    state.englishPractice.push(row);
-    render();
-    await persist(sb.from('english_practice').insert({ day:today, created_at:row.createdAt }), {
-      rollback: () => { state.englishPractice = state.englishPractice.filter(p => p !== row); },
-    });
-  }
+/* ---------- انگلیسی: جدول عادت ---------- */
+const enAppDay = (ts = Date.now()) => dateKey(new Date(ts - EN_DAY_START_H * 3600_000));
+const enSatOf = key => enAddDays(key, -((enWeekday(key) + 1) % 7)); // the Saturday that starts key's week
+const enHabitGoal = level => EN_HABIT_GOALS[Math.min(level, EN_HABIT_GOALS.length - 1)];
+const enPracticeOf = day => (state.englishPractice || []).find(p => p.day === day);
+const enMinDone = day => { const p = enPracticeOf(day); return !!(p && p.spoke && p.listened); };
+const enDaySessions = day => (state.englishSessions || []).filter(x => x.day === day && x.endedAt && x.minutes > 0)
+  .sort((a, b) => String(a.endedAt).localeCompare(String(b.endedAt)));
+const enDayMinutes = day => enDaySessions(day).reduce((n, x) => n + x.minutes, 0);
+const enIsRestDay = day => enWeekday(day) === englishSettings().restDay;
+// done = the goal reached (sessions added up) · min = the minimum version · partial = some minutes, short of the goal
+function enDayStatus(day, goal){
+  if(enDayMinutes(day) >= goal) return 'done';
+  if(enMinDone(day)) return 'min';
+  if(enIsRestDay(day)) return 'rest';
+  return enDayMinutes(day) > 0 ? 'partial' : 'empty';
 }
+/* The table's weeks from day 1 to now: [{ sat, from, level, ask }]. A start
+   that isn't a Saturday gets a «هفتهٔ آشنایی» (level 0) until the next one.
+   ask = last week's result while its «برو بالا / همین بمونه» is unanswered
+   (meanwhile the level stays); only the current week's ask is shown — an
+   older unanswered one counts as «همین بمونه». */
+function enHabitWeeks(){
+  const s = englishSettings();
+  if(!s.habitStart) return [];
+  const today = enAppDay();
+  const firstSat = enWeekday(s.habitStart) === 6 ? s.habitStart : enAddDays(enSatOf(s.habitStart), 7);
+  const weeks = [];
+  if(s.habitStart < firstSat) weeks.push({ sat:enSatOf(s.habitStart), from:s.habitStart, level:0, ask:null });
+  for(let sat = firstSat; sat <= today; sat = enAddDays(sat, 7)){
+    const prev = weeks[weeks.length - 1];
+    let level = 1, ask = null;
+    if(prev && prev.level > 0){
+      level = prev.level;
+      if(prev.level <= EN_HABIT_LAST){
+        const r = enWeekResult(prev);
+        const step = r.done >= EN_HABIT_PASS ? 'up' : (s.habitSteps || {})[sat];
+        if(step === 'up') level++;
+        else if(!step) ask = r;
+      }
+    }
+    weeks.push({ sat, from:sat, level, ask });
+  }
+  return weeks;
+}
+// a week of the table, counted: practice days (rest day left out), done ones, how many by the minimum, minutes
+function enWeekResult(w){
+  const goal = enHabitGoal(w.level);
+  const r = { goal, days:0, done:0, min:0, minutes:0, goalMin:0 };
+  for(let i = 0; i < 7; i++){
+    const k = enAddDays(w.sat, i);
+    if(k < w.from) continue;
+    r.minutes += enDayMinutes(k);
+    if(enIsRestDay(k)) continue;
+    r.days++;
+    const st = enDayStatus(k, goal);
+    if(st === 'done' || st === 'min') r.done++;
+    if(st === 'min') r.min++;
+  }
+  r.goalMin = goal * r.days;
+  return r;
+}
+// where the table is today: { started, week, level, goal (today's minutes), finished }
+function enHabitNow(){
+  const weeks = enHabitWeeks();
+  const week = weeks[weeks.length - 1] || null;
+  const level = week ? week.level : 0;
+  return { started:!!week, week, weeks, level, goal:enHabitGoal(level), finished:level > EN_HABIT_LAST };
+}
+const enHabitName = level => level === 0 ? 'هفتهٔ آشنایی' : level > EN_HABIT_LAST ? 'جدول شش‌هفته‌ای تموم شد' : `هفتهٔ ${fd(level)} جدول عادت`;
+function enStartHabit(){
+  const before = englishSettings();
+  saveEnglishSettings({ habitStart:enAppDay(), habitSteps:{} });
+  showUndoToast('جدول عادت شروع شد', () => saveEnglishSettings({ habitStart:before.habitStart, habitSteps:before.habitSteps || {} }));
+}
+function enHabitStep(sat, step){
+  saveEnglishSettings({ habitSteps:{ ...(englishSettings().habitSteps || {}), [sat]:step } });
+}
+/* the two lines for the teacher, for the week starting `sat` (خلاصهٔ هفته) */
+function enWeekSummaryLines(sat){
+  const now = enHabitNow();
+  const w = now.weeks.find(x => x.sat === sat);
+  const r = enWeekResult(w || { sat, from:sat, level:0 });
+  let prevMin = 0;
+  for(let i = 1; i <= 7; i++) prevMin += enDayMinutes(enAddDays(sat, -i));
+  return [
+    `انگلیسی: ${fd(r.done)} از ${fd(r.days)} روز (${fd(r.min)} روزش نسخهٔ حداقل) — ${w ? enHabitName(w.level) : 'جدول عادت شروع نشده'}`,
+    `دقیقه‌ها: ${fd(r.minutes)} از هدف ${fd(r.goalMin)} — هفتهٔ پیش: ${fd(prevMin)}`,
+  ];
+}
+
+/* ---------- انگلیسی: جلسهٔ امروز ---------- */
+const enRunning = () => (state.englishSessions || []).find(x => x.source === 'timer' && !x.endedAt);
+const enDeadline = x => Date.parse(x.startedAt) + x.targetMin * 60_000;
+function enTimerLeft(x){
+  const left = Math.max(0, Math.ceil((enDeadline(x) - Date.now()) / 1000));
+  return fd(`${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`);
+}
+let enTick = null;
+// one ticking clock while a timer runs; only the digits change each second (a full repaint would fight with typing)
+function enTimerSync(){
+  const x = enRunning();
+  if(x && Date.now() >= enDeadline(x)){ enFinishSession(x, true); return; }
+  if(x && !enTick) enTick = setInterval(() => {
+    const cur = enRunning();
+    if(!cur){ clearInterval(enTick); enTick = null; return; }
+    if(Date.now() >= enDeadline(cur)){ enFinishSession(cur, true); return; }
+    document.querySelectorAll('[data-en-clock]').forEach(el => { el.textContent = enTimerLeft(cur); });
+  }, 1000);
+  if(!x && enTick){ clearInterval(enTick); enTick = null; }
+}
+document.addEventListener('visibilitychange', () => { if(document.visibilityState === 'visible') enTimerSync(); });
+// today's goal for the timer: what's left of it, or the whole goal once it's reached (or nothing is done yet)
+function enTimerTarget(){
+  const goal = enHabitNow().goal, done = enDayMinutes(enAppDay());
+  return done > 0 && done < goal ? goal - done : goal;
+}
+async function enStartSession(){
+  if(enRunning()) return;
+  const x = { id:uid(), day:enAppDay(), source:'timer', startedAt:new Date().toISOString(), targetMin:Math.min(180, enTimerTarget()),
+    endedAt:null, minutes:null, completed:false, recalled:false, createdAt:new Date().toISOString() };
+  state.englishSessions.push(x);
+  state.enManualOpen = false;
+  render();
+  enTimerSync();
+  await persist(sb.from('english_sessions').insert({ id:x.id, day:x.day, source:'timer', started_at:x.startedAt, target_min:x.targetMin, created_at:x.createdAt }), {
+    message: 'جلسه شروع نشد — اینترنتت رو چک کن و دوباره بزن.',
+    rollback: () => { state.englishSessions = state.englishSessions.filter(y => y.id !== x.id); enTimerSync(); },
+  });
+}
+/* full = the time ran out; otherwise «توقف». Whoever closes the row first
+   (this tab or send-push's every-minute run) rings «جلسه تموم شد.» — the
+   update only goes through while ended_at is still empty. */
+async function enFinishSession(x, full){
+  if(!x || x.endedAt) return;
+  const end = full ? enDeadline(x) : Math.min(Date.now(), enDeadline(x));
+  const minutes = full ? x.targetMin : Math.floor((end - Date.parse(x.startedAt)) / 60_000);
+  if(!full && minutes < 1){ // under a minute: nothing to keep
+    state.englishSessions = state.englishSessions.filter(y => y.id !== x.id);
+    enTimerSync();
+    render();
+    showInfoToast('زیر یه دقیقه بود، ثبت نشد');
+    const { error } = await sb.from('english_sessions').delete().eq('id', x.id).is('ended_at', null);
+    if(error) writeFailed('english session cancel', error);
+    return;
+  }
+  Object.assign(x, { endedAt:new Date(end).toISOString(), minutes, completed:!!full });
+  enTimerSync();
+  render();
+  const { data, error } = await sb.from('english_sessions').update({ ended_at:x.endedAt, minutes, completed:x.completed })
+    .eq('id', x.id).is('ended_at', null).select('id');
+  if(error){ writeFailed('english session finish', error); return; }
+  if(full && data && data.length) enRingDone(minutes);
+}
+function enRingDone(minutes){
+  showInfoToast('جلسه تموم شد.');
+  try{
+    if('Notification' in window && Notification.permission === 'granted' && navigator.serviceWorker){
+      navigator.serviceWorker.ready.then(reg => reg.showNotification('‫جلسه تموم شد.‬', {
+        body:`‫${fd(minutes)} دقیقه انگلیسی ثبت شد.‬`, tag:'medar-english-timer', dir:'rtl', lang:'fa',
+        icon:'./icon-192.png', badge:'./icon-192.png', data:{ view:'english' },
+      })).catch(() => {});
+    }
+  }catch(_e){}
+}
+async function enAddManual(){
+  const input = document.getElementById('en-manual-min');
+  const minutes = parseInt(toEnDigits(String((input && input.value) || '')), 10);
+  if(!(minutes >= 1 && minutes <= EN_MANUAL_MAX)){ showInfoToast(`یه عدد بین ${fd(1)} تا ${fd(EN_MANUAL_MAX)} بنویس`); return; }
+  const now = new Date().toISOString();
+  const x = { id:uid(), day:enAppDay(), source:'manual', startedAt:null, targetMin:null, endedAt:now, minutes, completed:false, recalled:false, createdAt:now };
+  state.englishSessions.push(x);
+  state.enManualOpen = false;
+  render();
+  await persist(sb.from('english_sessions').insert({ id:x.id, day:x.day, source:'manual', ended_at:now, minutes, created_at:now }), {
+    message: 'دقیقه‌ها ثبت نشد — اینترنتت رو چک کن و دوباره امتحان کن.',
+    rollback: () => { state.englishSessions = state.englishSessions.filter(y => y.id !== x.id); },
+  });
+}
+// «چیزی که امروز یاد گرفتم رو بلند به انگلیسی گفتم» — on today's last timer session
+async function enToggleRecalled(id){
+  const x = state.englishSessions.find(y => y.id === id);
+  if(!x) return;
+  x.recalled = !x.recalled;
+  render();
+  await persist(sb.from('english_sessions').update({ recalled:x.recalled }).eq('id', id), {
+    rollback: () => { x.recalled = !x.recalled; },
+  });
+}
+const pendingEnSessionDeletes = {};
+function enDeleteSession(id){
+  const idx = state.englishSessions.findIndex(x => x.id === id);
+  if(idx === -1) return;
+  const [removed] = state.englishSessions.splice(idx, 1);
+  showUndoToast(`${fd(removed.minutes)} دقیقه حذف شد`, () => {
+    clearTimeout(pendingEnSessionDeletes[id]);
+    delete pendingEnSessionDeletes[id];
+    state.englishSessions.splice(idx, 0, removed);
+  });
+  pendingEnSessionDeletes[id] = setTimeout(async () => {
+    delete pendingEnSessionDeletes[id];
+    const { error } = await sb.from('english_sessions').delete().eq('id', id);
+    if(error) writeFailed('enDeleteSession', error);
+  }, 5000);
+}
+/* «روز بد: نسخهٔ حداقل» — two ticks on today's english_practice row; both = the day counts.
+   Unticking both removes the row. */
+async function enToggleMinPart(part){
+  const day = enAppDay();
+  const had = enPracticeOf(day);
+  const before = had ? { ...had } : null;
+  const row = had || { day, createdAt:new Date().toISOString(), spoke:false, listened:false };
+  row[part] = !row[part];
+  if(!had) state.englishPractice.push(row);
+  const empty = !row.spoke && !row.listened;
+  if(empty) state.englishPractice = state.englishPractice.filter(p => p !== row);
+  render();
+  const undo = () => {
+    state.englishPractice = state.englishPractice.filter(p => p.day !== day);
+    if(before) state.englishPractice.push(before);
+  };
+  await persist(empty
+    ? sb.from('english_practice').delete().eq('day', day)
+    : sb.from('english_practice').upsert({ day, spoke:row.spoke, listened:row.listened, created_at:row.createdAt }, { onConflict:'user_id,day' }), {
+    rollback: undo,
+  });
+}
+/* «دیروز نشد» — yesterday was a practice day of the table and nothing at all
+   was logged. Asked once: an answer, or closing it, writes english_misses. */
+function enMissedYesterday(){
+  const s = englishSettings();
+  if(!s.habitStart) return null;
+  const today = enAppDay(), y = enAddDays(today, -1);
+  if(y < s.habitStart || enIsRestDay(y)) return null;
+  if(enDayMinutes(y) > 0 || enPracticeOf(y)) return null;
+  if((state.englishChunks || []).some(c => c.done && c.doneAt && enAppDay(Date.parse(c.doneAt)) === y)) return null;
+  if((state.englishMisses || []).some(m => m.day === y)) return null;
+  const st = enDayStatus(today, enHabitNow().goal);
+  return st === 'done' || st === 'min' ? null : y;
+}
+async function enAnswerMiss(day, reason){
+  let note = '';
+  if(reason === 'other'){
+    note = ((document.getElementById('en-miss-note') || {}).value || '').trim();
+    if(!note){ state.enMissOther = true; render(); focusEl('en-miss-note'); return; }
+  }
+  const m = { day, reason:reason || null, note };
+  state.englishMisses.push(m);
+  state.enMissOther = false;
+  render();
+  if(reason) showInfoToast('ثبت شد');
+  await persist(sb.from('english_misses').upsert({ day, reason:m.reason, note:note || null }, { onConflict:'user_id,day' }), {
+    rollback: () => { state.englishMisses = state.englishMisses.filter(x => x !== m); },
+  });
+}
+
+/* ---------- انگلیسی: عقب‌افتاده‌ها ---------- */
+const EN_OVERDUE_DAYS = 7;
+// «انجام دادم»: every open ریز کار ticked at once (no time question)
+async function enFinishHomework(id){
+  const open = enChunksOf(id).filter(c => !c.done);
+  if(!open.length) return;
+  const now = new Date().toISOString();
+  open.forEach(c => { c.done = true; c.doneAt = now; });
+  const reopen = () => open.forEach(c => { c.done = false; c.doneAt = null; });
+  render();
+  const ok = await persist(sb.from('english_chunks').update({ done:true, done_at:now }).in('id', open.map(c => c.id)), { rollback: reopen });
+  if(ok) showUndoToast('تکلیف انجام‌شده خورد', async () => {
+    reopen();
+    const { error } = await sb.from('english_chunks').update({ done:false, done_at:null }).in('id', open.map(c => c.id));
+    if(error) writeFailed('enFinishHomework undo', error);
+  });
+}
+// «کنار بذار»: off the list, kept with the done ones as «کنار گذاشته»
+async function enShelveHomework(id, shelve = true){
+  const h = (state.englishHomework || []).find(x => x.id === id);
+  if(!h) return;
+  const before = h.shelvedAt;
+  h.shelvedAt = shelve ? new Date().toISOString() : null;
+  render();
+  const ok = await persist(sb.from('english_homework').update({ shelved_at:h.shelvedAt }).eq('id', id), { rollback: () => { h.shelvedAt = before; } });
+  if(ok && shelve) showUndoToast('تکلیف کنار گذاشته شد', () => enShelveHomework(id, false));
+}
+
 /* «ویرایش تکلیف»: the homework's own line, unit and deadline, plus its
    ریز کارها — renamed, re-timed, added or removed. Nothing is written until «ذخیره». */
 function openEnglishHwEditor(id){
@@ -5053,8 +5397,8 @@ function toggleTodayFold(id, urgent){
 
 
 /* ---------- streak (Duolingo-style: consecutive days with >=1 task completed on that task's own date) ----------
-   English counts too: each ریز کار ticked off and the 5-minute minimum is one
-   more thing done that day (see enPracticedDays).
+   English counts too: each ریز کار ticked off, each practice session and the
+   minimum version (both ticks) is one more thing done that day (see enPracticedDays).
    Streak freezes are derived from history rather than stored, so every device
    agrees and nothing can drift: replay each day from the first completion. Every
    STREAK_FREEZE_EVERY active days earns one freeze (holding at most
@@ -5075,8 +5419,9 @@ function computeStreak(){
     if(completedKey) doneCounts.set(completedKey, (doneCounts.get(completedKey) || 0) + 1);
   });
   const bump = key => doneCounts.set(key, (doneCounts.get(key) || 0) + 1);
-  (state.englishPractice || []).forEach(p => bump(p.day));
+  (state.englishPractice || []).forEach(p => { if(p.spoke && p.listened) bump(p.day); });
   (state.englishChunks || []).forEach(c => { if(c.done && c.doneAt) bump(dateKey(new Date(c.doneAt))); });
+  (state.englishSessions || []).forEach(x => { if(x.endedAt && x.minutes > 0) bump(x.day); });
 
   const todayKey = dateKey(new Date());
   const atRisk = !doneCounts.has(todayKey);
@@ -5355,7 +5700,8 @@ const BACKUP_TABLE_LABELS = {
   reminders:'یادآورها', subscriptions:'اشتراک‌ها', purchases:'خریدها', ai_reports:'مرورهای هفته',
   tag_goals:'اهداف هفتگی', mother_care:'تنظیمات مادر', mother_care_items:'ملاحظه‌های مادر',
   home_repairs:'تعمیرات خونه', home_repair_parts:'قطعه‌های تعمیر', home_maintenance:'نگهداری دوره‌ای خونه',
-  english_settings:'تنظیمات انگلیسی', english_homework:'تکلیف‌های انگلیسی', english_chunks:'ریز کارهای تکلیف انگلیسی', english_practice:'روزهای تمرین انگلیسی',
+  english_settings:'تنظیمات انگلیسی', english_homework:'تکلیف‌های انگلیسی', english_chunks:'ریز کارهای تکلیف انگلیسی', english_practice:'نسخهٔ حداقل انگلیسی',
+  english_sessions:'جلسه‌های تمرین انگلیسی', english_misses:'جواب‌های «دیروز کجا گیر کرد؟»',
 };
 const BACKUP_KIND_LABELS = { auto:'خودکار هفتگی', download:'دانلود دستی', 'pre-restore':'قبل از بازیابی' };
 const BACKUP_OVERDUE_DAYS = 30;
@@ -5481,7 +5827,7 @@ function currentBackupCounts(){
     ai_reports: n(state.aiReports), tag_goals: n(state.tagGoals),
     mother_care: state.motherSettings ? 1 : 0, mother_care_items: n(state.motherItems),
     home_repairs: n(state.homeRepairs), home_repair_parts: n(state.homeParts), home_maintenance: n(state.homeMaint),
-    english_settings: state.englishSettings ? 1 : 0, english_homework: n(state.englishHomework), english_chunks: n(state.englishChunks), english_practice: n(state.englishPractice),
+    english_settings: state.englishSettings ? 1 : 0, english_homework: n(state.englishHomework), english_chunks: n(state.englishChunks), english_practice: n(state.englishPractice), english_sessions: n(state.englishSessions), english_misses: n(state.englishMisses),
   };
 }
 async function confirmRestore(){

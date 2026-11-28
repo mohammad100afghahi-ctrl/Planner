@@ -218,10 +218,11 @@ function englishTodayCard(mob){
       ${watermark}
     </div>`;
   const today = dateKey(new Date());
-  const doneToday = enPracticedDays().has(today);
   const chunks = enTodayChunks();
   const askFor = enNeedsHomeworkPrompt();
-  const minTicked = (state.englishPractice || []).some(p => p.day === today);
+  // today's practice against the habit table's goal; the session itself is on the English page
+  const habit = enHabitNow(), appDay = enAppDay();
+  const dayState = enDayStatus(appDay, habit.goal), practised = dayState === 'done' || dayState === 'min';
   const classLater = enIsClassDay(today) && !enClassEndedToday();
   const row = c => `
       <div>
@@ -249,14 +250,12 @@ function englishTodayCard(mob){
         <div class="${mob ? 'p-3 bg-slate-950 rounded-xl' : 'p-4 bg-slate-900/80 rounded-2xl'} border border-slate-800">
           <p class="text-[10px] text-slate-500 mb-2">ریز کارهای تکلیف:</p>
           <div class="space-y-2">
-            ${chunks.length ? chunks.map(row).join('') : `<p class="text-[11px] text-slate-400 leading-relaxed">ریز کار بازی نداری. حداقلِ امروز: ${EN_MIN_IDEAS[new Date().getDay()]}</p>`}
+            ${chunks.length ? chunks.map(row).join('') : `<p class="text-[11px] text-slate-400 leading-relaxed">ریز کار بازی نداری.</p>`}
           </div>
         </div>
-        ${doneToday && !minTicked
-          ? `<div class="w-full py-3 bg-emerald-500/10 text-emerald-400 rounded-xl text-[10px] font-black border border-emerald-500/10 tracking-widest uppercase text-center">${fa('check', 'ml-1')} امروز انجام شد</div>`
-          : mob
-            ? `<button type="button" onclick="toggleEnglishMin()" class="w-full py-3 ${minTicked ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/10' : 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-900/10'} rounded-xl text-[10px] font-black">${minTicked ? `${fa('check', 'ml-1')} تمرین امروز ثبت شد` : 'ثبت تمرین امروز'}</button>`
-            : `<button type="button" onclick="toggleEnglishMin()" class="w-full py-3 ${minTicked ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/10' : 'bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 border-amber-500/10'} rounded-xl text-[10px] font-black transition-all border tracking-widest uppercase">${minTicked ? `${fa('check', 'ml-1')} ۵ دقیقه‌ی امروز ثبت شد` : 'ثبت تمرین انجام شده'}</button>`}
+        ${practised
+          ? `<div class="w-full py-3 bg-emerald-500/10 text-emerald-400 rounded-xl text-[10px] font-black border border-emerald-500/10 tracking-widest uppercase text-center">${fa('check', 'ml-1')} ${dayState === 'min' ? 'امروز انجام شد (حداقل)' : 'امروز انجام شد'}</div>`
+          : `<button type="button" onclick="navigateTo('english')" class="w-full py-3 ${mob ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-900/10' : 'bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 border border-amber-500/10'} rounded-xl text-[10px] font-black transition-all">${enRunning() ? `${fa('stopwatch', 'ml-1')} جلسه در جریانه` : dayState === 'rest' ? 'امروز روز استراحته' : `جلسهٔ امروز: ${fd(enDayMinutes(appDay))} از ${fd(habit.goal)} دقیقه`}</button>`}
       </div>
       ${watermark}
     </div>`;

@@ -15,65 +15,185 @@ const emptyNote = (text, icon) => `<div class="py-10 flex flex-col items-center 
 const focusEl = id => { const el = document.getElementById(id); if(el){ el.focus(); el.scrollIntoView({ block:'center', behavior:'smooth' }); } };
 
 /* ================= انگلیسی ================= */
+// deadline choices: the next classes after today (the first is the default); today's own class last, while it hasn't started
 function enDueChoices(){
   const s = englishSettings(), today = dateKey(new Date()), out = [];
-  if(s.classDays.length){ for(let k = enUpcomingClass(); k && out.length < 3; k = enNextClass(k)) out.push([k, enDayLabel(k)]); }
+  if(s.classDays.length){
+    for(let k = enNextClass(today); k && out.length < 3; k = enNextClass(k)) out.push([k, enDayLabel(k)]);
+    if(enUpcomingClass() === today) out.push([today, enDayLabel(today)]);
+  }
   else out.push([enAddDays(today, 7), 'یه هفته دیگه'], [enAddDays(today, 3), '۳ روز دیگه']);
   return out;
 }
 function enStats(){
   const chunks = state.englishChunks || [];
   const done = chunks.filter(c => c.done);
-  const minutes = done.reduce((n, c) => n + (c.actualMin || c.minutes), 0);
+  const minutes = done.reduce((n, c) => n + (c.actualMin || c.minutes), 0)
+    + (state.englishSessions || []).reduce((n, x) => n + (x.endedAt ? x.minutes || 0 : 0), 0);
   return { pct: chunks.length ? Math.round(done.length / chunks.length * 100) : 0, minutes };
 }
-// minutes practised on each day of this week (Sat→Fri): chunks finished that day, or 5 for the ticked minimum
+/* minutes practised on each day of this week (Sat→Fri): the sessions of that
+   day; before the habit table started, the old way — ریز کارها finished that
+   day, or 5 for the ticked minimum */
 function enWeekBars(){
-  const { start } = getCurrentWeekRange();
-  const ticked = new Set((state.englishPractice || []).map(p => p.day));
+  const sat = enSatOf(enAppDay());
+  const start = englishSettings().habitStart;
   const out = [];
   for(let i = 0; i < 7; i++){
-    const k = enAddDays(start, i);
-    let m = (state.englishChunks || []).filter(c => c.done && c.doneAt && dateKey(new Date(c.doneAt)) === k).reduce((n, c) => n + (c.actualMin || c.minutes), 0);
-    if(!m && ticked.has(k)) m = 5;
+    const k = enAddDays(sat, i);
+    let m = enDayMinutes(k);
+    if(!start || k < start){
+      m += (state.englishChunks || []).filter(c => c.done && c.doneAt && dateKey(new Date(c.doneAt)) === k).reduce((n, c) => n + (c.actualMin || c.minutes), 0);
+      if(!m && enPracticeOf(k)) m = 5;
+    }
     out.push({ key:k, minutes:m });
   }
   return out;
 }
-/* The English page's own weekly goal (english_settings.weekly_goal_min) — the
-   minutes of enWeekBars, nothing from tasks or tags. */
-function enWeekGoal(){
-  const goal = englishSettings().weeklyGoalMin || 0;
-  const done = enWeekBars().reduce((n, b) => n + b.minutes, 0);
-  return { goal, done, pct: goal ? Math.min(100, Math.round(done / goal * 100)) : 0 };
-}
-// the goal in hours, any number up to 50 (the column's 3000 minutes); empty clears it
-function setEnglishWeeklyGoalHours(value){
-  const h = parseFloat(toEnDigits(String(value || '')).replace(/[٫,]/g, '.'));
-  saveEnglishSettings({ weeklyGoalMin: h > 0 ? Math.min(3000, Math.max(15, Math.round(h * 60))) : null });
-}
-function englishGoalCard(mob){
-  const g = enWeekGoal();
+/* «جدول عادت»: which week of the table, today's minutes against the goal, and
+   the seven days of this week (انجام‌شده / حداقل / ناقص / استراحت / خالی). */
+const EN_DAY_BOX = {
+  done:    ['bg-emerald-500 text-white border-emerald-500', 'check'],
+  min:     ['bg-emerald-500/10 text-emerald-400 border-emerald-500/40', 'feather'],
+  partial: ['bg-amber-500/10 text-amber-400 border-amber-500/30', ''],
+  rest:    ['bg-sky-500/10 text-sky-400 border-sky-500/20', 'mug-hot'],
+  empty:   ['bg-slate-900 text-slate-600 border-slate-800', ''],
+};
+function enWeekBoxes(now, mob){
+  const today = enAppDay(), sat = enSatOf(today);
+  const from = now.week ? now.week.from : today;
   return `
-    <div class="bg-slate-950 border border-slate-800 rounded-3xl ${mob ? 'p-5' : 'p-6'}">
-      <h4 class="${mob ? 'text-[10px]' : 'text-xs'} font-black text-white uppercase tracking-widest mb-4 flex items-center gap-2">${fa('bullseye', 'text-amber-500')} هدف هفته</h4>
-      ${g.goal ? `
-        <div class="p-3 bg-amber-500/5 ${mob ? 'rounded-xl' : 'rounded-2xl'} border border-amber-500/10">
-          <p class="${mob ? 'text-[10px]' : 'text-xs'} font-bold text-slate-300 mb-2 leading-relaxed">${formatDuration(g.done)} از ${formatDuration(g.goal)}${g.pct >= 100 ? ' ✓' : ''}</p>
-          <div class="w-full bg-slate-900 h-1.5 rounded-full overflow-hidden"><div class="${g.pct >= 100 ? 'bg-emerald-500' : 'bg-amber-500'} h-full rounded-full" style="width:${Math.max(3, g.pct)}%"></div></div>
-          <p class="text-[10px] text-slate-500 mt-2">${g.pct >= 100 ? 'هدف این هفته رسید.' : `${formatDuration(g.goal - g.done)} تا هدف این هفته (شنبه تا جمعه)`}</p>
-        </div>`
-      : `<p class="text-[11px] text-slate-400 leading-relaxed mb-3">برای انگلیسی هدف هفتگی نذاشتی. زمان ریز کارها و تمرین‌های روزانه اینجا جمع می‌شه.</p>
-         <button type="button" onclick="state.englishTab='settings'; render()" class="w-full py-3 bg-amber-500/10 text-amber-400 rounded-xl text-[10px] font-black hover:bg-amber-500/20 transition-all border border-amber-500/10">تعیین هدف هفته</button>`}
+    <div class="grid grid-cols-7 gap-1.5">
+      ${Array.from({ length:7 }, (_, i) => {
+        const k = enAddDays(sat, i);
+        const before = k < from, future = k > today;
+        const st = before ? null : future ? (enIsRestDay(k) ? 'rest' : 'empty') : enDayStatus(k, now.goal);
+        const [cls, icon] = st ? EN_DAY_BOX[st] : ['border-dashed border-slate-800 text-slate-700', ''];
+        const inner = icon ? fa(icon, 'text-[10px]') : st === 'partial' ? `<span class="text-[9px] font-black">${fd(enDayMinutes(k))}</span>` : '';
+        return `<div class="flex flex-col items-center gap-1">
+          <span class="text-[9px] font-bold ${k === today ? 'text-amber-400' : 'text-slate-600'}">${EN_WEEKDAY_SHORT[enWeekday(k)]}</span>
+          <div class="w-full ${mob ? 'h-8' : 'h-9'} rounded-lg border flex items-center justify-center ${cls} ${future ? 'opacity-50' : ''} ${k === today ? 'ring-1 ring-amber-400/50' : ''}">${inner}</div>
+        </div>`;
+      }).join('')}
+    </div>
+    <div class="flex flex-wrap items-center gap-x-4 gap-y-1 mt-3 text-[9px] text-slate-500">
+      <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-sm bg-emerald-500"></span>انجام‌شده</span>
+      <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-sm bg-emerald-500/10 border border-emerald-500/40"></span>حداقل</span>
+      <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-sm bg-amber-500/10 border border-amber-500/30"></span>ناقص</span>
+      <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-sm bg-sky-500/10 border border-sky-500/20"></span>استراحت</span>
     </div>`;
 }
-function enTodayProgress(){
-  const chunks = enTodayChunks();
-  const doneMin = chunks.filter(c => c.done).reduce((n, c) => n + (c.actualMin || c.minutes), 0);
-  const openMin = chunks.filter(c => !c.done).reduce((n, c) => n + c.minutes, 0);
-  const minTicked = (state.englishPractice || []).some(p => p.day === dateKey(new Date()));
-  const pct = doneMin + openMin ? Math.round(doneMin / (doneMin + openMin) * 100) : (minTicked ? 100 : 0);
-  return { pct, openMin, minTicked };
+function englishHabitCard(mob){
+  const now = enHabitNow();
+  const title = `<h4 class="${mob ? 'text-[10px]' : 'text-xs'} font-black text-white uppercase tracking-widest mb-4 flex items-center gap-2">${fa('stairs', 'text-amber-500')} جدول عادت</h4>`;
+  if(!now.started) return `
+    <div class="bg-slate-950 border border-slate-800 rounded-3xl ${mob ? 'p-5' : 'p-6'}">
+      ${title}
+      <p class="text-[11px] text-slate-400 leading-relaxed mb-4">هدف روزانه پله‌پله بالا می‌ره: ${fd(30)}، ${fd(35)}، ${fd(45)}، بعد ${fd(60)} دقیقه. هفته‌ای یه روز استراحت.</p>
+      <button type="button" onclick="enStartHabit()" class="w-full py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl text-[11px] font-black transition-all">شروع جدول عادت</button>
+    </div>`;
+  const today = enAppDay();
+  const done = enDayMinutes(today);
+  const pct = Math.min(100, Math.round(done / now.goal * 100));
+  const ask = now.week.ask;
+  return `
+    <div class="bg-slate-950 border border-slate-800 rounded-3xl ${mob ? 'p-5' : 'p-6'}">
+      ${title}
+      ${ask ? `
+        <div class="p-3 mb-4 bg-amber-500/5 ${mob ? 'rounded-xl' : 'rounded-2xl'} border border-amber-500/10 space-y-3">
+          <p class="text-[11px] font-bold text-slate-300 leading-relaxed">هفتهٔ پیش ${fd(ask.done)} روز از ${fd(ask.days)} بود. این هفته بری بالا یا همین مقدار بمونی؟</p>
+          <div class="flex gap-2">
+            <button type="button" onclick="enHabitStep('${now.week.sat}','up')" class="flex-1 py-2 bg-amber-500 text-slate-950 rounded-lg text-[10px] font-black">برو بالا</button>
+            <button type="button" onclick="enHabitStep('${now.week.sat}','stay')" class="flex-1 py-2 bg-slate-800 text-slate-300 rounded-lg text-[10px] font-black">همین بمونه</button>
+          </div>
+        </div>` : ''}
+      <p class="${mob ? 'text-[11px]' : 'text-xs'} font-bold text-slate-200 mb-2 leading-relaxed">${now.finished ? `${enHabitName(now.level)}. امروز: ${fd(done)} از ${fd(now.goal)} دقیقه` : `${enHabitName(now.level)} — امروز: ${fd(done)} از ${fd(now.goal)} دقیقه`}</p>
+      <div class="w-full bg-slate-900 h-1.5 rounded-full overflow-hidden mb-4"><div class="${pct >= 100 ? 'bg-emerald-500' : 'bg-amber-500'} h-full rounded-full" style="width:${Math.max(3, pct)}%"></div></div>
+      ${enWeekBoxes(now, mob)}
+    </div>`;
+}
+const enClock = ts => { const d = new Date(ts); return fd(`${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`); };
+/* «جلسهٔ امروز»: the timer, a manual entry, and the minimum version for a bad day */
+// on a rest day there's no minimum to suggest — only the question
+function enMissBanner(y){
+  const rest = enIsRestDay(enAppDay());
+  return `
+    <div class="p-3 bg-amber-500/5 rounded-xl border border-amber-500/10 space-y-3">
+      <div class="flex items-start justify-between gap-3">
+        <p class="text-[11px] font-bold text-slate-300 leading-relaxed">${rest ? 'دیروز نشد.' : 'دیروز نشد. امروز فقط نسخهٔ حداقل؟'}</p>
+        <button type="button" onclick="enAnswerMiss('${y}', null)" aria-label="بستن" class="text-slate-600 hover:text-white shrink-0">${fa('xmark', 'text-xs')}</button>
+      </div>
+      ${state.enMinOpen || rest ? '' : `<button type="button" onclick="state.enMinOpen=true; render()" class="w-full py-2 bg-amber-500 text-slate-950 rounded-lg text-[10px] font-black">نسخهٔ حداقل</button>`}
+      <div class="space-y-2">
+        <p class="text-[10px] text-slate-500">دیروز کجا گیر کرد؟ (اختیاری)</p>
+        <div class="flex flex-wrap gap-1.5">${EN_MISS_REASONS.map(([id, label]) => choiceChip(label, id === 'other' && state.enMissOther, id === 'other' ? 'state.enMissOther=true; render(); focusEl(\'en-miss-note\')' : `enAnswerMiss('${y}','${id}')`)).join('')}</div>
+        ${state.enMissOther ? `
+          <div class="flex gap-2">
+            <input type="text" id="en-miss-note" data-preserve dir="auto" placeholder="چی شد؟" onkeydown="if(event.key==='Enter'){event.preventDefault(); enAnswerMiss('${y}','other');}"
+              class="flex-1 min-w-0 bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-[11px] text-slate-200 focus:outline-none focus:border-amber-500/50 placeholder:text-slate-600">
+            <button type="button" onclick="enAnswerMiss('${y}','other')" class="px-3 py-2 bg-slate-800 text-slate-300 rounded-lg text-[10px] font-black">ثبت</button>
+          </div>` : ''}
+      </div>
+    </div>`;
+}
+const enCheckRow = (on, label, onclick) => `
+  <button type="button" onclick="${onclick}" aria-pressed="${on}" class="w-full flex items-center gap-3 p-3 rounded-xl border text-right ${on ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-slate-900 border-slate-800'}">
+    <span class="w-4 h-4 rounded border shrink-0 flex items-center justify-center ${on ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-slate-700 bg-slate-950'}">${on ? fa('check', 'text-[8px]') : ''}</span>
+    <span class="text-[11px] font-bold ${on ? 'text-emerald-400' : 'text-slate-300'}">${label}</span>
+  </button>`;
+function englishSessionCard(mob){
+  const now = enHabitNow();
+  const today = enAppDay();
+  const st = enDayStatus(today, now.goal);
+  const run = enRunning();
+  const sessions = enDaySessions(today);
+  const lastTimer = [...sessions].reverse().find(x => x.source === 'timer');
+  const p = enPracticeOf(today);
+  const minOpen = state.enMinOpen || !!p;
+  const miss = enMissedYesterday();
+  const badge = { done:['انجام شد ✓', 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20'], min:['انجام‌شده (حداقل)', 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20'],
+    partial:['ناقص', 'text-amber-400 bg-amber-500/10 border-amber-500/20'], rest:['روز استراحت', 'text-sky-400 bg-sky-500/10 border-sky-500/20'] }[st];
+  const btn2 = 'flex-1 py-2.5 bg-slate-900 border border-slate-800 text-slate-300 rounded-xl text-[10px] font-black hover:bg-slate-800 transition-all';
+  return `
+    <div class="bg-slate-950 border border-slate-800 rounded-3xl ${mob ? 'p-5' : 'p-6'} space-y-4">
+      <div class="flex items-center justify-between gap-3">
+        <h4 class="${mob ? 'text-[10px]' : 'text-xs'} font-black text-white uppercase tracking-widest flex items-center gap-2">${fa('stopwatch', 'text-amber-500')} جلسهٔ امروز</h4>
+        ${badge ? `<span class="text-[9px] font-black px-2 py-0.5 rounded-full border ${badge[1]}">${badge[0]}</span>` : ''}
+      </div>
+      ${miss && !run ? enMissBanner(miss) : ''}
+      ${run ? `
+        <div class="p-4 bg-amber-500/5 rounded-2xl border border-amber-500/10 text-center space-y-3">
+          <p data-en-clock class="text-3xl font-black text-white tabular-nums">${enTimerLeft(run)}</p>
+          <p class="text-[10px] text-slate-500">از ${fd(run.targetMin)} دقیقه — با بستن اپ هم ادامه داره</p>
+          <button type="button" onclick="enFinishSession(enRunning(), false)" class="w-full py-3 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-[11px] font-black transition-all">${fa('stop', 'ml-1')} توقف و ثبت</button>
+        </div>` : `
+        <button type="button" onclick="enStartSession()" class="w-full py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl text-[11px] font-black transition-all">${fa('play', 'ml-1')} شروع جلسه (${fd(Math.min(180, enTimerTarget()))} دقیقه)</button>
+        <div class="flex gap-2">
+          <button type="button" onclick="state.enManualOpen=!state.enManualOpen; render(); if(state.enManualOpen) focusEl('en-manual-min')" class="${btn2}">ثبت دستی</button>
+          <button type="button" onclick="state.enMinOpen=!minOpen; render()" class="${btn2}">روز بد: نسخهٔ حداقل</button>
+        </div>`}
+      ${state.enManualOpen && !run ? `
+        <div class="flex items-center gap-2">
+          <input type="text" id="en-manual-min" data-preserve inputmode="numeric" placeholder="چند دقیقه؟" oninput="normalizeNumericInput(this)" onkeydown="if(event.key==='Enter'){event.preventDefault(); enAddManual();}"
+            class="flex-1 min-w-0 bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-amber-500/50 placeholder:text-slate-600">
+          <button type="button" onclick="enAddManual()" class="px-5 py-2.5 bg-amber-500 text-slate-950 rounded-xl text-[10px] font-black">ثبت</button>
+        </div>` : ''}
+      ${minOpen && !run ? `
+        <div class="space-y-2">
+          ${enCheckRow(!!(p && p.spoke), '۳۰ ثانیه انگلیسی حرف زدم', "enToggleMinPart('spoke')")}
+          ${enCheckRow(!!(p && p.listened), '۱۰ دقیقه انگلیسی گوش دادم', "enToggleMinPart('listened')")}
+        </div>` : ''}
+      ${lastTimer && !run ? enCheckRow(lastTimer.recalled, 'چیزی که امروز یاد گرفتم رو بلند به انگلیسی گفتم', `enToggleRecalled('${lastTimer.id}')`) : ''}
+      ${sessions.length ? `
+        <div class="space-y-1.5 pt-1">
+          ${sessions.map(x => `
+            <div class="flex items-center justify-between gap-3 px-3 py-2 bg-slate-900/50 rounded-xl border border-slate-800">
+              <span class="text-[10px] text-slate-400">${x.source === 'timer' ? `${fa('stopwatch', 'text-[9px] ml-1 text-slate-600')} تایمر` : `${fa('pen', 'text-[9px] ml-1 text-slate-600')} ثبت دستی`} · ${enClock(x.endedAt)}</span>
+              <span class="flex items-center gap-3"><span class="text-[10px] font-black text-slate-300">${fd(x.minutes)} دقیقه</span>
+                <button type="button" onclick="enDeleteSession('${x.id}')" aria-label="حذف" class="text-slate-600 hover:text-rose-500 transition-colors">${fa('xmark', 'text-[10px]')}</button></span>
+            </div>`).join('')}
+        </div>` : ''}
+    </div>`;
 }
 function englishHwForm(mob, canClose){
   const nh = state.newHomework;
@@ -166,12 +286,68 @@ function enChunkCard(c, i, n){
       ${fa('puzzle-piece', 'absolute -bottom-4 -left-4 text-5xl text-white/5 -rotate-12')}
     </div>`;
 }
+// open = not shelved and a ریز کار still open; the ones more than a week past their deadline go to «عقب‌افتاده‌ها»
+const enIsOpenHw = h => !h.shelvedAt && enChunksOf(h.id).some(c => !c.done);
+const enIsOverdue = h => daysUntil(h.dueOn) < -EN_OVERDUE_DAYS;
 function englishOpenHomework(){
-  const isOpen = h => enChunksOf(h.id).some(c => !c.done);
-  return (state.englishHomework || []).filter(isOpen).sort((a, b) => a.dueOn.localeCompare(b.dueOn));
+  return (state.englishHomework || []).filter(h => enIsOpenHw(h) && !enIsOverdue(h)).sort((a, b) => a.dueOn.localeCompare(b.dueOn));
+}
+function englishOverdueHomework(){
+  return (state.englishHomework || []).filter(h => enIsOpenHw(h) && enIsOverdue(h)).sort((a, b) => a.dueOn.localeCompare(b.dueOn));
 }
 function englishDoneHomework(){
-  return (state.englishHomework || []).filter(h => !enChunksOf(h.id).some(c => !c.done)).sort((a, b) => b.dueOn.localeCompare(a.dueOn));
+  return (state.englishHomework || []).filter(h => !enIsOpenHw(h)).sort((a, b) => b.dueOn.localeCompare(a.dueOn));
+}
+// «عقب‌افتاده‌ها (X تا)» — folded until tapped; each: «انجام دادم» / «کنار بذار»
+function englishOverdueSection(mob){
+  const list = englishOverdueHomework();
+  if(!list.length) return '';
+  const open = !!state.enOverdueOpen;
+  return `
+    <section class="${mob ? '' : 'bg-slate-950 border border-slate-800 rounded-3xl p-6'}">
+      <button type="button" onclick="state.enOverdueOpen=!state.enOverdueOpen; render()" aria-expanded="${open}" class="flex items-center gap-2 text-slate-400 ${open ? 'mb-4' : ''}">
+        ${fa(open ? 'chevron-down' : 'chevron-left', 'text-[10px]')}<span class="${mob ? 'text-[10px]' : 'text-xs'} font-black uppercase tracking-widest">عقب‌افتاده‌ها (${fd(list.length)} تا)</span>
+      </button>
+      ${open ? `<div class="space-y-2">${list.map(h => {
+        const ch = enChunksOf(h.id), left = ch.filter(c => !c.done).length;
+        return `
+          <div class="${mob ? 'bg-slate-900' : 'bg-slate-900/50'} p-4 rounded-2xl border border-slate-800 space-y-3">
+            <div class="flex items-start justify-between gap-3">
+              <div class="min-w-0"><h4 class="text-xs font-bold text-slate-300" dir="auto">${esc(h.title)}</h4>
+                <p class="text-[10px] text-slate-500 mt-1">${h.unit ? `${esc(h.unit)} · ` : ''}${enDueLabel(h)} · ${fd(left)} از ${fd(ch.length)} ریز کار مونده</p></div>
+              <button type="button" onclick="openEnglishHwEditor('${h.id}')" aria-label="ویرایش تکلیف" class="text-slate-600 hover:text-white p-1 shrink-0">${fa('pen', 'text-[10px]')}</button>
+            </div>
+            <div class="flex gap-2">
+              <button type="button" onclick="enFinishHomework('${h.id}')" class="flex-1 py-2 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-lg text-[10px] font-black">${fa('check', 'ml-1')} انجام دادم</button>
+              <button type="button" onclick="enShelveHomework('${h.id}')" class="flex-1 py-2 bg-slate-800 text-slate-400 rounded-lg text-[10px] font-black">کنار بذار</button>
+            </div>
+          </div>`;
+      }).join('')}</div>` : ''}
+    </section>`;
+}
+// a finished or shelved homework's tick: unshelve it, or untick the ریز کار ticked last
+const enReopenCall = h => h.shelvedAt ? `enShelveHomework('${h.id}', false)` : `reopenEnglishHomework('${h.id}')`;
+const enShelvedTag = h => h.shelvedAt ? `<span class="text-[9px] font-black text-slate-500 bg-slate-800 px-1.5 py-0.5 rounded-md mr-1">کنار گذاشته</span>` : '';
+/* «خلاصهٔ هفته» for the teacher: two lines, copyable, a week at a time */
+function englishSummaryCard(mob){
+  const sat = enAddDays(enSatOf(enAppDay()), (state.enSummaryWeek || 0) * 7);
+  const text = [`خلاصهٔ هفته — ${jDate(sat)} تا ${jDate(enAddDays(sat, 6), true)}`, ...enWeekSummaryLines(sat)].join('\n');
+  const nav = (ic, n, label, off) => `<button type="button" onclick="state.enSummaryWeek=Math.min(0,(state.enSummaryWeek||0)+${n}); render()" aria-label="${label}" ${off ? 'disabled' : ''} class="w-9 h-9 flex items-center justify-center text-slate-400 bg-slate-900 rounded-lg border border-slate-800 disabled:opacity-30">${fa(ic, 'text-xs')}</button>`;
+  return `
+    <div class="bg-slate-950 border border-slate-800 rounded-3xl ${mob ? 'p-5' : 'p-6'}">
+      <div class="flex items-center justify-between gap-3 mb-4">
+        <h4 class="text-xs font-black text-white uppercase tracking-widest flex items-center gap-2">${fa('clipboard-list', 'text-indigo-500')} خلاصهٔ هفته</h4>
+        <div class="flex items-center gap-2">${nav('chevron-right', -1, 'هفتهٔ قبل', false)}${nav('chevron-left', 1, 'هفتهٔ بعد', (state.enSummaryWeek || 0) >= 0)}</div>
+      </div>
+      <pre dir="rtl" class="whitespace-pre-wrap font-[inherit] bg-slate-900 border border-slate-800 rounded-2xl p-4 ${mob ? 'text-[11px]' : 'text-xs'} text-slate-300 leading-relaxed">${esc(text)}</pre>
+      <button type="button" onclick="copyText(${ea(JSON.stringify(text))}, 'خلاصه کپی شد')" class="w-full mt-4 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-black transition-all">${fa('copy', 'ml-1')} کپی برای معلم</button>
+    </div>`;
+}
+// «هر خط یه تکلیف جدا ثبت بشه؟»
+function renderEnglishSplitAsk(){
+  return renderDialog({ title:'چند خط نوشتی', onClose:"state.enSplitAsk=false; render()",
+    body:`<p class="text-sm font-black text-white leading-relaxed">هر خط یه تکلیف جدا ثبت بشه؟</p>`,
+    footer: dlgPrimary('بله', 'addEnglishHomework(true)') + dlgSecondary('نه', 'addEnglishHomework(false)') });
 }
 function enToggleDone(id){ state.enDoneOpen = state.enDoneOpen || {}; state.enDoneOpen[id] = !state.enDoneOpen[id]; render(); }
 // the last few classes whose deadline has come, and how much of each homework was done by then
@@ -196,17 +372,15 @@ function englishSettingsCard(mob){
         <div class="flex items-center justify-between px-1"><p class="text-[10px] font-black text-slate-500 uppercase tracking-widest">روزهای کلاس</p><span class="text-[10px] font-black text-amber-500">${s.classDays.length ? `هفته‌ای ${fd(s.classDays.length)} جلسه` : 'انتخاب نشده'}</span></div>
         <div class="flex gap-1 justify-between">${weekdayBtns(s.classDays, d => `toggleEnglishClassDay(${d})`, 'amber', 'w-9 h-9')}</div>
       </div>
-      ${s.classDays.length ? `<div class="space-y-3">${fieldLabel('ساعت شروع کلاس')}<div class="grid ${mob ? 'grid-cols-1 gap-2' : 'grid-cols-3 gap-3'}">${WEEKDAY_DISPLAY_ORDER.filter(d => s.classDays.includes(d)).map(d => `<label class="flex items-center justify-between gap-2 p-3 bg-slate-900/50 rounded-2xl border border-slate-800 text-[11px] text-slate-400 min-w-0"><span class="shrink-0">${WEEKDAYS_FA[d]}</span><input type="time" value="${ea(enClassTime(d))}" onchange="if(this.value) setEnglishClassTime(${d}, this.value)" class="${box} ${mob ? 'min-w-0' : ''}"></label>`).join('')}</div></div>` : ''}
+      ${s.classDays.length ? `<div class="space-y-3">${fieldLabel('ساعت شروع کلاس')}<div class="grid ${mob ? 'grid-cols-1 gap-2' : 'grid-cols-3 gap-3'}">${WEEKDAY_DISPLAY_ORDER.filter(d => s.classDays.includes(d)).map(d => `<label class="flex items-center justify-between gap-2 p-3 bg-slate-900/50 rounded-2xl border border-slate-800 text-[11px] text-slate-400 min-w-0"><span class="shrink-0">${WEEKDAYS_FA[d]}</span><input type="time" id="en-class-time-${d}" value="${ea(enClassTime(d))}" onchange="if(this.value) setEnglishClassTime(${d}, this.value)" class="${box} ${mob ? 'min-w-0' : ''}"></label>`).join('')}</div></div>` : ''}
       <div class="grid ${mob ? 'grid-cols-1' : 'grid-cols-2'} gap-4">
         ${field('ساعت تمرین روزانه', `<input type="time" value="${ea(s.practiceTime)}" onchange="if(this.value) saveEnglishSettings({ practiceTime:this.value })" class="${box} w-full min-w-0 p-3">`)}
         ${field('کلاس چقدر طول می‌کشه؟', segmented([[60, 'یک ساعت'], [90, '۹۰ دقیقه'], [120, 'دو ساعت']], s.classMinutes, m => `saveEnglishSettings({ classMinutes:${m} })`))}
       </div>
-      ${field('هدف هفتگی تمرین', `
-        <div class="relative">
-          <input type="text" inputmode="decimal" placeholder="بدون هدف" value="${s.weeklyGoalMin ? fd(+(s.weeklyGoalMin / 60).toFixed(2)) : ''}" onchange="setEnglishWeeklyGoalHours(this.value)"
-            class="w-full bg-slate-900 border border-slate-800 rounded-2xl p-3 text-sm font-black text-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500/50 focus:outline-none transition-all pl-12 placeholder:text-slate-600">
-          <span class="absolute left-4 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-500">ساعت</span>
-        </div>`)}
+      <div class="space-y-3">
+        <div class="flex items-center justify-between px-1"><p class="text-[10px] font-black text-slate-500 uppercase tracking-widest">روز استراحت جدول عادت</p><span class="text-[10px] font-black text-sky-400">${WEEKDAYS_FA[s.restDay]}</span></div>
+        <div class="flex gap-1 justify-between">${weekdayBtns([s.restDay], d => `saveEnglishSettings({ restDay:${d} })`, 'amber', 'w-9 h-9')}</div>
+      </div>
       <div class="border-t border-slate-800 pt-6 space-y-3">
         ${toggleRow('اعلان‌های انگلیسی روی گوشی', 'بعد از کلاس، سر ساعت تمرین، و ساعت ۹ شبِ قبل از کلاس', s.push, `saveEnglishSettings({ push:${!s.push} })`)}
         ${state.pushStatus === 'on' ? '' : `<p class="text-[10px] text-amber-400/80 leading-relaxed">اعلان‌ها روی این دستگاه خاموشه — از «تنظیمات» روشنش کن.</p>`}
@@ -214,49 +388,21 @@ function englishSettingsCard(mob){
     </div>`;
 }
 function englishRightColumn(){
-  const p = enTodayProgress();
-  const r = 40, circ = 251;
-  return `
-    ${englishGoalCard(false)}
-    <div class="bg-slate-950 border border-slate-800 rounded-3xl p-6">
-      <div class="flex items-center justify-between mb-6">
-        <h4 class="text-xs font-black text-white uppercase tracking-widest flex items-center gap-2">${fa('fire', 'text-amber-500')} هدف روزانه تمرین</h4>
-        <span class="text-[10px] font-black text-amber-500">${fd(p.pct)}٪</span>
-      </div>
-      <div class="space-y-6">
-        <div class="relative h-24 flex items-center justify-center">
-          <svg class="w-24 h-24 transform -rotate-90" aria-hidden="true">
-            <circle cx="48" cy="48" r="${r}" stroke="currentColor" stroke-width="8" fill="transparent" class="text-slate-800" />
-            <circle cx="48" cy="48" r="${r}" stroke="currentColor" stroke-width="8" fill="transparent" stroke-dasharray="${circ}" stroke-dashoffset="${Math.round(circ * (1 - p.pct / 100))}" class="text-amber-500" stroke-linecap="round" />
-          </svg>
-          <div class="absolute inset-0 flex flex-col items-center justify-center">
-            <span class="text-xl font-black text-white">${fd(p.openMin)}</span>
-            <span class="text-[8px] text-slate-500 uppercase font-black">دقیقه باقی‌مانده</span>
-          </div>
-        </div>
-        <div class="p-4 bg-slate-900 rounded-2xl border border-slate-800 text-center">
-          <p class="text-[10px] text-slate-500 mb-1">حداقل تمرین روزانه:</p>
-          <p class="text-sm font-black text-white">۵ دقیقه</p>
-          <p class="text-[10px] text-slate-500 mt-2 leading-relaxed">${EN_MIN_IDEAS[new Date().getDay()]}</p>
-        </div>
-        <button type="button" onclick="toggleEnglishMin()" class="w-full py-3 ${p.minTicked ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/10' : 'bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 border-amber-500/10'} rounded-xl text-[10px] font-black transition-all border tracking-widest uppercase">${p.minTicked ? `${fa('check', 'ml-1')} ۵ دقیقه‌ی امروز ثبت شد` : 'ثبت ۵ دقیقه تمرین'}</button>
-      </div>
-    </div>
-    ${englishPatternCard(false)}`;
+  return `${englishHabitCard(false)}${englishSessionCard(false)}${englishPatternCard(false)}`;
 }
 // «الگوی مطالعه»: this week's practice minutes, day by day (desktop column, phone «روند پیشرفت»)
 function englishPatternCard(mob){
   const bars = enWeekBars();
   const max = Math.max(5, ...bars.map(b => b.minutes));
   const avg = Math.round(bars.reduce((n, b) => n + b.minutes, 0) / 7);
-  const todayK = dateKey(new Date());
+  const todayK = enAppDay();
   return `
     <div class="bg-slate-950 border border-slate-800 rounded-3xl ${mob ? 'p-5' : 'p-6'}">
       <h4 class="text-xs font-black text-white uppercase tracking-widest mb-4 flex items-center gap-2">${fa('chart-line', 'text-indigo-400')} الگوی مطالعه</h4>
       <div class="space-y-4">
         <div class="flex items-center justify-between px-2"><span class="text-[11px] text-slate-500">میانگین هفتگی</span><span class="text-[11px] font-bold text-slate-300">${fd(avg)} دقیقه/روز</span></div>
         <div class="flex items-end justify-between h-20 px-2 gap-1">
-          ${bars.map(b => `<div class="w-full ${b.minutes ? 'bg-amber-500 shadow-[0_0_10px_rgb(var(--c-amber-500)/0.2)]' : enIsClassDay(b.key) ? 'bg-indigo-500/30' : 'bg-slate-900'} rounded-t-lg ${b.key === todayK ? 'ring-1 ring-amber-400/40' : ''}" style="height:${Math.max(12, Math.round(b.minutes / max * 100))}%" title="${ea(enDayLabel(b.key))}: ${fd(b.minutes)} دقیقه"></div>`).join('')}
+          ${bars.map(b => `<div class="w-full ${b.minutes ? 'bg-amber-500 shadow-[0_0_10px_rgb(var(--c-amber-500)/0.2)]' : englishSettings().habitStart && enIsRestDay(b.key) ? 'bg-sky-500/20' : enIsClassDay(b.key) ? 'bg-indigo-500/30' : 'bg-slate-900'} rounded-t-lg ${b.key === todayK ? 'ring-1 ring-amber-400/40' : ''}" style="height:${Math.max(12, Math.round(b.minutes / max * 100))}%" title="${ea(enDayLabel(b.key))}: ${fd(b.minutes)} دقیقه"></div>`).join('')}
         </div>
         <div class="grid grid-cols-7 gap-1 px-2">${['SAT','SUN','MON','TUE','WED','THU','FRI'].map(d => `<span class="text-[8px] text-center text-slate-600 font-bold uppercase">${d}</span>`).join('')}</div>
       </div>
@@ -287,7 +433,7 @@ function renderEnglishDesktop(){
           <div class="flex items-center justify-between mb-4">
             <h3 class="text-sm font-black text-white uppercase tracking-widest">ریز کارهای تکلیف</h3>
             <div class="flex items-center gap-3">
-              <span class="text-[10px] font-bold text-slate-500" dir="auto">بر اساس تکلیف: "${esc(h.title)}"${h.unit ? ` · ${esc(h.unit)}` : ''} · <span class="${daysUntil(h.dueOn) < 0 ? 'text-rose-400' : ''}">${enDueLabel(h)}</span></span>
+              <span class="text-[10px] font-bold text-slate-500" dir="auto">بر اساس تکلیف: "${esc(h.title)}"${h.unit ? ` · ${esc(h.unit)}` : ''} · ${enDueLabel(h)}</span>
               <button type="button" onclick="openEnglishHwEditor('${h.id}')" title="ویرایش" aria-label="ویرایش تکلیف" class="text-slate-600 hover:text-white transition-colors">${fa('pen', 'text-[10px]')}</button>
               <button type="button" onclick="deleteEnglishHomework('${h.id}')" title="حذف تکلیف" aria-label="حذف تکلیف" class="text-slate-600 hover:text-rose-500 transition-colors">${fa('trash', 'text-[10px]')}</button>
             </div>
@@ -295,6 +441,7 @@ function renderEnglishDesktop(){
           <div class="grid grid-cols-2 gap-4">${chunks.map((c, i) => enChunkCard(c, i, chunks.length)).join('')}</div>
         </div>`;
     }).join('') : `<div class="bg-slate-950/50 border border-dashed border-slate-800 rounded-3xl p-6">${emptyNote('تکلیف بازی نداری. بعد از هر کلاس تکلیف رو همین بالا بنویس و اگه خواستی ریز کارهاش رو هم زیرش اضافه کن.', 'puzzle-piece')}</div>`}
+    ${englishOverdueSection(false)}
     ${doneHw.length ? `
       <section id="completed-homework" class="border-t border-slate-800/50 pt-8">
         <h3 class="text-xs font-black text-slate-600 uppercase tracking-widest mb-6">تکالیف انجام شده قبلی</h3>
@@ -306,10 +453,10 @@ function renderEnglishDesktop(){
               <div class="bg-slate-900/30 p-4 rounded-2xl border border-slate-800/50 group">
                 <div class="flex items-center justify-between">
                   <div class="flex items-center gap-4">
-                    <button type="button" onclick="reopenEnglishHomework('${h.id}')" title="برگردون به تکالیف فعال" aria-label="برگردون به تکالیف فعال" class="w-10 h-10 bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 rounded-xl flex items-center justify-center transition-colors">${fa('circle-check')}</button>
+                    <button type="button" onclick="${enReopenCall(h)}" title="برگردون به تکالیف فعال" aria-label="برگردون به تکالیف فعال" class="w-10 h-10 ${h.shelvedAt ? 'bg-slate-800 text-slate-500 hover:bg-slate-700' : 'bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20'} rounded-xl flex items-center justify-center transition-colors">${fa(h.shelvedAt ? 'box-archive' : 'circle-check')}</button>
                     <div>
                       <h4 class="text-sm font-bold text-slate-400" dir="auto">${esc(h.title)}</h4>
-                      <p class="text-[10px] text-slate-600">${last ? `تکمیل شده در ${jDate(dateKey(new Date(last)))}` : 'تکمیل شده'} · ${fd(ch.length)} ریز کار${h.unit ? ` · ${esc(h.unit)}` : ''}</p>
+                      <p class="text-[10px] text-slate-600">${enShelvedTag(h)}${h.shelvedAt ? `کنار گذاشته در ${jDate(dateKey(new Date(h.shelvedAt)))}` : last ? `تکمیل شده در ${jDate(dateKey(new Date(last)))}` : 'تکمیل شده'} · ${fd(ch.length)} ریز کار${h.unit ? ` · ${esc(h.unit)}` : ''}</p>
                     </div>
                   </div>
                   <div class="flex items-center gap-1">
@@ -323,7 +470,7 @@ function renderEnglishDesktop(){
           }).join('')}
         </div>
       </section>` : ''}`;
-  const left = tab === 'settings' ? englishSettingsCard(false) : tab === 'stats' ? englishStatsCards() : hwBody;
+  const left = tab === 'settings' ? englishSettingsCard(false) : tab === 'stats' ? `${englishSummaryCard(false)}${englishStatsCards()}` : hwBody;
   const body = `
     <div class="max-w-6xl mx-auto grid grid-cols-12 gap-8">
       <div class="col-span-8 space-y-8">${left}</div>
@@ -336,7 +483,7 @@ function renderEnglishMobile(){
   const s = englishSettings();
   const openHw = englishOpenHomework();
   const doneHw = englishDoneHomework();
-  const p = enTodayProgress();
+  const overdueHw = englishOverdueHomework();
   const askFor = enNeedsHomeworkPrompt();
   const formOpen = state.enAddOpen || (!!askFor && !state.enAddDismissed);
   const today = dateKey(new Date());
@@ -359,7 +506,7 @@ function renderEnglishMobile(){
     <main class="safe-area-bottom">
       <div class="p-4 space-y-6">
         ${renderStatusBars()}
-        ${settingsView ? englishSettingsCard(true) : statsView ? `${englishPatternCard(true)}${englishStatsCards()}` : `
+        ${settingsView ? englishSettingsCard(true) : statsView ? `${englishSummaryCard(true)}${englishPatternCard(true)}${englishStatsCards()}` : `
         <div class="bg-indigo-600/10 border border-indigo-500/20 rounded-3xl p-5">
           <div class="flex items-center justify-between mb-6">
             <h3 class="text-xs font-black text-white flex items-center gap-2 uppercase tracking-widest">${fa('chart-simple', 'text-indigo-400')} وضعیت یادگیری</h3>
@@ -370,11 +517,12 @@ function renderEnglishMobile(){
             <div class="bg-slate-950/50 p-3 rounded-2xl border border-indigo-500/5"><p class="text-[9px] font-black text-slate-500 mb-1">زمان کل تمرین</p><span class="text-lg font-black text-white">${st.minutes >= 60 ? `${fd(Math.round(st.minutes / 60))} ساعت` : fmtMin(st.minutes)}</span></div>
           </div>
         </div>
-        ${englishGoalCard(true)}
+        ${englishHabitCard(true)}
+        ${englishSessionCard(true)}
         <section id="homework">
           <div class="flex items-center justify-between mb-4 px-1">
             <h3 class="text-xs font-black text-white uppercase tracking-widest">تکالیف فعال (Homework)</h3>
-            ${soonest ? `<span class="text-[9px] font-bold ${daysUntil(soonest.dueOn) <= 1 ? 'text-rose-400' : 'text-slate-500'}">Deadline: ${enDayLabel(soonest.dueOn)}</span>` : `<button type="button" onclick="state.enAddOpen=!state.enAddOpen; render()" class="text-[10px] font-black text-amber-400">+ ثبت تکلیف</button>`}
+            ${soonest ? `<span class="text-[9px] font-bold ${daysUntil(soonest.dueOn) >= 0 && daysUntil(soonest.dueOn) <= 1 ? 'text-rose-400' : 'text-slate-500'}">Deadline: ${enDayLabel(soonest.dueOn)}</span>` : `<button type="button" onclick="state.enAddOpen=!state.enAddOpen; render()" class="text-[10px] font-black text-amber-400">+ ثبت تکلیف</button>`}
           </div>
           <div class="space-y-4">
             ${formOpen || !openHw.length ? `<div class="bg-slate-900 border border-slate-800 rounded-3xl p-5">${englishHwForm(true, openHw.length > 0)}</div>` : ''}
@@ -390,29 +538,18 @@ function renderEnglishMobile(){
                 </div>`;
             }).join('')}
             ${openHw.length && !formOpen ? `<button type="button" onclick="state.enAddOpen=true; render()" class="w-full py-3 bg-slate-950 border border-dashed border-slate-800 rounded-xl text-[10px] font-black text-slate-500">+ ثبت تکلیف جدید</button>` : ''}
-          </div>
-        </section>
-        <section id="practice">
-          <div class="flex items-center justify-between mb-4 px-1">
-            <h3 class="text-xs font-black text-white uppercase tracking-widest">جلسات تمرین</h3>
-            <button type="button" onclick="state.englishTab='settings'; render()" class="text-[10px] font-black text-indigo-400">تغییر زمان‌بندی</button>
-          </div>
-          <div class="grid grid-cols-1 gap-3">
-            <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl flex items-center justify-between gap-3">
-              <div class="flex items-center gap-3 min-w-0">
-                <div class="w-10 h-10 bg-amber-500/10 text-amber-500 rounded-xl flex items-center justify-center shrink-0">${fa('microphone', 'text-lg')}</div>
-                <div class="min-w-0"><h4 class="text-xs font-bold text-white mb-0.5">حداقل تمرین روزانه</h4><p class="text-[9px] text-slate-500 leading-relaxed">روزانه ۵ دقیقه • ${fd(s.practiceTime)} — ${EN_MIN_IDEAS[new Date().getDay()]}</p></div>
-              </div>
-              <button type="button" onclick="toggleEnglishMin()" class="${p.minTicked ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-900/20'} px-4 py-2 rounded-lg text-[9px] font-black shrink-0">${p.minTicked ? 'ثبت شد ✓' : 'ثبت تمرین'}</button>
-            </div>
+            ${overdueHw.length ? englishOverdueSection(true) : ''}
           </div>
         </section>
         <section id="schedule">
           <div class="bg-slate-950 border border-slate-800 rounded-3xl p-5">
-            <h3 class="text-xs font-black text-white uppercase tracking-widest mb-4 flex items-center gap-2">${fa('graduation-cap', 'text-indigo-400')} زمان کلاس‌ها</h3>
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="text-xs font-black text-white uppercase tracking-widest flex items-center gap-2">${fa('graduation-cap', 'text-indigo-400')} زمان کلاس‌ها</h3>
+              <button type="button" onclick="state.englishTab='settings'; render()" class="text-[10px] font-black text-indigo-400">تغییر زمان‌بندی</button>
+            </div>
             <div class="space-y-3">
-              <div class="flex items-center justify-between text-[11px] px-1"><span class="text-slate-400">روزهای هفته:</span><span class="text-white font-bold">${s.classDays.length ? WEEKDAY_DISPLAY_ORDER.filter(d => s.classDays.includes(d)).map(d => WEEKDAYS_FA[d]).join('، ') : 'تنظیم نشده'}</span></div>
-              <div class="flex items-center justify-between text-[11px] px-1"><span class="text-slate-400">ساعت شروع:</span><span class="text-white font-bold">${s.classDays.length ? [...new Set(s.classDays.map(enClassTime))].map(fd).join('، ') : '—'}</span></div>
+              ${s.classDays.length ? WEEKDAY_DISPLAY_ORDER.filter(d => s.classDays.includes(d)).map(d => `<div class="flex items-center justify-between text-[11px] px-1"><span class="text-slate-400">${WEEKDAYS_FA[d]}:</span><span class="text-white font-bold">ساعت ${fd(enClassTime(d))}</span></div>`).join('')
+                : `<div class="flex items-center justify-between text-[11px] px-1"><span class="text-slate-400">روزهای هفته:</span><span class="text-white font-bold">تنظیم نشده</span></div>`}
               <div class="flex items-center justify-between text-[11px] px-1"><span class="text-slate-400">مدت هر جلسه:</span><span class="text-white font-bold">${fmtMin(s.classMinutes)}</span></div>
             </div>
           </div>
@@ -420,7 +557,7 @@ function renderEnglishMobile(){
         ${doneHw.length ? `
           <section>
             <button type="button" onclick="state.enDoneListOpen=!state.enDoneListOpen; render()" class="flex items-center gap-2 text-slate-600 mb-4">${fa(state.enDoneListOpen ? 'chevron-down' : 'chevron-left', 'text-[10px]')}<span class="text-[10px] font-black uppercase tracking-widest">تکالیف انجام شده (${fd(doneHw.length)})</span></button>
-            ${state.enDoneListOpen ? `<div class="space-y-2">${doneHw.map(h => `<div class="bg-slate-950 p-4 rounded-2xl border border-slate-800 flex items-center justify-between gap-3"><button type="button" onclick="reopenEnglishHomework('${h.id}')" aria-label="برگردون به تکالیف فعال" class="flex items-center gap-3 text-right">${fa('circle-check', 'text-emerald-500 text-xs')}<span class="text-xs font-bold text-slate-400" dir="auto">${esc(h.title)}</span></button><div class="flex items-center gap-3 shrink-0"><button type="button" onclick="openEnglishHwEditor('${h.id}')" aria-label="ویرایش" class="text-slate-600">${fa('pen', 'text-[10px]')}</button><button type="button" onclick="deleteEnglishHomework('${h.id}')" aria-label="حذف" class="text-slate-600">${fa('trash-can', 'text-[10px]')}</button></div></div>`).join('')}</div>` : ''}
+            ${state.enDoneListOpen ? `<div class="space-y-2">${doneHw.map(h => `<div class="bg-slate-950 p-4 rounded-2xl border border-slate-800 flex items-center justify-between gap-3"><button type="button" onclick="${enReopenCall(h)}" aria-label="برگردون به تکالیف فعال" class="flex items-center gap-3 text-right">${fa(h.shelvedAt ? 'box-archive' : 'circle-check', `${h.shelvedAt ? 'text-slate-500' : 'text-emerald-500'} text-xs`)}<span class="text-xs font-bold text-slate-400" dir="auto">${esc(h.title)}</span>${enShelvedTag(h)}</button><div class="flex items-center gap-3 shrink-0"><button type="button" onclick="openEnglishHwEditor('${h.id}')" aria-label="ویرایش" class="text-slate-600">${fa('pen', 'text-[10px]')}</button><button type="button" onclick="deleteEnglishHomework('${h.id}')" aria-label="حذف" class="text-slate-600">${fa('trash-can', 'text-[10px]')}</button></div></div>`).join('')}</div>` : ''}
           </section>` : ''}`}
       </div>
     </main>`;

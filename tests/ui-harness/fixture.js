@@ -117,10 +117,14 @@
     { id:'hm1', title:'سرویس پکیج', room:'کل خونه', every_months:12, next_due:day(-5), last_done:day(-370), who:'pro', trade:'تأسیسات و پکیج', note:'', task_id:null, created_at:at(-400, 9) },
     { id:'hm2', title:'تعویض فیلتر تصفیه آب', room:'آشپزخونه', every_months:6, next_due:day(90), last_done:day(-90), who:'self', trade:'', note:'', task_id:null, created_at:at(-200, 9) },
   ];
-  const english_settings = { class_days:[6, 2, 4], class_time:'18:00', class_times:{}, class_minutes:90, practice_time:'20:00', push:true };
+  const english_settings = { class_days:[6, 2, 4], class_time:'18:00', class_times:{ 6:'20:30', 2:'17:00', 4:'18:00' }, class_minutes:90, practice_time:'20:00', push:true,
+    habit_start:day(-12), rest_day:5, habit_steps:{} };
   const english_homework = [
     { id:'hw1', title:'Writing Practice - Formal Letter', unit:'Unit 5', assigned_on:day(-2), due_on:day(3), created_at:at(-2, 20) },
     { id:'hw0', title:'Reading: Sustainable Energy', unit:'Unit 4', assigned_on:day(-9), due_on:day(-4), created_at:at(-9, 20) },
+    { id:'hw2', title:'Workbook p. 30-31', unit:'Unit 3', assigned_on:day(-16), due_on:day(-12), created_at:at(-16, 20) },
+    { id:'hw3', title:'Listening: Track 3.4', unit:'Unit 3', assigned_on:day(-20), due_on:day(-16), created_at:at(-20, 20) },
+    { id:'hw4', title:'Old grammar sheet', unit:'Unit 2', assigned_on:day(-30), due_on:day(-26), shelved_at:at(-2, 10), created_at:at(-30, 20) },
   ];
   const chunk = (o) => Object.assign({ done:false, done_at:null, actual_min:null, difficulty:null, skips:[], position:0 }, o);
   const english_chunks = [
@@ -128,13 +132,22 @@
     chunk({ id:'c2', homework_id:'hw1', title:'Draft: Opening Paragraph', minutes:20, day:day(0), position:1, created_at:at(-2, 20, 1) }),
     chunk({ id:'c3', homework_id:'hw1', title:'Draft: Body Paragraphs', minutes:25, day:day(1), position:2, created_at:at(-2, 20, 2) }),
     chunk({ id:'c0', homework_id:'hw0', title:'Read the article', minutes:15, day:day(-6), position:0, done:true, done_at:at(-6, 19), created_at:at(-9, 20) }),
+    chunk({ id:'c4', homework_id:'hw2', title:'Exercise A', minutes:10, day:day(-15), position:0, done:true, done_at:at(-14, 19), created_at:at(-16, 20) }),
+    chunk({ id:'c5', homework_id:'hw2', title:'Exercise B', minutes:10, day:day(-15), position:1, created_at:at(-16, 20, 1) }),
+    chunk({ id:'c6', homework_id:'hw3', title:'Listen twice', minutes:15, day:day(-19), position:0, created_at:at(-20, 20) }),
+    chunk({ id:'c7', homework_id:'hw4', title:'Grammar sheet', minutes:20, day:day(-29), position:0, created_at:at(-30, 20) }),
   ];
-  const english_practice = [-1, -2, -3, -5, -6].map(i => ({ day:day(i), created_at:at(i, 21) }));
+  const english_practice = [{ day:day(-5), created_at:at(-5, 21), spoke:true, listened:true }];
+  let sn = 0;
+  const sess = (d, minutes, source = 'timer') => ({ id:'s' + (++sn), day:day(d), source, started_at:source === 'timer' ? at(d, 19) : null,
+    target_min:source === 'timer' ? minutes : null, ended_at:at(d, 19, minutes), minutes, completed:source === 'timer', recalled:false, created_at:at(d, 19) });
+  const english_sessions = [sess(-7, 30), sess(-6, 20, 'manual'), sess(-4, 20), sess(-4, 15, 'manual'), sess(-2, 15), sess(-9, 30), sess(-10, 30)];
+  const english_misses = [];
   const backups = [{ id:'b1', kind:'download', created_at:at(-12, 10), counts:{ tasks:38 } }, { id:'b2', kind:'auto', created_at:at(-4, 3), counts:{ tasks:40 } }];
   window.FIXTURE = {
     encouragement:'هر گام کوچک، بخشی از یک مسیر بزرگ است. تو از دیروزت بهتری.',
     tables:{ tags, tasks, recurring_templates, tag_goals:[{ tag_id:T.design, weekly_minutes:600, reason:'به دلیل ددلاین پروژه مدار' }, { tag_id:T.en, weekly_minutes:300, reason:'برای حفظ زنجیره یادگیری' }],
       ai_reports, purchases, ideas, subscriptions, reminders:[], prompts, wins, mother_care_items, mother_care:[mother_care],
-      home_repairs, home_repair_parts, home_maintenance, ai_health:[], english_settings:[english_settings], english_homework, english_chunks, english_practice, backups },
+      home_repairs, home_repair_parts, home_maintenance, ai_health:[], english_settings:[english_settings], english_homework, english_chunks, english_practice, english_sessions, english_misses, backups },
   };
 })();

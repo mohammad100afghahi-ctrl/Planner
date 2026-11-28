@@ -185,8 +185,8 @@ const SECTIONS: Record<string, Section> = {
   },
   english_homework: {
     table: "english_homework", label: "انگلیسی — تکلیف‌ها", key: "id", order: ["due_on", true], search: ["title", "unit"],
-    about: "English class homework; each is split into daily chunks (english_chunks).",
-    fields: { title: "text, required", unit: "text", assigned_on: "YYYY-MM-DD, required", due_on: "YYYY-MM-DD, required" },
+    about: "English class homework; each is split into daily chunks (english_chunks). shelved_at set = «کنار گذاشته» (off the lists, kept).",
+    fields: { title: "text, required", unit: "text", assigned_on: "YYYY-MM-DD, required", due_on: "YYYY-MM-DD, required", shelved_at: "timestamp or null" },
     children: [{ table: "english_chunks", fk: "homework_id" }],
   },
   english_chunks: {
@@ -199,14 +199,24 @@ const SECTIONS: Record<string, Section> = {
   },
   english_settings: {
     table: "english_settings", label: "انگلیسی — تنظیمات", key: null, order: ["updated_at", false],
-    about: "English class schedule and practice settings. One row.",
-    fields: { class_days: "int array 0-6", class_times: "json {weekday: 'HH:MM'}", class_minutes: "integer", practice_time: "HH:MM", push: "boolean", weekly_goal_min: "integer" },
-    hide: ["pushed", "class_time"],
+    about: "English class schedule and practice settings. One row. «جدول عادت»: habit_start = day 1 of the habit table (daily goal 30→35→45→60 min, a step a week while the week before had ≥4 done days of 6, else habit_steps holds the user's 'up'/'stay' per Saturday); rest_day = the weekly rest day (getDay 0-6, 5 = Friday).",
+    fields: { class_days: "int array 0-6", class_times: "json {weekday: 'HH:MM'}", class_minutes: "integer", practice_time: "HH:MM", push: "boolean", habit_start: "YYYY-MM-DD or null", rest_day: "integer 0-6", habit_steps: "json {'<Saturday YYYY-MM-DD>': 'up' | 'stay'}" },
+    hide: ["pushed", "class_time", "weekly_goal_min"],
   },
   english_practice: {
-    table: "english_practice", label: "انگلیسی — روزهای تمرین", key: "day", order: ["day", false],
-    about: "Days the user practised English (the chain). One row per day; id = the day.",
-    fields: { day: "YYYY-MM-DD, required" },
+    table: "english_practice", label: "انگلیسی — نسخهٔ حداقل", key: "day", order: ["day", false],
+    about: "«روز بد: نسخهٔ حداقل» — one row per day (id = the day, 07:00→07:00). The day counts as done (minimum) only when spoke and listened are both true.",
+    fields: { day: "YYYY-MM-DD, required", spoke: "boolean — spoke English for 30 seconds", listened: "boolean — listened to English for 10 minutes" },
+  },
+  english_sessions: {
+    table: "english_sessions", label: "انگلیسی — جلسه‌های تمرین", key: "id", order: ["created_at", false],
+    about: "English practice sessions: a timer (started_at + target_min; ended_at null while running, closed by the server when it runs out) or a manual entry (minutes only). day = the app day (07:00→07:00). A day is done when its minutes reach that day's habit goal.",
+    fields: { day: "YYYY-MM-DD, required", source: "'timer' | 'manual'", started_at: "timestamp", target_min: "integer", ended_at: "timestamp", minutes: "integer 0-180", completed: "boolean — the timer ran out", recalled: "boolean — said aloud in English what was learned" },
+  },
+  english_misses: {
+    table: "english_misses", label: "انگلیسی — دیروز کجا گیر کرد", key: "day", order: ["day", false],
+    about: "Answers to «دیروز کجا گیر کرد؟» for a practice day with nothing logged; id = the missed day. reason null = closed without an answer.",
+    fields: { day: "YYYY-MM-DD, required", reason: "'forgot' | 'tired' | 'time' | 'unsure' | 'other' | null", note: "text (for 'other')" },
   },
   ai_reports: {
     table: "ai_reports", label: "گزارش‌های هوش مصنوعی", key: "id", order: ["created_at", false], readOnly: true,
@@ -260,7 +270,7 @@ function strip(s: Section, row: any) {
    a row counts, so the entry always holds the state from before the call. */
 const PK: Record<string, string[]> = {
   task_tags: ["task_id", "tag_id"], idea_tags: ["idea_id", "tag_id"], recurring_template_tags: ["template_id", "tag_id"],
-  tag_goals: ["tag_id"], english_practice: ["user_id", "day"],
+  tag_goals: ["tag_id"], english_practice: ["user_id", "day"], english_misses: ["user_id", "day"],
   mother_care: ["user_id"], english_settings: ["user_id"],
 };
 const pkOf = (t: string) => PK[t] || ["id"];
@@ -634,9 +644,10 @@ async function activity(sb: SupabaseClient, from?: string, to?: string) {
     sb.from("english_chunks").select("id,minutes,actual_min,done,day").gte("day", start).lte("day", end),
     sb.from("wins").select("title,happened_on").gte("happened_on", start).lte("happened_on", end),
     sb.from("home_repairs").select("title,actual_cost,done_at").eq("status", "done").gte("done_at", fromTs).lt("done_at", toTs),
-    sb.from("english_practice").select("day").gte("day", start).lte("day", end),
+    sb.from("english_practice").select("day,spoke,listened").gte("day", start).lte("day", end),
     sb.from("tasks").select("id,title,date,priority").eq("done", false).is("shelved_at", null).lt("date", todayKey()),
   ]);
+  const sessions = must(await sb.from("english_sessions").select("day,minutes,source").gte("day", start).lte("day", end).not("ended_at", "is", null), "sessions") as any[];
   const done = must(doneR, "tasks") as any[];
   const byDay: Record<string, { done: number; minutes: number }> = {};
   for (let k = start; k <= end; k = addDays(k, 1)) byDay[k] = { done: 0, minutes: 0 };
@@ -669,7 +680,12 @@ async function activity(sb: SupabaseClient, from?: string, to?: string) {
     difficulty: ["easy", "medium", "hard"].map((k) => ({ difficulty: k, count: done.filter((t) => t.difficulty === k).length })),
     postponed: movedTasks.map((t) => ({ ...t, times_moved: moveCount[t.id] })).sort((a, b) => b.times_moved - a.times_moved).slice(0, 15),
     currently_overdue: must(openR, "overdue"),
-    english: { chunks_planned: chunks.length, chunks_done: chunks.filter((c) => c.done).length, practice_days: (must(practiceR, "practice") as any[]).length },
+    english: {
+      chunks_planned: chunks.length, chunks_done: chunks.filter((c) => c.done).length,
+      minimum_days: (must(practiceR, "practice") as any[]).filter((p) => p.spoke && p.listened).length,
+      session_minutes: sessions.reduce((a, x) => a + (x.minutes || 0), 0),
+      session_minutes_by_day: sessions.reduce((o: Record<string, number>, x) => (o[x.day] = (o[x.day] || 0) + (x.minutes || 0), o), {}),
+    },
     wins: must(winsR, "wins"),
     repairs_done: must(repairsR, "repairs"),
     completed_tasks: done.map(({ id, title, completed_at, actual_min, duration_min }) => ({ id, title, completed_on: localDayOf(completed_at), minutes: actual_min || duration_min || null })),
@@ -717,7 +733,7 @@ const TOOLS = [
   },
   {
     name: "update",
-    description: "Change rows. ids: the rows' ids (for english_practice the day, for tag_goals the tag_id; omit for one-row settings sections). changes: the fields to set. Side effects match the app: tasks done → completed_at, subtasks and linked repair/upkeep; tasks date → logged as postponement; purchases bought → bought_at; repairs status done → linked task; tags: [names] replaces tags.",
+    description: "Change rows. ids: the rows' ids (for english_practice and english_misses the day, for tag_goals the tag_id; omit for one-row settings sections). changes: the fields to set. Side effects match the app: tasks done → completed_at, subtasks and linked repair/upkeep; tasks date → logged as postponement; purchases bought → bought_at; repairs status done → linked task; tags: [names] replaces tags.",
     inputSchema: {
       type: "object", required: ["section", "changes"],
       properties: { section: sectionEnum, ids: { type: "array", items: { type: "string" } }, changes: { type: "object" } },
