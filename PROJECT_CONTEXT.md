@@ -26,7 +26,7 @@
 | `ui-pages.js` | انگلیسی، تعمیرات، خریدها، اشتراک‌ها، ایده‌ها، پرامپت‌ها، تونستم، مادر |
 | `ui-system.js` | تنظیمات، آرشیو، مرور هفته (پنهان) |
 | `ui.css` / `themes.css` / `tailwind.css` / `skins.css` | قانون‌های خوانایی / متغیرهای رنگ (یه پالت) / Tailwind ساخته‌شده (دستی ویرایش نشه) / پوسته‌ها: شیشه‌ای و برجسته (فقط شکل و عمق) |
-| `hooshavar.js`، `hooshavar-*.js` | تب «هوشاور» و هر تمرینش |
+| `hooshavar.js`، `hooshavar-*.js` | تب «هوشاور» و هر تمرینش (از ۲۰۲۶-۱۱-۲۸ هیچ تمرینی نیست) |
 | `task-reminders.js` | یادآورهای تسک |
 | `sw.js`، `manifest.json`، آیکون‌ها | PWA و کش |
 | `oauth-consent.html` | صفحهٔ اجازهٔ هوش مصنوعی‌ها + فهرست وصل‌شده‌ها و «برگردون» |
@@ -87,7 +87,9 @@ border-indigo-500/20`. `indigo` = رنگ تأکید پوسته (زرشکی در 
 gate?, card, overlay?, summary?})` + `sql/hooshavar_<اسم>.sql` (خط‌های «حذف تمرین» بالاش)
 + یه `<script>` در index.html + فهرست کش sw.js + SOURCES در tools/tailwind-build.html.
 اعلانش در `send-push/hooshavar-<اسم>.ts` با یه import و یه خط action. تمرین‌ها با
-رویدادهای document به هم وصل می‌شن (مثل `hv-morning-done`).
+رویدادهای document به هم وصل می‌شن (مثلاً `hv-morning-done` که با لنگر صبح رفت).
+کنار گذاشتن تمرین با «داده‌ها بمونن»: فایل و خط‌هاش حذف، اعلان/cron برداشته، جدول‌ها می‌مونن ولی
+از MCP بیرون و policy «no ai» (نمونه: ۲۰۲۶-۱۱-۲۸ در تاریخچه).
 
 **جاهایی که منطق دو جا تکرار شده (هر دو رو با هم عوض کن).**
 - انتخاب مورد روز «مادر»: `motherItemForDay` در index.html و در send-push.
@@ -316,3 +318,9 @@ ui-shell.js و `cron.alter_job(2, active := true)`. پرس‌وجوهای تاز
 - Background: pure black was too harsh to read on. The palette (tools/themes.py) lifts every surface one step: page/950 `#131316` (was `#000`), 900 `#1b1b1f`, 800 `#26262b`, 700 `#36363c`, neutral borders the same way; text colours unchanged. theme-color and manifest are `#131316`.
 - skins.css, on `<html data-skin>` (set by the first script in index.html, key `medar-skin`, per device): **کلاسیک** = no extra rules. **شیشه‌ای** = a soft crimson glow behind the page, see-through cards with a light edge, rounder corners, frosted sidebar/header/tab bar/editor, capsule main buttons with a crimson glow. **برجسته** = solid raised cards with a drop shadow (card in card one step lighter), tighter corners, a crimson bar on the start side of every item row (inset shadow, grey when done), solid crimson active menu item, main buttons with a darker bottom edge that presses down. Settings «پوسته» (both layouts) shows a preview of each, drawn with inline styles so the current skin can't restyle it.
 - Checked in the harness on sample data, desktop 1440×900 and phone 375×812: the position and size of every element on every page is identical in all three skins (0 differences), no sideways overflow, no console errors. Contrast pass: same results as classic (out-of-month days on purpose, one rose button) plus one subscriptions label at 4.35–4.39:1 in glass/bold. Not checked on the user's real phone. sw.js v104 caches skins.css.
+
+## 2026-11-28 — هوشاور: «لنگر صبح» و «یه تمرین انگلیسی» کنار گذاشته شدن (Claude)
+- به درخواست مشاور هر دو تمرین از اپ رفتن: hooshavar-morning.js (قفل اول روز، کارت، خط‌های خلاصهٔ هفته) و hooshavar-english.js (کارت، پنجرهٔ بعد از لنگر، اعلان روزانه، خط‌های خلاصه) پاک شدن، با خطشون در index.html، sw.js و SOURCES در tools/tailwind-build.html. تب «هوشاور» مونده و چون تمرینی نداره «فعلاً تمرینی از مشاور اینجا نیست.» نشون می‌ده (خلاصهٔ هفته هم با نبود تمرین دیده نمی‌شه). کلیدهای localStorage قدیمی (`medar-hv-morning-v2`, `medar-hv-english-prompt`) روی گوشی می‌مونن ولی دیگه هیچ کدی نمی‌خونتشون.
+- اعلان: cron `hooshavar-english-push` برداشته شد و send-push بدون hooshavar-english.ts دوباره deploy شد (نسخهٔ ۲۳). «لنگر صبح» اعلان جدا نداشت.
+- داده‌ها پاک نشدن: جدول‌های hooshavar_morning، hooshavar_english_logs/_prefs/_sessions سر جاشونن. از MCP برداشته شدن (madar-mcp نسخهٔ ۶، از روی مخزن — یعنی توضیح‌های قدیمی‌تر نسخهٔ deploy‌شده هم با متن خنثی عوض شد) و policy «ai only via mcp» این دو جدول جاش رو به «no ai» داد (migration `hooshavar_retire_morning_english`). sql/hooshavar_*.sql و sql/mcp_security.sql به‌روز شدن.
+- تست: harness با دادهٔ نمونه، گوشی ۳۷۵×۸۱۲ و دسکتاپ ۱۲۸۰×۸۰۰، با کلیدهای localStorage قدیمی که عمداً گذاشته شده بودن: امروز بدون قفل باز می‌شه، صفحهٔ هوشاور فقط پیام خالی داره، بدون خطای کنسول و بدون نوشتن در جدول‌های هوشاور. سرور: cronهای send-push بعد از deploy جواب ۲۰۰ دادن؛ madar-mcp با `describe_sections` بخش‌های هوشاور رو دیگه نمی‌شناسه. روی گوشی واقعی تست نشده؛ پوسته‌ها مقایسه نشدن (هیچ ظاهری تغییر نکرد). sw.js v105.

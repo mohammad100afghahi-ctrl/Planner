@@ -10,7 +10,7 @@
 --    * AI tokens reach the MCP-exposed tables only through madar-mcp, which
 --      sends a secret header (x-madar-mcp) the AI provider never sees;
 --    * AI tokens never reach backups, push_subscriptions, ai_health, the old
---      reminders table or the hooshavar prefs/sessions tables, nor the backup
+--      reminders table or the hooshavar tables, nor the backup
 --      RPCs, even through madar-mcp;
 --    * the app's own tokens (no client_id) behave exactly as before.
 -- ============================================================
@@ -67,13 +67,14 @@ begin
   foreach t in array array['tasks','subtasks','tags','task_tags','tag_goals','recurring_templates','recurring_template_tags',
     'ideas','idea_tags','idea_images','prompts','purchases','subscriptions','wins','mother_care','mother_care_items',
     'home_repairs','home_repair_parts','home_maintenance','english_homework','english_chunks','english_settings',
-    'english_practice','hooshavar_morning','hooshavar_english_logs','ai_reports','task_date_changes','mcp_history']
+    'english_practice','ai_reports','task_date_changes','mcp_history']
   loop
     execute format('drop policy if exists "ai only via mcp" on public.%I', t);
     execute format('create policy "ai only via mcp" on public.%I as restrictive for all to authenticated
       using ((select private.request_ok())) with check ((select private.request_ok()))', t);
   end loop;
-  foreach t in array array['backups','push_subscriptions','ai_health','reminders','hooshavar_english_prefs','hooshavar_english_sessions']
+  foreach t in array array['backups','push_subscriptions','ai_health','reminders','hooshavar_english_prefs','hooshavar_english_sessions',
+    'hooshavar_morning','hooshavar_english_logs']  -- the last two: exercises retired 2026-11-28 (migration hooshavar_retire_morning_english)
   loop
     execute format('drop policy if exists "no ai" on public.%I', t);
     execute format('create policy "no ai" on public.%I as restrictive for all to authenticated

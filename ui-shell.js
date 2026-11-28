@@ -601,7 +601,7 @@ function render(){
   const app = document.getElementById('app');
   // boot renders (push status, backups) can arrive before the first data load
   if(!state.tasks){ app.innerHTML = `<div class="min-h-screen flex items-center justify-center text-xs font-bold text-slate-500">در حال بارگذاری…</div>`; return; }
-  // an exercise that has to be done before the app (هوشاور › لنگر صبح) takes the whole screen
+  // an exercise that has to be done before the app (هوشاور, gate()) takes the whole screen
   const gate = hooshavarGate();
   if(gate){ app.innerHTML = gate + (state.saveError ? renderSaveErrorToast() : ''); return; }
   const scrolls = saveScrolls();

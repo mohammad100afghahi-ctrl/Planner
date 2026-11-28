@@ -7,7 +7,10 @@
 -- ✅ این مایگریشن روی پروژهٔ Planner اجرا شده (hooshavar_morning, hooshavar_v2, hooshavar_v3_charge_and_english).
 --    این فایل فقط سند ساختاره؛ لازم نیست دوباره اجراش کنی.
 --
--- حذف تمرین: hooshavar-morning.js + خطش در index.html و sw.js و
+-- ⛔ کنار گذاشته شد ۲۰۲۶-۱۱-۲۸ (درخواست مشاور): کد اپ حذف شد، جدول و داده‌هاش مونده،
+--    توی MCP نیست و policy «no ai» داره (migration hooshavar_retire_morning_english).
+--
+-- حذف کامل تمرین: hooshavar-morning.js + خطش در index.html و sw.js و
 -- tools/tailwind-build.html، بعد
 --   drop table public.hooshavar_morning;
 

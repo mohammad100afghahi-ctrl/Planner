@@ -6,7 +6,11 @@
 --
 -- ✅ مایگریشن hooshavar_v4_one_english روی پروژهٔ Planner اجرا شده. این فایل فقط سند ساختاره.
 --
--- حذف تمرین: hooshavar-english.js + خطش در index.html و sw.js و
+-- ⛔ کنار گذاشته شد ۲۰۲۶-۱۱-۲۸ (درخواست مشاور): کد اپ و hooshavar-english.ts حذف شدن، cron
+--    `hooshavar-english-push` برداشته شد؛ جدول‌ها مونده‌ن، توی MCP نیستن و همه «no ai» دارن
+--    (migration hooshavar_retire_morning_english).
+--
+-- حذف کامل تمرین: hooshavar-english.js + خطش در index.html و sw.js و
 -- tools/tailwind-build.html، import و خط action در send-push/index.ts + فایل
 -- hooshavar-english.ts (و دوباره deploy)، بعد
 --   select cron.unschedule('hooshavar-english-push');

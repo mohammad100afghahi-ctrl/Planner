@@ -2,7 +2,6 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient, SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import webpush from "npm:web-push@3.6.7";
 import jalaali from "npm:jalaali-js@1.2.8";
-import { hooshavarEnglishRun } from "./hooshavar-english.ts"; // هوشاور exercise — remove with it
 
 /* ---------- اعلان روی گوشی ----------
    Three ways in:
@@ -12,7 +11,6 @@ import { hooshavarEnglishRun } from "./hooshavar-english.ts"; // هوشاور ex
      x-cron-secret + {action:"english"}  — the every-10-minutes pg_cron job: «انگلیسی» nudges
                                           that are due right now (see englishFor), and the
                                           21:00 / 23:00 streak warning (see streakFor)
-     x-cron-secret + {action:"hooshavar-english"} — every minute: هوشاور › یه تمرین انگلیسی, the daily reminder (hooshavar-english.ts)
      user JWT + {action:"publicKey"}     — the app asks for the VAPID public key before subscribing
      user JWT + {action:"test"}          — «ارسال اعلان آزمایشی»: the caller's digest right now
    The morning digest is several notifications, each with its own tag so one
@@ -40,7 +38,7 @@ const b64url = (buf: ArrayBuffer | Uint8Array) =>
 /* Persian digits are bidi class EN, so right after a Latin name they join its
    left-to-right run: «Claude Pro — ۱۴ روز» comes out as «۱۴ — Claude Pro روز».
    A right-to-left mark in front of each number cuts it loose from the name. */
-const bidi = (text: string) => String(text || "").replace(/[۰-۹]+/g, "‏$&");
+const bidi = (text: string) => String(text || "").replace(/[۰-۹]+/g, "\u200F$&");
 const clip = (text: string, max: number) => text.length > max ? text.slice(0, max - 1) + "…" : text;
 const fromB64url = (s: string) => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/")), (c) => c.charCodeAt(0));
 
@@ -571,7 +569,6 @@ Deno.serve(async (req: Request) => {
       const { data: rows, error } = await sb.from("push_subscriptions").select("user_id");
       if (error) throw error;
       if (action === "tasks") return json(await taskReminderRun(sb));
-      if (action === "hooshavar-english") return json(await hooshavarEnglishRun(sb, sendTo));
       if (action !== "digest" && action !== "english") return json({ error: "unknown action" }, 400);
       const results: any[] = [];
       // one account's failure must not stop the cron from reaching the others

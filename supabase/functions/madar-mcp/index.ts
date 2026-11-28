@@ -208,16 +208,6 @@ const SECTIONS: Record<string, Section> = {
     about: "Days the user practised English (the chain). One row per day; id = the day.",
     fields: { day: "YYYY-MM-DD, required" },
   },
-  hooshavar_morning: {
-    table: "hooshavar_morning", label: "هوشاور — لنگر صبح", key: "day", order: ["day", false],
-    about: "Counsellor exercise: morning anchor log, one row per day (id = the day).",
-    fields: { day: "YYYY-MM-DD", opened_at: "timestamp", washed_at: "timestamp", ate_at: "timestamp", done_at: "timestamp", woke_time: "HH:MM", phone: "text", skipped: "boolean", charge_place: "text" },
-  },
-  hooshavar_english_logs: {
-    table: "hooshavar_english_logs", label: "هوشاور — یه تمرین انگلیسی", key: "id", order: ["day", false],
-    about: "Counsellor exercise: daily English-practice log.",
-    fields: { day: "YYYY-MM-DD, required", logged_at: "timestamp", before_phone: "boolean", minutes: "integer", note: "text" },
-  },
   ai_reports: {
     table: "ai_reports", label: "گزارش‌های هوش مصنوعی", key: "id", order: ["created_at", false], readOnly: true,
     about: "Past AI weekly reports / reviews (read-only).",
@@ -270,7 +260,7 @@ function strip(s: Section, row: any) {
    a row counts, so the entry always holds the state from before the call. */
 const PK: Record<string, string[]> = {
   task_tags: ["task_id", "tag_id"], idea_tags: ["idea_id", "tag_id"], recurring_template_tags: ["template_id", "tag_id"],
-  tag_goals: ["tag_id"], english_practice: ["user_id", "day"], hooshavar_morning: ["user_id", "day"],
+  tag_goals: ["tag_id"], english_practice: ["user_id", "day"],
   mother_care: ["user_id"], english_settings: ["user_id"],
 };
 const pkOf = (t: string) => PK[t] || ["id"];
@@ -727,7 +717,7 @@ const TOOLS = [
   },
   {
     name: "update",
-    description: "Change rows. ids: the rows' ids (for english_practice / hooshavar_morning the day, for tag_goals the tag_id; omit for one-row settings sections). changes: the fields to set. Side effects match the app: tasks done → completed_at, subtasks and linked repair/upkeep; tasks date → logged as postponement; purchases bought → bought_at; repairs status done → linked task; tags: [names] replaces tags.",
+    description: "Change rows. ids: the rows' ids (for english_practice the day, for tag_goals the tag_id; omit for one-row settings sections). changes: the fields to set. Side effects match the app: tasks done → completed_at, subtasks and linked repair/upkeep; tasks date → logged as postponement; purchases bought → bought_at; repairs status done → linked task; tags: [names] replaces tags.",
     inputSchema: {
       type: "object", required: ["section", "changes"],
       properties: { section: sectionEnum, ids: { type: "array", items: { type: "string" } }, changes: { type: "object" } },
